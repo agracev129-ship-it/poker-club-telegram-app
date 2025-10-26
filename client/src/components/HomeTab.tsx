@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { useUser } from '../hooks/useUser';
-import { useGames, useGameRegistration } from '../hooks/useGames';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { useGameRegistration as useLocalGameRegistration } from './GameRegistrationContext';
-import { formatDate, formatTime, getInitials } from '../lib/utils';
-import { Game } from '../lib/api';
-import { vibrate } from '../lib/telegram';
+import { motion } from 'motion/react';
+import { ImageWithFallback } from './figma/ImageWithFallback';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { games, Game } from './gamesData';
+import { useGameRegistration } from './GameRegistrationContext';
+import { SeatingView } from './SeatingView';
+import { PlayersView } from './PlayersView';
+import { HistoryView } from './HistoryView';
+import { AboutClubView } from './AboutClubView';
 
-// Icon components as inline SVGs
+// Placeholder logo SVG
+const logo = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZGMyNjI2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPvCfg48gPC90ZXh0Pjwvc3ZnPg==';
+
+// Icon components as inline SVGs (from new design)
 const XIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M18 6 6 18"/>
@@ -55,6 +64,12 @@ const ClockIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const StarIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+  </svg>
+);
+
 const MapPinIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
@@ -87,71 +102,87 @@ interface HomeTabProps {
 
 export function HomeTab({ 
   onOpenSeating, 
-  onOpenPlayers,
+  onCloseSeating, 
+  onOpenPlayers, 
+  onClosePlayers,
   onOpenHistory,
+  onCloseHistory,
   onOpenAboutClub,
+  onCloseAboutClub,
+  isSeatingOpen,
+  isPlayersOpen,
+  isHistoryOpen,
+  isAboutClubOpen
 }: HomeTabProps) {
-  const { user } = useUser();
-  const { games, loading } = useGames({ status: 'upcoming' });
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0 });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [activityPeriod, setActivityPeriod] = useState<'month' | 'year' | 'all'>('month');
-  const { registeredGames, isRegistered: checkIsRegistered } = useLocalGameRegistration();
-
-  const { isRegistered: isAPIRegistered, toggleRegistration } = useGameRegistration(selectedGame?.id || 0);
+  const { toggleRegistration, isRegistered: checkIsRegistered, registeredGames } = useGameRegistration();
 
   useEffect(() => {
-    if (games.length === 0) return;
-    
+    // Calculate time until next game (example: 23.10 19:00)
     const calculateTimeLeft = () => {
       const now = new Date();
-      const nextGameDate = new Date(`${games[0].date}T${games[0].time}`);
-      const diff = nextGameDate.getTime() - now.getTime();
+      const nextGame = new Date();
+      nextGame.setHours(19, 0, 0, 0);
+      
+      // If time has passed today, set to tomorrow
+      if (now.getHours() >= 19) {
+        nextGame.setDate(nextGame.getDate() + 1);
+      }
+      
+      const diff = nextGame.getTime() - now.getTime();
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
       setTimeLeft({ hours, minutes });
     };
 
     calculateTimeLeft();
-    const interval = setInterval(calculateTimeLeft, 60000);
+    const interval = setInterval(calculateTimeLeft, 60000); // Update every minute
+
     return () => clearInterval(interval);
-  }, [games]);
+  }, []);
 
   const handleGameClick = (game: Game) => {
-    vibrate('light');
     setSelectedGame(game);
     setIsDialogOpen(true);
   };
 
-  const handleToggleRegistration = async () => {
-    try {
-      vibrate('medium');
-      await toggleRegistration();
-      setIsDialogOpen(false);
-    } catch (error) {
-      console.error('Error toggling registration:', error);
-      alert('Ошибка при регистрации. Попробуйте еще раз.');
-    }
-  };
-
-  const isRegistered = selectedGame ? (isAPIRegistered || checkIsRegistered(selectedGame.id)) : false;
+  const isRegistered = selectedGame ? checkIsRegistered(selectedGame.id) : false;
 
   // Get first two games
   const firstGame = games[0];
   const secondGame = games[1];
   
-  // Get all registered games from API
+  // Get all registered games
   const allRegisteredGames = games.filter(game => checkIsRegistered(game.id));
   
   // Check if seating is available
   const isSeatingAvailable = registeredGames.size > 0;
   
+  const handleSeatingClick = () => {
+    onOpenSeating();
+  };
+
+  const handlePlayersClick = () => {
+    onOpenPlayers();
+  };
+
+  const handleHistoryClick = () => {
+    onOpenHistory();
+  };
+
+  const handleAboutClubClick = () => {
+    onOpenAboutClub();
+  };
+
   // Activity stats based on period
   const activityStats = {
-    month: { gamesPlayed: user?.games_played || 12, wins: user?.games_won || 8 },
-    year: { gamesPlayed: user?.games_played || 145, wins: user?.games_won || 89 },
-    all: { gamesPlayed: user?.games_played || 287, wins: user?.games_won || 156 },
+    month: { gamesPlayed: 12, wins: 8 },
+    year: { gamesPlayed: 145, wins: 89 },
+    all: { gamesPlayed: 287, wins: 156 },
   };
 
   const currentStats = activityStats[activityPeriod];
@@ -164,20 +195,14 @@ export function HomeTab({
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            {user?.photo_url ? (
-              <img 
-                src={user.photo_url}
-                alt="Avatar"
-                className="w-12 h-12 rounded-full object-cover border-2 border-red-700"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center border-2 border-red-700">
-                <span className="text-lg">{getInitials(user?.first_name || 'U', user?.last_name)}</span>
-              </div>
-            )}
+            <ImageWithFallback
+              src={logo}
+              alt="Avatar"
+              className="w-12 h-12 rounded-full object-cover border-2 border-red-700"
+            />
             <div>
               <div className="text-xs text-gray-400">Привет,</div>
-              <div className="text-lg">{user?.first_name || 'Игрок'}</div>
+              <div className="text-lg">Игрок</div>
             </div>
           </div>
           <button className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
@@ -185,9 +210,7 @@ export function HomeTab({
           </button>
         </div>
         <h2 className="text-2xl mb-1">Готовы к игре?</h2>
-        {!loading && games.length > 0 && (
-          <p className="text-sm text-gray-400">До следующей игры {timeLeft.hours}ч {timeLeft.minutes}м</p>
-        )}
+        <p className="text-sm text-gray-400">До следующей игры {timeLeft.hours}ч {timeLeft.minutes}м</p>
       </div>
 
       {/* Main Content Grid */}
@@ -207,17 +230,17 @@ export function HomeTab({
               <div className="space-y-2 text-sm">
                 <div className="flex items-start gap-2">
                   <MapPinIcon className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-300">{game.location || 'Покер Клуб "Ривер", ул. Тверская, 15'}</span>
+                  <span className="text-gray-300">{game.location}</span>
                 </div>
                 
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <CalendarIcon className="w-4 h-4 text-red-400" />
-                    <span className="text-gray-300">{formatDate(game.date)}</span>
+                    <span className="text-gray-300">{game.date}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <ClockIcon className="w-4 h-4 text-red-400" />
-                    <span className="text-gray-300">{formatTime(game.time)}</span>
+                    <span className="text-gray-300">{game.time}</span>
                   </div>
                 </div>
               </div>
@@ -232,61 +255,49 @@ export function HomeTab({
         ))}
 
         {/* Tournament Cards Row */}
-        {!loading && games.length >= 2 && (
-          <div className="grid grid-cols-2 gap-3">
-            {/* Main Tournament Card */}
-            <button 
-              onClick={() => handleGameClick(firstGame)}
-              className="bg-gradient-to-br from-red-700 to-red-900 rounded-3xl p-4 relative overflow-hidden text-left hover:from-red-600 hover:to-red-800 transition-all"
-            >
-              <div className="relative z-10">
-                {/* Date Badge */}
-                <div className="inline-block bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
-                  <div className="text-xs text-white/90">{formatDate(firstGame.date)}</div>
-                </div>
-                
-                <div className="mt-3">
-                  <div className="mb-1.5">{firstGame.name.split(' ')[0]} {firstGame.name.split(' ')[1]}</div>
-                  <div className="text-2xl">{formatTime(firstGame.time)}</div>
-                </div>
-                <div className="absolute top-3 right-3 w-8 h-8 bg-black/20 rounded-full flex items-center justify-center">
-                  <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
-                </div>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Main Tournament Card */}
+          <button 
+            onClick={() => handleGameClick(firstGame)}
+            className="bg-gradient-to-br from-red-700 to-red-900 rounded-3xl p-4 relative overflow-hidden text-left hover:from-red-600 hover:to-red-800 transition-all"
+          >
+            <div className="relative z-10">
+              {/* Date Badge */}
+              <div className="inline-block bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
+                <div className="text-xs text-white/90">{firstGame.date}</div>
               </div>
-            </button>
+              
+              <div className="mt-3">
+                <div className="mb-1.5">{firstGame.name.split(' ')[0]} {firstGame.name.split(' ')[1]}</div>
+                <div className="text-2xl">{firstGame.time}</div>
+              </div>
+              <div className="absolute top-3 right-3 w-8 h-8 bg-black/20 rounded-full flex items-center justify-center">
+                <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
+              </div>
+            </div>
+          </button>
 
-            {/* Second Tournament */}
-            {secondGame && (
-              <button 
-                onClick={() => handleGameClick(secondGame)}
-                className="bg-[#2d2d2d] rounded-3xl p-4 relative overflow-hidden text-left hover:bg-[#353535] transition-all"
-              >
-                <div className="relative z-10">
-                  {/* Date Badge */}
-                  <div className="inline-block bg-white/5 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
-                    <div className="text-xs text-white/90">{formatDate(secondGame.date)}</div>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <div className="text-gray-300 mb-1.5">{secondGame.name.split(' ')[0]}</div>
-                    <div className="text-2xl">{formatTime(secondGame.time)}</div>
-                  </div>
-                  <div className="absolute top-3 right-3 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center">
-                    <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
-                  </div>
-                </div>
-              </button>
-            )}
-          </div>
-        )}
-
-        {loading && (
-          <div className="text-center text-gray-400 py-8">Загрузка...</div>
-        )}
-
-        {!loading && games.length === 0 && (
-          <div className="text-center text-gray-400 py-8">Нет предстоящих игр</div>
-        )}
+          {/* Second Tournament */}
+          <button 
+            onClick={() => handleGameClick(secondGame)}
+            className="bg-[#2d2d2d] rounded-3xl p-4 relative overflow-hidden text-left hover:bg-[#353535] transition-all"
+          >
+            <div className="relative z-10">
+              {/* Date Badge */}
+              <div className="inline-block bg-white/5 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
+                <div className="text-xs text-white/90">{secondGame.date}</div>
+              </div>
+              
+              <div className="mt-3">
+                <div className="text-gray-300 mb-1.5">{secondGame.name.split(' ')[0]}</div>
+                <div className="text-2xl">{secondGame.time}</div>
+              </div>
+              <div className="absolute top-3 right-3 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center">
+                <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
+              </div>
+            </div>
+          </button>
+        </div>
 
         {/* Stats Card */}
         <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-3xl p-5 relative overflow-hidden border border-red-900/30">
@@ -367,7 +378,7 @@ export function HomeTab({
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-3 gap-3">
           <button 
-            onClick={onOpenSeating}
+            onClick={handleSeatingClick}
             className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
           >
             <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
@@ -379,7 +390,7 @@ export function HomeTab({
           </button>
           
           <button 
-            onClick={onOpenPlayers}
+            onClick={handlePlayersClick}
             className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
           >
             <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center mb-2">
@@ -389,7 +400,7 @@ export function HomeTab({
           </button>
 
           <button 
-            onClick={onOpenHistory}
+            onClick={handleHistoryClick}
             className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
           >
             <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center mb-2">
@@ -401,7 +412,7 @@ export function HomeTab({
 
         {/* Club Info Card */}
         <button 
-          onClick={onOpenAboutClub}
+          onClick={handleAboutClubClick}
           className="bg-[#1a1a1a] rounded-3xl p-5 relative overflow-hidden w-full text-left hover:bg-[#252525] transition-all"
         >
           <div className="relative z-10">
@@ -431,15 +442,15 @@ export function HomeTab({
               <div className="flex items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{formatDate(selectedGame.date)}</span>
+                  <span className="text-gray-300">{selectedGame.date}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ClockIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{formatTime(selectedGame.time)}</span>
+                  <span className="text-gray-300">{selectedGame.time}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <UsersIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{selectedGame.registered_count} / {selectedGame.max_players}</span>
+                  <span className="text-gray-300">{selectedGame.players}</span>
                 </div>
               </div>
 
@@ -458,7 +469,7 @@ export function HomeTab({
                     ? 'bg-gray-600 hover:bg-gray-700 shadow-gray-500/20'
                     : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-500/20'
                 }`}
-                onClick={handleToggleRegistration}
+                onClick={() => toggleRegistration(selectedGame.id)}
               >
                 {isRegistered && <XIcon className="w-5 h-5" />}
                 {isRegistered ? 'Отменить запись' : 'Зарегистрироваться'}
@@ -467,6 +478,15 @@ export function HomeTab({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Seating View */}
+      {isSeatingOpen && <SeatingView onClose={onCloseSeating} />}
+      {/* Players View */}
+      {isPlayersOpen && <PlayersView onClose={onClosePlayers} />}
+      {/* History View */}
+      {isHistoryOpen && <HistoryView onClose={onCloseHistory} />}
+      {/* About Club View */}
+      {isAboutClubOpen && <AboutClubView onClose={onCloseAboutClub} />}
     </div>
   );
 }
