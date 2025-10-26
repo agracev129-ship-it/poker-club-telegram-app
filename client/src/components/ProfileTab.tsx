@@ -11,20 +11,6 @@ const SettingsIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const MoreVerticalIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="12" cy="12" r="1"/>
-    <circle cx="12" cy="5" r="1"/>
-    <circle cx="12" cy="19" r="1"/>
-  </svg>
-);
-
-const ChevronDownIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="m6 9 6 6 6-6"/>
-  </svg>
-);
-
 const TrophyIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
@@ -120,20 +106,10 @@ export function ProfileTab() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
-    <>
-      <div className="min-h-screen bg-black pb-24">
-        {/* Profile Header */}
-        <div className="px-4 pt-6 pb-4">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl">Профиль</h2>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
-            >
-              <SettingsIcon className="w-5 h-5 text-white" />
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-black pb-24">
+      {/* Profile Header */}
+      <div className="px-4 pt-6 pb-4">
+        <div className="flex items-center gap-3 mb-6">
           {user?.photo_url ? (
             <img
               src={user.photo_url}
@@ -149,8 +125,11 @@ export function ProfileTab() {
             <h1 className="text-xl mb-1">{user?.first_name || 'Игрок'} {user?.last_name || ''}</h1>
             <p className="text-sm text-gray-400">Игрок • #{user?.current_rank || '—'} в рейтинге</p>
           </div>
-          <button className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
-            <MoreVerticalIcon className="w-5 h-5 text-white" />
+          <button 
+            onClick={() => setIsSettingsOpen(true)}
+            className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-all"
+          >
+            <SettingsIcon className="w-5 h-5 text-white" />
           </button>
         </div>
       </div>
@@ -303,12 +282,8 @@ export function ProfileTab() {
         </div>
       </div>
 
-      </div>
-
-      {/* Settings View Modal */}
-      {isSettingsOpen && (
-        <SettingsView onClose={() => setIsSettingsOpen(false)} />
-      )}
-    </>
+      {/* Settings View */}
+      {isSettingsOpen && <SettingsView onClose={() => setIsSettingsOpen(false)} />}
+    </div>
   );
 }

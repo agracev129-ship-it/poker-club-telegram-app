@@ -5,6 +5,7 @@ import { useGameRegistration as useLocalGameRegistration } from './GameRegistrat
 import { formatDate, formatTime } from '../lib/utils';
 import { Game } from '../lib/api';
 import { vibrate } from '../lib/telegram';
+import { games as localGames } from './gamesData';
 
 // Icon components as inline SVGs
 const XIcon = ({ className }: { className?: string }) => (
@@ -51,10 +52,20 @@ const CheckIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const UserCheckIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <polyline points="16 11 18 13 22 9"/>
+  </svg>
+);
+
 export function GamesTab() {
   const { games, loading, refreshGames } = useGames({ status: 'upcoming' });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [isPlayersDialogOpen, setIsPlayersDialogOpen] = useState(false);
+  const [selectedGameForPlayers, setSelectedGameForPlayers] = useState<typeof localGames[0] | null>(null);
   const { isRegistered: isAPIRegistered, toggleRegistration, refreshRegistration } = useGameRegistration(selectedGame?.id || 0);
   const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();
 
@@ -62,6 +73,12 @@ export function GamesTab() {
     vibrate('light');
     setSelectedGame(game);
     setIsDialogOpen(true);
+  };
+
+  const handleShowPlayers = (game: typeof localGames[0], e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedGameForPlayers(game);
+    setIsPlayersDialogOpen(true);
   };
 
   const handleToggleRegistration = async () => {
@@ -102,11 +119,13 @@ export function GamesTab() {
       <div className="px-4 space-y-3">
         {loading ? (
           <div className="text-center text-gray-400 py-8">Загрузка...</div>
-        ) : games.length === 0 ? (
+        ) : (games.length === 0 && localGames.length === 0) ? (
           <div className="text-center text-gray-400 py-8">Нет предстоящих игр</div>
         ) : (
-          games.map((game) => {
+          // Show both API games and local mock games
+          [...games, ...localGames.filter(lg => !games.find(g => g.id === lg.id))].map((game) => {
             const isGameRegistered = checkIsRegistered(game.id);
+            const localGame = localGames.find(lg => lg.id === game.id);
             
             return (
               <div
@@ -125,7 +144,7 @@ export function GamesTab() {
                     }`}>
                       <div className="flex items-center gap-1">
                         <UsersIcon className="w-3.5 h-3.5" />
-                        <span>{game.registered_count} / {game.max_players}</span>
+                        <span>{'registered_count' in game ? `${game.registered_count} / ${game.max_players}` : localGame?.players || '0'}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <ClockIcon className="w-3.5 h-3.5" />
@@ -137,12 +156,24 @@ export function GamesTab() {
                       </div>
                     </div>
                   </div>
-                  <button className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    isGameRegistered ? 'bg-red-700/20' : 'bg-white/5'
-                  }`}>
-                    <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
+                  <button 
+                    onClick={(e) => localGame && handleShowPlayers(localGame, e)}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 hover:bg-red-700/30 transition-colors ${
+                      isGameRegistered ? 'bg-red-700/20' : 'bg-white/5'
+                    }`}
+                  >
+                    <UsersIcon className="w-4 h-4" />
                   </button>
                 </div>
+                
+                {/* Friend Registered Badge */}
+                {localGame?.hasFriendRegistered && (
+                  <div className="mb-3 flex items-center gap-1.5 text-xs text-red-500">
+                    <UserCheckIcon className="w-3.5 h-3.5" />
+                    <span>Ваш друг зарегистрирован!</span>
+                  </div>
+                )}
+                
                 <button
                   className={`w-full transition-all rounded-xl py-2.5 text-sm text-center tracking-wide flex items-center justify-center gap-2 ${
                     isGameRegistered
@@ -182,7 +213,7 @@ export function GamesTab() {
                 </div>
                 <div className="flex items-center gap-2">
                   <UsersIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{selectedGame.registered_count} / {selectedGame.max_players}</span>
+                  <span className="text-gray-300">{'registered_count' in selectedGame ? `${selectedGame.registered_count} / ${selectedGame.max_players}` : '—'}</span>
                 </div>
               </div>
 
@@ -206,6 +237,53 @@ export function GamesTab() {
                 {isRegistered && <XIcon className="w-5 h-5" />}
                 {isRegistered ? 'Отменить запись' : 'Зарегистрироваться'}
               </button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Players List Dialog */}
+      <Dialog open={isPlayersDialogOpen} onOpenChange={setIsPlayersDialogOpen}>
+        <DialogContent className="bg-[#1a1a1a] border-gray-800 text-white max-h-[80vh] overflow-hidden flex flex-col" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="text-xl text-white">
+              Зарегистрированные игроки
+            </DialogTitle>
+            {selectedGameForPlayers && (
+              <p className="text-sm text-gray-400 mt-1">{selectedGameForPlayers.name}</p>
+            )}
+          </DialogHeader>
+          {selectedGameForPlayers && (
+            <div className="mt-4 overflow-y-auto flex-1">
+              <div className="space-y-2">
+                {selectedGameForPlayers.registeredPlayers.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`p-3 rounded-xl flex items-center justify-between ${
+                      player.isFriend
+                        ? 'bg-gradient-to-br from-red-700/20 to-red-900/20 border border-red-700/30'
+                        : 'bg-[#252525]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-red-700 to-red-900 rounded-full flex items-center justify-center">
+                        <span className="text-sm">{player.name.charAt(0)}</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{player.name}</span>
+                          {player.isFriend && (
+                            <span className="text-xs text-red-500 bg-red-900/30 px-2 py-0.5 rounded-full">
+                              Друг
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-400">Рейтинг: {player.rating}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </DialogContent>

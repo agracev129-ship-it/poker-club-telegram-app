@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { ImageWithFallback } from './figma/ImageWithFallback';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +15,7 @@ import { PlayersView } from './PlayersView';
 import { HistoryView } from './HistoryView';
 import { AboutClubView } from './AboutClubView';
 
-// Icon components as inline SVGs (from new design)
+// Icon components as inline SVGs
 const XIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M18 6 6 18"/>
@@ -27,14 +26,6 @@ const XIcon = ({ className }: { className?: string }) => (
 const ChevronDownIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="m6 9 6 6 6-6"/>
-  </svg>
-);
-
-const MoreVerticalIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="12" cy="12" r="1"/>
-    <circle cx="12" cy="5" r="1"/>
-    <circle cx="12" cy="19" r="1"/>
   </svg>
 );
 
@@ -60,12 +51,6 @@ const ClockIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <circle cx="12" cy="12" r="10"/>
     <polyline points="12 6 12 12 16 14"/>
-  </svg>
-);
-
-const StarIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
   </svg>
 );
 
@@ -121,7 +106,7 @@ export function HomeTab({
   const { toggleRegistration, isRegistered: checkIsRegistered, registeredGames } = useGameRegistration();
 
   useEffect(() => {
-    // Calculate time until next game (example: 23.10 19:00)
+    // Calculate time until next game (19:00)
     const calculateTimeLeft = () => {
       const now = new Date();
       const nextGame = new Date();
@@ -161,22 +146,6 @@ export function HomeTab({
   
   // Check if seating is available
   const isSeatingAvailable = registeredGames.size > 0;
-  
-  const handleSeatingClick = () => {
-    onOpenSeating();
-  };
-
-  const handlePlayersClick = () => {
-    onOpenPlayers();
-  };
-
-  const handleHistoryClick = () => {
-    onOpenHistory();
-  };
-
-  const handleAboutClubClick = () => {
-    onOpenAboutClub();
-  };
 
   // Activity stats based on period - using real user data
   const activityStats = {
@@ -190,10 +159,10 @@ export function HomeTab({
   const activeIndex = activityPeriods.indexOf(activityPeriod);
 
   return (
-    <div className="min-h-screen bg-black pb-24">
+    <div className="bg-black pb-20">
       {/* Compact Header */}
-      <div className="px-4 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
+      <div className="px-4 pt-6 pb-2">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             {user?.photo_url ? (
               <img
@@ -211,12 +180,16 @@ export function HomeTab({
               <div className="text-lg">{user?.first_name || 'Игрок'}</div>
             </div>
           </div>
-          <button className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
-            <MoreVerticalIcon className="w-5 h-5 text-white" />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-gray-400">До игры:</div>
+            <div className="bg-[#1a1a1a] rounded-2xl px-3 py-2 flex items-center gap-2">
+              <ClockIcon className="w-4 h-4 text-red-500" />
+              <div className="text-sm">
+                <span className="text-white">{timeLeft.hours}ч {timeLeft.minutes}м</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <h2 className="text-2xl mb-1">Готовы к игре?</h2>
-        <p className="text-sm text-gray-400">До следующей игры {timeLeft.hours}ч {timeLeft.minutes}м</p>
       </div>
 
       {/* Main Content Grid */}
@@ -384,7 +357,7 @@ export function HomeTab({
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-3 gap-3">
           <button 
-            onClick={handleSeatingClick}
+            onClick={onOpenSeating}
             className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
           >
             <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
@@ -396,7 +369,7 @@ export function HomeTab({
           </button>
           
           <button 
-            onClick={handlePlayersClick}
+            onClick={onOpenPlayers}
             className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
           >
             <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center mb-2">
@@ -406,7 +379,7 @@ export function HomeTab({
           </button>
 
           <button 
-            onClick={handleHistoryClick}
+            onClick={onOpenHistory}
             className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
           >
             <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center mb-2">
@@ -418,7 +391,7 @@ export function HomeTab({
 
         {/* Club Info Card */}
         <button 
-          onClick={handleAboutClubClick}
+          onClick={onOpenAboutClub}
           className="bg-[#1a1a1a] rounded-3xl p-5 relative overflow-hidden w-full text-left hover:bg-[#252525] transition-all"
         >
           <div className="relative z-10">
