@@ -1,0 +1,31 @@
+{
+  "name": "poker-club-telegram-app",
+  "version": "1.0.0",
+  "description": "Telegram Mini App для покерного клуба",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build:client": "cd client && npm run build",
+    "start": "node server/index.js",
+    "init-db": "node server/init-db.js"
+  },
+  "keywords": ["telegram", "mini-app", "poker", "club"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+

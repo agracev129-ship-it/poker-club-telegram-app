@@ -1,0 +1,14 @@
+# Database Configuration (Render PostgreSQL)
+DATABASE_URL=postgresql://username:password@hostname:5432/database_name
+
+# Server Configuration
+PORT=3001
+NODE_ENV=production
+
+# Telegram Bot Configuration
+BOT_TOKEN=your_bot_token_here
+ADMIN_TELEGRAM_IDS=123456789,987654321
+
+# Frontend URL (для CORS)
+FRONTEND_URL=https://your-app-url.netlify.app
+

@@ -1,0 +1,31 @@
+# ===================================================
+# ФАЙЛ ДЛЯ BACKEND СЕРВЕРА
+# ===================================================
+# 
+# ИНСТРУКЦИЯ:
+# 1. Переименуйте этот файл в ".env" (без .txt)
+# 2. Замените значения DATABASE_URL и FRONTEND_URL после создания на Render
+# 3. Остальные данные уже настроены с вашим токеном и ID
+#
+# ===================================================
+
+# Database Configuration (Render PostgreSQL)
+# ВАЖНО: После создания БД на Render, замените эту строку на Internal Database URL
+# Он будет выглядеть примерно так:
+# postgresql://poker_club_user:xxxxx@dpg-xxxxx-fra1/poker_club
+DATABASE_URL=postgresql://username:password@hostname:5432/database_name
+
+# Server Configuration
+PORT=3001
+NODE_ENV=production
+
+# Telegram Bot Configuration - УЖЕ НАСТРОЕНО!
+BOT_TOKEN=8003396192:AAG8HulBW7CQa25gIgkfqZ-9UZYzjLcp-OA
+ADMIN_TELEGRAM_IDS=609464085
+
+# Frontend URL (для CORS)
+# ВАЖНО: После деплоя frontend на Render, замените на реальный URL
+# Он будет выглядеть примерно так:
+# https://poker-club-frontend-xxxx.onrender.com
+FRONTEND_URL=https://your-frontend-url.onrender.com
+
