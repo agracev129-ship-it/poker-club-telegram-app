@@ -1,6 +1,7 @@
 import express from 'express';
 import { User } from '../models/User.js';
 import { authenticateTelegram, requireAdmin } from '../middleware/telegram-auth.js';
+import db from '../database/db.js';
 
 const router = express.Router();
 
@@ -65,9 +66,9 @@ router.get('/leaderboard', async (req, res) => {
 });
 
 /**
- * GET /api/users - Получить всех пользователей (только для админов)
+ * GET /api/users - Получить всех пользователей
  */
-router.get('/', authenticateTelegram, requireAdmin, async (req, res) => {
+router.get('/', authenticateTelegram, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
@@ -107,6 +108,214 @@ router.put('/:id/stats', authenticateTelegram, requireAdmin, async (req, res) =>
   } catch (error) {
     console.error('Error updating user stats:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/users/friends - Получить список друзей текущего пользователя
+ */
+router.get('/friends', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const result = await db.query(
+      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_admin, u.created_at, u.last_active
+       FROM users u
+       INNER JOIN friendships f ON (f.friend_id = u.id OR f.user_id = u.id)
+       WHERE (f.user_id = $1 OR f.friend_id = $1) 
+       AND f.status = 'accepted'
+       AND u.id != $1
+       ORDER BY u.first_name ASC`,
+      [user.id]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching friends:', error);
+    res.status(500).json({ error: 'Failed to fetch friends' });
+  }
+});
+
+/**
+ * GET /api/users/friend-requests - Получить входящие запросы в друзья
+ */
+router.get('/friend-requests', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const result = await db.query(
+      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_admin, u.created_at, u.last_active
+       FROM users u
+       INNER JOIN friendships f ON f.user_id = u.id
+       WHERE f.friend_id = $1 AND f.status = 'pending'
+       ORDER BY f.created_at DESC`,
+      [user.id]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching friend requests:', error);
+    res.status(500).json({ error: 'Failed to fetch friend requests' });
+  }
+});
+
+/**
+ * POST /api/users/friend-request - Отправить запрос в друзья
+ */
+router.post('/friend-request', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { userId: friendId } = req.body;
+
+    if (!friendId) {
+      return res.status(400).json({ error: 'Friend user ID is required' });
+    }
+
+    if (user.id === friendId) {
+      return res.status(400).json({ error: 'Cannot send friend request to yourself' });
+    }
+
+    // Check if friendship already exists
+    const existing = await db.query(
+      'SELECT * FROM friendships WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)',
+      [user.id, friendId]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Friendship request already exists' });
+    }
+
+    // Create friend request
+    await db.query(
+      'INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, $3)',
+      [user.id, friendId, 'pending']
+    );
+
+    res.json({ message: 'Friend request sent successfully' });
+  } catch (error) {
+    console.error('Error sending friend request:', error);
+    res.status(500).json({ error: 'Failed to send friend request' });
+  }
+});
+
+/**
+ * POST /api/users/accept-friend - Принять запрос в друзья
+ */
+router.post('/accept-friend', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { userId: friendId } = req.body;
+
+    if (!friendId) {
+      return res.status(400).json({ error: 'Friend user ID is required' });
+    }
+
+    // Update friendship status
+    const result = await db.query(
+      'UPDATE friendships SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND friend_id = $3 AND status = $4 RETURNING *',
+      ['accepted', friendId, user.id, 'pending']
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Friend request not found' });
+    }
+
+    res.json({ message: 'Friend request accepted successfully' });
+  } catch (error) {
+    console.error('Error accepting friend request:', error);
+    res.status(500).json({ error: 'Failed to accept friend request' });
+  }
+});
+
+/**
+ * POST /api/users/decline-friend - Отклонить запрос в друзья
+ */
+router.post('/decline-friend', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { userId: friendId } = req.body;
+
+    if (!friendId) {
+      return res.status(400).json({ error: 'Friend user ID is required' });
+    }
+
+    // Delete friendship request
+    const result = await db.query(
+      'DELETE FROM friendships WHERE user_id = $1 AND friend_id = $2 AND status = $3 RETURNING *',
+      [friendId, user.id, 'pending']
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Friend request not found' });
+    }
+
+    res.json({ message: 'Friend request declined successfully' });
+  } catch (error) {
+    console.error('Error declining friend request:', error);
+    res.status(500).json({ error: 'Failed to decline friend request' });
+  }
+});
+
+/**
+ * DELETE /api/users/remove-friend - Удалить из друзей
+ */
+router.delete('/remove-friend', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { userId: friendId } = req.body;
+
+    if (!friendId) {
+      return res.status(400).json({ error: 'Friend user ID is required' });
+    }
+
+    // Delete friendship (both directions)
+    const result = await db.query(
+      'DELETE FROM friendships WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1) RETURNING *',
+      [user.id, friendId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Friendship not found' });
+    }
+
+    res.json({ message: 'Friend removed successfully' });
+  } catch (error) {
+    console.error('Error removing friend:', error);
+    res.status(500).json({ error: 'Failed to remove friend' });
   }
 });
 

@@ -100,6 +100,42 @@ export const usersAPI = {
     return fetchAPI(`/users?limit=${limit}&offset=${offset}`);
   },
 
+  async getFriends(): Promise<User[]> {
+    return fetchAPI('/users/friends');
+  },
+
+  async getFriendRequests(): Promise<User[]> {
+    return fetchAPI('/users/friend-requests');
+  },
+
+  async sendFriendRequest(userId: number): Promise<{ message: string }> {
+    return fetchAPI('/users/friend-request', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  async acceptFriendRequest(userId: number): Promise<{ message: string }> {
+    return fetchAPI('/users/accept-friend', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  async declineFriendRequest(userId: number): Promise<{ message: string }> {
+    return fetchAPI('/users/decline-friend', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  async removeFriend(userId: number): Promise<{ message: string }> {
+    return fetchAPI('/users/remove-friend', {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
   async updateStats(userId: number, updates: Partial<UserStats>): Promise<UserStats> {
     return fetchAPI(`/users/${userId}/stats`, {
       method: 'PUT',

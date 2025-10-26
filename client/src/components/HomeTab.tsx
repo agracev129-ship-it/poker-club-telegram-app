@@ -9,13 +9,12 @@ import {
 } from './ui/dialog';
 import { games, Game } from './gamesData';
 import { useGameRegistration } from './GameRegistrationContext';
+import { useUser } from '../hooks/useUser';
+import { getInitials } from '../lib/utils';
 import { SeatingView } from './SeatingView';
 import { PlayersView } from './PlayersView';
 import { HistoryView } from './HistoryView';
 import { AboutClubView } from './AboutClubView';
-
-// Placeholder logo SVG
-const logo = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZGMyNjI2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPvCfg48gPC90ZXh0Pjwvc3ZnPg==';
 
 // Icon components as inline SVGs (from new design)
 const XIcon = ({ className }: { className?: string }) => (
@@ -114,6 +113,7 @@ export function HomeTab({
   isHistoryOpen,
   isAboutClubOpen
 }: HomeTabProps) {
+  const { user, loading: userLoading } = useUser();
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0 });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -178,11 +178,11 @@ export function HomeTab({
     onOpenAboutClub();
   };
 
-  // Activity stats based on period
+  // Activity stats based on period - using real user data
   const activityStats = {
-    month: { gamesPlayed: 12, wins: 8 },
-    year: { gamesPlayed: 145, wins: 89 },
-    all: { gamesPlayed: 287, wins: 156 },
+    month: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
+    year: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
+    all: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
   };
 
   const currentStats = activityStats[activityPeriod];
@@ -195,14 +195,20 @@ export function HomeTab({
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <ImageWithFallback
-              src={logo}
-              alt="Avatar"
-              className="w-12 h-12 rounded-full object-cover border-2 border-red-700"
-            />
+            {user?.photo_url ? (
+              <img
+                src={user.photo_url}
+                alt="Avatar"
+                className="w-12 h-12 rounded-full object-cover border-2 border-red-700"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center border-2 border-red-700">
+                <span className="text-xl">{getInitials(user?.first_name || 'И', user?.last_name)}</span>
+              </div>
+            )}
             <div>
               <div className="text-xs text-gray-400">Привет,</div>
-              <div className="text-lg">Игрок</div>
+              <div className="text-lg">{user?.first_name || 'Игрок'}</div>
             </div>
           </div>
           <button className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Input } from './ui/input';
 import {
@@ -11,6 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
+import { usersAPI, User } from '../lib/api';
+import { getInitials } from '../lib/utils';
 
 // Icon components
 const XIcon = ({ className }: { className?: string }) => (
@@ -42,20 +44,6 @@ const CheckIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Mock data
-const allPlayers = [
-  { id: 1, nickname: 'PokerPro88', avatar: '🎯' },
-  { id: 2, nickname: 'CardShark', avatar: '🦈' },
-  { id: 3, nickname: 'BluffMaster', avatar: '🎭' },
-  { id: 4, nickname: 'AllInAce', avatar: '🃏' },
-  { id: 5, nickname: 'RoyalFlush', avatar: '👑' },
-  { id: 6, nickname: 'ChipLeader', avatar: '💎' },
-  { id: 7, nickname: 'HighRoller', avatar: '🎲' },
-  { id: 8, nickname: 'TheShark99', avatar: '🔥' },
-  { id: 9, nickname: 'KingOfHearts', avatar: '❤️' },
-  { id: 10, nickname: 'AceKicker', avatar: '⭐' },
-];
-
 type TabType = 'all' | 'friends' | 'requests';
 
 interface PlayersViewProps {
@@ -67,45 +55,99 @@ export function PlayersView({ onClose }: PlayersViewProps) {
   const [searchAll, setSearchAll] = useState('');
   const [searchFriends, setSearchFriends] = useState('');
   const [searchRequests, setSearchRequests] = useState('');
-  const [friends, setFriends] = useState<number[]>([2, 5, 7]);
-  const [friendRequests, setFriendRequests] = useState<number[]>([3, 6]);
-  const [sentRequests, setSentRequests] = useState<number[]>([4]);
-  const [playerToRemove, setPlayerToRemove] = useState<number | null>(null);
+  
+  const [allPlayers, setAllPlayers] = useState<User[]>([]);
+  const [friends, setFriends] = useState<User[]>([]);
+  const [friendRequests, setFriendRequests] = useState<User[]>([]);
+  const [sentRequests, setSentRequests] = useState<number[]>([]);
+  
+  const [playerToRemove, setPlayerToRemove] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const tabs: TabType[] = ['all', 'friends', 'requests'];
   const activeIndex = tabs.indexOf(activeTab);
 
-  const handleAddFriend = (playerId: number) => {
-    if (!sentRequests.includes(playerId) && !friends.includes(playerId)) {
-      setSentRequests([...sentRequests, playerId]);
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [allUsersData, friendsData, requestsData] = await Promise.all([
+        usersAPI.getAll(100, 0),
+        usersAPI.getFriends(),
+        usersAPI.getFriendRequests(),
+      ]);
+      setAllPlayers(allUsersData);
+      setFriends(friendsData);
+      setFriendRequests(requestsData);
+    } catch (error) {
+      console.error('Error loading players data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAcceptRequest = (playerId: number) => {
-    setFriends([...friends, playerId]);
-    setFriendRequests(friendRequests.filter(id => id !== playerId));
+  const handleAddFriend = async (player: User) => {
+    try {
+      await usersAPI.sendFriendRequest(player.id);
+      setSentRequests([...sentRequests, player.id]);
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+    }
   };
 
-  const handleDeclineRequest = (playerId: number) => {
-    setFriendRequests(friendRequests.filter(id => id !== playerId));
+  const handleAcceptRequest = async (player: User) => {
+    try {
+      await usersAPI.acceptFriendRequest(player.id);
+      setFriends([...friends, player]);
+      setFriendRequests(friendRequests.filter(u => u.id !== player.id));
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+    }
   };
 
-  const handleRemoveFriend = (playerId: number) => {
-    setFriends(friends.filter(id => id !== playerId));
+  const handleDeclineRequest = async (player: User) => {
+    try {
+      await usersAPI.declineFriendRequest(player.id);
+      setFriendRequests(friendRequests.filter(u => u.id !== player.id));
+    } catch (error) {
+      console.error('Error declining friend request:', error);
+    }
+  };
+
+  const handleRemoveFriend = async (player: User) => {
+    try {
+      await usersAPI.removeFriend(player.id);
+      setFriends(friends.filter(u => u.id !== player.id));
+      setPlayerToRemove(null);
+    } catch (error) {
+      console.error('Error removing friend:', error);
+    }
   };
 
   // Filter players
   const filteredAllPlayers = allPlayers.filter(player =>
-    player.nickname.toLowerCase().includes(searchAll.toLowerCase())
+    player.first_name.toLowerCase().includes(searchAll.toLowerCase()) ||
+    player.username?.toLowerCase().includes(searchAll.toLowerCase())
   );
 
-  const filteredFriends = allPlayers
-    .filter(player => friends.includes(player.id))
-    .filter(player => player.nickname.toLowerCase().includes(searchFriends.toLowerCase()));
+  const filteredFriends = friends.filter(player =>
+    player.first_name.toLowerCase().includes(searchFriends.toLowerCase()) ||
+    player.username?.toLowerCase().includes(searchFriends.toLowerCase())
+  );
 
-  const filteredRequests = allPlayers
-    .filter(player => friendRequests.includes(player.id))
-    .filter(player => player.nickname.toLowerCase().includes(searchRequests.toLowerCase()));
+  const filteredRequests = friendRequests.filter(player =>
+    player.first_name.toLowerCase().includes(searchRequests.toLowerCase()) ||
+    player.username?.toLowerCase().includes(searchRequests.toLowerCase())
+  );
+
+  // Check if user is already friend
+  const isFriend = (userId: number) => friends.some(f => f.id === userId);
+  const isRequestSent = (userId: number) => sentRequests.includes(userId);
+  const isRequestReceived = (userId: number) => friendRequests.some(r => r.id === userId);
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
@@ -183,172 +225,213 @@ export function PlayersView({ onClose }: PlayersViewProps) {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-auto">
-        {/* All Players Tab */}
-        {activeTab === 'all' && (
-          <div className="p-4">
-            {/* Search */}
-            <div className="relative mb-4">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Поиск по нику..."
-                value={searchAll}
-                onChange={(e) => setSearchAll(e.target.value)}
-                className="pl-10 bg-[#1a1a1a] border-gray-800 text-white placeholder:text-gray-500"
-              />
-            </div>
-
-            {/* Players List */}
-            <div className="space-y-2">
-              {filteredAllPlayers.map((player) => {
-                const isFriend = friends.includes(player.id);
-                const isRequestSent = sentRequests.includes(player.id);
-                const isRequestReceived = friendRequests.includes(player.id);
-
-                return (
-                  <div
-                    key={player.id}
-                    className="bg-[#1a1a1a] rounded-2xl p-4 flex items-center justify-between border border-gray-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center text-xl">
-                        {player.avatar}
-                      </div>
-                      <div>
-                        <div className="text-base">{player.nickname}</div>
-                        {isFriend && (
-                          <div className="text-xs text-green-500">Ваш друг</div>
-                        )}
-                        {isRequestSent && (
-                          <div className="text-xs text-yellow-500">Запрос отправлен</div>
-                        )}
-                        {isRequestReceived && (
-                          <div className="text-xs text-blue-500">Хочет добавить вас</div>
-                        )}
-                      </div>
-                    </div>
-                    {!isFriend && !isRequestSent && !isRequestReceived && (
-                      <button
-                        onClick={() => handleAddFriend(player.id)}
-                        className="w-8 h-8 rounded-full bg-red-700 hover:bg-red-800 transition-colors flex items-center justify-center"
-                      >
-                        <UserPlusIcon className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-gray-400">Загрузка...</div>
           </div>
-        )}
-
-        {/* Friends Tab */}
-        {activeTab === 'friends' && (
-          <div className="p-4">
-            {/* Search */}
-            <div className="relative mb-4">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Поиск по нику..."
-                value={searchFriends}
-                onChange={(e) => setSearchFriends(e.target.value)}
-                className="pl-10 bg-[#1a1a1a] border-gray-800 text-white placeholder:text-gray-500"
-              />
-            </div>
-
-            {/* Friends List */}
-            <div className="space-y-2">
-              {filteredFriends.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <div className="mb-2">У вас пока нет друзей</div>
-                  <div className="text-sm">Добавьте игроков во вкладке "Все"</div>
+        ) : (
+          <>
+            {/* All Players Tab */}
+            {activeTab === 'all' && (
+              <div className="p-4">
+                {/* Search */}
+                <div className="relative mb-4">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Поиск по имени..."
+                    value={searchAll}
+                    onChange={(e) => setSearchAll(e.target.value)}
+                    className="pl-10 bg-[#1a1a1a] border-gray-800 text-white placeholder:text-gray-500"
+                  />
                 </div>
-              ) : (
-                filteredFriends.map((player) => (
-                  <div
-                    key={player.id}
-                    className="bg-gradient-to-br from-green-900/20 to-green-950/20 rounded-2xl p-4 flex items-center justify-between border border-green-900/30"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-700 to-green-900 flex items-center justify-center text-xl">
-                        {player.avatar}
-                      </div>
-                      <div>
-                        <div className="text-base">{player.nickname}</div>
-                        <div className="text-xs text-green-400">Ваш друг</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setPlayerToRemove(player.id)}
-                      className="w-8 h-8 rounded-full bg-red-700/20 hover:bg-red-700/30 transition-colors flex items-center justify-center"
-                    >
-                      <XIcon className="w-4 h-4 text-red-400" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* Requests Tab */}
-        {activeTab === 'requests' && (
-          <div className="p-4">
-            {/* Search */}
-            <div className="relative mb-4">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Поиск по нику..."
-                value={searchRequests}
-                onChange={(e) => setSearchRequests(e.target.value)}
-                className="pl-10 bg-[#1a1a1a] border-gray-800 text-white placeholder:text-gray-500"
-              />
-            </div>
+                {/* Players List */}
+                <div className="space-y-2">
+                  {filteredAllPlayers.map((player) => {
+                    const playerIsFriend = isFriend(player.id);
+                    const playerRequestSent = isRequestSent(player.id);
+                    const playerRequestReceived = isRequestReceived(player.id);
 
-            {/* Requests List */}
-            <div className="space-y-2">
-              {filteredRequests.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <div className="mb-2">Нет новых запросов</div>
-                  <div className="text-sm">Здесь появятся запросы в друзья</div>
+                    return (
+                      <div
+                        key={player.id}
+                        className="bg-[#1a1a1a] rounded-2xl p-4 flex items-center justify-between border border-gray-800"
+                      >
+                        <div className="flex items-center gap-3">
+                          {player.photo_url ? (
+                            <img
+                              src={player.photo_url}
+                              alt={player.first_name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center text-lg">
+                              {getInitials(player.first_name, player.last_name)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="text-base">{player.first_name} {player.last_name || ''}</div>
+                            {player.username && (
+                              <div className="text-xs text-gray-500">@{player.username}</div>
+                            )}
+                            {playerIsFriend && (
+                              <div className="text-xs text-green-500">Ваш друг</div>
+                            )}
+                            {playerRequestSent && (
+                              <div className="text-xs text-yellow-500">Запрос отправлен</div>
+                            )}
+                            {playerRequestReceived && (
+                              <div className="text-xs text-blue-500">Хочет добавить вас</div>
+                            )}
+                          </div>
+                        </div>
+                        {!playerIsFriend && !playerRequestSent && !playerRequestReceived && (
+                          <button
+                            onClick={() => handleAddFriend(player)}
+                            className="w-8 h-8 rounded-full bg-red-700 hover:bg-red-800 transition-colors flex items-center justify-center"
+                          >
+                            <UserPlusIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                filteredRequests.map((player) => (
-                  <div
-                    key={player.id}
-                    className="bg-gradient-to-br from-blue-900/20 to-blue-950/20 rounded-2xl p-4 border border-blue-900/30"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-700 to-blue-900 flex items-center justify-center text-xl">
-                        {player.avatar}
-                      </div>
-                      <div>
-                        <div className="text-base">{player.nickname}</div>
-                        <div className="text-xs text-blue-400">Хочет добавить вас в друзья</div>
-                      </div>
+              </div>
+            )}
+
+            {/* Friends Tab */}
+            {activeTab === 'friends' && (
+              <div className="p-4">
+                {/* Search */}
+                <div className="relative mb-4">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Поиск по имени..."
+                    value={searchFriends}
+                    onChange={(e) => setSearchFriends(e.target.value)}
+                    className="pl-10 bg-[#1a1a1a] border-gray-800 text-white placeholder:text-gray-500"
+                  />
+                </div>
+
+                {/* Friends List */}
+                <div className="space-y-2">
+                  {filteredFriends.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                      <div className="mb-2">У вас пока нет друзей</div>
+                      <div className="text-sm">Добавьте игроков во вкладке "Все"</div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAcceptRequest(player.id)}
-                        className="flex-1 bg-green-700 hover:bg-green-800 transition-colors rounded-xl py-2.5 text-sm flex items-center justify-center gap-2"
+                  ) : (
+                    filteredFriends.map((player) => (
+                      <div
+                        key={player.id}
+                        className="bg-gradient-to-br from-green-900/20 to-green-950/20 rounded-2xl p-4 flex items-center justify-between border border-green-900/30"
                       >
-                        <CheckIcon className="w-4 h-4" />
-                        <span>Принять</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeclineRequest(player.id)}
-                        className="flex-1 bg-red-700/20 hover:bg-red-700/30 transition-colors rounded-xl py-2.5 text-sm text-red-400 flex items-center justify-center"
-                      >
-                        <span>Отклонить</span>
-                      </button>
+                        <div className="flex items-center gap-3">
+                          {player.photo_url ? (
+                            <img
+                              src={player.photo_url}
+                              alt={player.first_name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-700 to-green-900 flex items-center justify-center text-lg">
+                              {getInitials(player.first_name, player.last_name)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="text-base">{player.first_name} {player.last_name || ''}</div>
+                            {player.username && (
+                              <div className="text-xs text-gray-500">@{player.username}</div>
+                            )}
+                            <div className="text-xs text-green-400">Ваш друг</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setPlayerToRemove(player)}
+                          className="w-8 h-8 rounded-full bg-red-700/20 hover:bg-red-700/30 transition-colors flex items-center justify-center"
+                        >
+                          <XIcon className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Requests Tab */}
+            {activeTab === 'requests' && (
+              <div className="p-4">
+                {/* Search */}
+                <div className="relative mb-4">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Поиск по имени..."
+                    value={searchRequests}
+                    onChange={(e) => setSearchRequests(e.target.value)}
+                    className="pl-10 bg-[#1a1a1a] border-gray-800 text-white placeholder:text-gray-500"
+                  />
+                </div>
+
+                {/* Requests List */}
+                <div className="space-y-2">
+                  {filteredRequests.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                      <div className="mb-2">Нет новых запросов</div>
+                      <div className="text-sm">Здесь появятся запросы в друзья</div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+                  ) : (
+                    filteredRequests.map((player) => (
+                      <div
+                        key={player.id}
+                        className="bg-gradient-to-br from-blue-900/20 to-blue-950/20 rounded-2xl p-4 border border-blue-900/30"
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          {player.photo_url ? (
+                            <img
+                              src={player.photo_url}
+                              alt={player.first_name}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-700 to-blue-900 flex items-center justify-center text-lg">
+                              {getInitials(player.first_name, player.last_name)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="text-base">{player.first_name} {player.last_name || ''}</div>
+                            {player.username && (
+                              <div className="text-xs text-gray-500">@{player.username}</div>
+                            )}
+                            <div className="text-xs text-blue-400">Хочет добавить вас в друзья</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAcceptRequest(player)}
+                            className="flex-1 bg-green-700 hover:bg-green-800 transition-colors rounded-xl py-2.5 text-sm flex items-center justify-center gap-2"
+                          >
+                            <CheckIcon className="w-4 h-4" />
+                            <span>Принять</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeclineRequest(player)}
+                            className="flex-1 bg-red-700/20 hover:bg-red-700/30 transition-colors rounded-xl py-2.5 text-sm text-red-400 flex items-center justify-center"
+                          >
+                            <span>Отклонить</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -359,7 +442,7 @@ export function PlayersView({ onClose }: PlayersViewProps) {
             <AlertDialogHeader>
               <AlertDialogTitle className="text-white">Удалить из друзей?</AlertDialogTitle>
               <AlertDialogDescription className="text-gray-400">
-                Вы уверены, что хотите удалить {allPlayers.find(p => p.id === playerToRemove)?.nickname} из списка друзей?
+                Вы уверены, что хотите удалить {playerToRemove.first_name} из списка друзей?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-2 sm:gap-2">
@@ -369,8 +452,9 @@ export function PlayersView({ onClose }: PlayersViewProps) {
               <AlertDialogAction
                 className="bg-red-700 hover:bg-red-800 text-white"
                 onClick={() => {
-                  handleRemoveFriend(playerToRemove);
-                  setPlayerToRemove(null);
+                  if (playerToRemove) {
+                    handleRemoveFriend(playerToRemove);
+                  }
                 }}
               >
                 Удалить
@@ -382,4 +466,3 @@ export function PlayersView({ onClose }: PlayersViewProps) {
     </div>
   );
 }
-
