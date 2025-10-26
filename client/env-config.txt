@@ -1,0 +1,13 @@
+# ВАЖНО: Создайте файл .env в директории client и вставьте следующую строку:
+
+VITE_API_URL=https://poker-club-backend-tb4h.onrender.com/api
+
+# Инструкция:
+# 1. Создайте файл .env в папке client (рядом с package.json)
+# 2. Вставьте строку выше в этот файл
+# 3. Сохраните файл
+# 4. Пересоберите проект: npm run build
+
+# Для локальной разработки используйте:
+# VITE_API_URL=http://localhost:3001/api
+

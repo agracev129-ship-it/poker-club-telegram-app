@@ -436,3 +436,4 @@ export function HistoryView({ onClose }: HistoryViewProps) {
   );
 }
 
+

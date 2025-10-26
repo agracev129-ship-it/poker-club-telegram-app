@@ -143,3 +143,4 @@ export function GameParticipantsView({ onClose, gameName, gameDate, participants
   );
 }
 
+

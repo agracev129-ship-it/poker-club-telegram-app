@@ -207,3 +207,4 @@ export function SeatingView({ onClose }: SeatingViewProps) {
   );
 }
 
+

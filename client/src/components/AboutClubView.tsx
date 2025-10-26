@@ -297,3 +297,4 @@ export function AboutClubView({ onClose }: AboutClubViewProps) {
   );
 }
 
+

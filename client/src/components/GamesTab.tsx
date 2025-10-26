@@ -56,7 +56,7 @@ export function GamesTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const { isRegistered: isAPIRegistered, toggleRegistration } = useGameRegistration(selectedGame?.id || 0);
-  const { isRegistered: checkIsRegistered } = useLocalGameRegistration();
+  const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();
 
   const handleJoinClick = (game: Game) => {
     vibrate('light');
@@ -65,9 +65,16 @@ export function GamesTab() {
   };
 
   const handleToggleRegistration = async () => {
+    if (!selectedGame) return;
+    
     try {
       vibrate('medium');
+      // Update API registration
       await toggleRegistration();
+      
+      // Also update local context for SeatingView
+      localToggle(selectedGame.id);
+      
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error:', error);

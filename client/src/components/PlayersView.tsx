@@ -75,16 +75,25 @@ export function PlayersView({ onClose }: PlayersViewProps) {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('Loading players data...');
+      
       const [allUsersData, friendsData, requestsData] = await Promise.all([
         usersAPI.getAll(100, 0),
         usersAPI.getFriends(),
         usersAPI.getFriendRequests(),
       ]);
+      
+      console.log('All users loaded:', allUsersData);
+      console.log('Friends loaded:', friendsData);
+      console.log('Friend requests loaded:', requestsData);
+      
       setAllPlayers(allUsersData);
       setFriends(friendsData);
       setFriendRequests(requestsData);
     } catch (error) {
       console.error('Error loading players data:', error);
+      // Show error in UI
+      alert(`Ошибка загрузки данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     } finally {
       setLoading(false);
     }
