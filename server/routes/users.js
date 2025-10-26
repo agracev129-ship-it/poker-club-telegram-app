@@ -66,6 +66,75 @@ router.get('/leaderboard', async (req, res) => {
 });
 
 /**
+ * GET /api/users/friends - Получить список друзей текущего пользователя
+ */
+router.get('/friends', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if friendships table exists
+    const result = await db.query(
+      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_admin, u.created_at, u.last_active
+       FROM users u
+       INNER JOIN friendships f ON (f.friend_id = u.id OR f.user_id = u.id)
+       WHERE (f.user_id = $1 OR f.friend_id = $1) 
+       AND f.status = 'accepted'
+       AND u.id != $1
+       ORDER BY u.first_name ASC`,
+      [user.id]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching friends:', error);
+    // If friendships table doesn't exist, return empty array
+    if (error.message?.includes('relation "friendships" does not exist')) {
+      console.warn('Friendships table does not exist. Run init-friends-table.js');
+      return res.json([]);
+    }
+    res.status(500).json({ error: 'Failed to fetch friends' });
+  }
+});
+
+/**
+ * GET /api/users/friend-requests - Получить входящие запросы в друзья
+ */
+router.get('/friend-requests', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const result = await db.query(
+      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_admin, u.created_at, u.last_active
+       FROM users u
+       INNER JOIN friendships f ON f.user_id = u.id
+       WHERE f.friend_id = $1 AND f.status = 'pending'
+       ORDER BY f.created_at DESC`,
+      [user.id]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching friend requests:', error);
+    // If friendships table doesn't exist, return empty array
+    if (error.message?.includes('relation "friendships" does not exist')) {
+      console.warn('Friendships table does not exist. Run init-friends-table.js');
+      return res.json([]);
+    }
+    res.status(500).json({ error: 'Failed to fetch friend requests' });
+  }
+});
+
+/**
  * GET /api/users - Получить всех пользователей
  */
 router.get('/', authenticateTelegram, async (req, res) => {
@@ -108,64 +177,6 @@ router.put('/:id/stats', authenticateTelegram, requireAdmin, async (req, res) =>
   } catch (error) {
     console.error('Error updating user stats:', error);
     res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-/**
- * GET /api/users/friends - Получить список друзей текущего пользователя
- */
-router.get('/friends', authenticateTelegram, async (req, res) => {
-  try {
-    const telegramUser = req.telegramUser;
-    const user = await User.findByTelegramId(telegramUser.id);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const result = await db.query(
-      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_admin, u.created_at, u.last_active
-       FROM users u
-       INNER JOIN friendships f ON (f.friend_id = u.id OR f.user_id = u.id)
-       WHERE (f.user_id = $1 OR f.friend_id = $1) 
-       AND f.status = 'accepted'
-       AND u.id != $1
-       ORDER BY u.first_name ASC`,
-      [user.id]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching friends:', error);
-    res.status(500).json({ error: 'Failed to fetch friends' });
-  }
-});
-
-/**
- * GET /api/users/friend-requests - Получить входящие запросы в друзья
- */
-router.get('/friend-requests', authenticateTelegram, async (req, res) => {
-  try {
-    const telegramUser = req.telegramUser;
-    const user = await User.findByTelegramId(telegramUser.id);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const result = await db.query(
-      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name, u.photo_url, u.is_admin, u.created_at, u.last_active
-       FROM users u
-       INNER JOIN friendships f ON f.user_id = u.id
-       WHERE f.friend_id = $1 AND f.status = 'pending'
-       ORDER BY f.created_at DESC`,
-      [user.id]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching friend requests:', error);
-    res.status(500).json({ error: 'Failed to fetch friend requests' });
   }
 });
 

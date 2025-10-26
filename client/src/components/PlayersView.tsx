@@ -76,24 +76,34 @@ export function PlayersView({ onClose }: PlayersViewProps) {
     try {
       setLoading(true);
       console.log('Loading players data...');
+      console.log('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
       
-      const [allUsersData, friendsData, requestsData] = await Promise.all([
-        usersAPI.getAll(100, 0),
-        usersAPI.getFriends(),
-        usersAPI.getFriendRequests(),
-      ]);
-      
+      // Load data sequentially to see which request fails
+      console.log('1. Loading all users...');
+      const allUsersData = await usersAPI.getAll(100, 0);
       console.log('All users loaded:', allUsersData);
-      console.log('Friends loaded:', friendsData);
-      console.log('Friend requests loaded:', requestsData);
-      
       setAllPlayers(allUsersData);
+      
+      console.log('2. Loading friends...');
+      const friendsData = await usersAPI.getFriends();
+      console.log('Friends loaded:', friendsData);
       setFriends(friendsData);
+      
+      console.log('3. Loading friend requests...');
+      const requestsData = await usersAPI.getFriendRequests();
+      console.log('Friend requests loaded:', requestsData);
       setFriendRequests(requestsData);
+      
     } catch (error) {
       console.error('Error loading players data:', error);
-      // Show error in UI
-      alert(`Ошибка загрузки данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      // Don't show alert immediately - wait to see console logs
+      setTimeout(() => {
+        alert(`Ошибка загрузки данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n\nПроверьте консоль для деталей.`);
+      }, 500);
     } finally {
       setLoading(false);
     }

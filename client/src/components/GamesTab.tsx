@@ -52,10 +52,10 @@ const CheckIcon = ({ className }: { className?: string }) => (
 );
 
 export function GamesTab() {
-  const { games, loading } = useGames({ status: 'upcoming' });
+  const { games, loading, refreshGames } = useGames({ status: 'upcoming' });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const { isRegistered: isAPIRegistered, toggleRegistration } = useGameRegistration(selectedGame?.id || 0);
+  const { isRegistered: isAPIRegistered, toggleRegistration, refreshRegistration } = useGameRegistration(selectedGame?.id || 0);
   const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();
 
   const handleJoinClick = (game: Game) => {
@@ -74,6 +74,12 @@ export function GamesTab() {
       
       // Also update local context for SeatingView
       localToggle(selectedGame.id);
+      
+      // Refresh registration status to update button
+      await refreshRegistration();
+      
+      // Refresh games list to update registered_count
+      refreshGames();
       
       setIsDialogOpen(false);
     } catch (error) {
