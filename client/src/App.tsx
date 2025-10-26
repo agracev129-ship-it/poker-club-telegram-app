@@ -5,6 +5,7 @@ import { GamesTab } from './components/GamesTab';
 import { RatingTab } from './components/RatingTab';
 import { ProfileTab } from './components/ProfileTab';
 import { GameRegistrationProvider } from './components/GameRegistrationContext';
+import { TermsAndConditions } from './components/TermsAndConditions';
 import { initTelegramApp } from './lib/telegram';
 
 type TabType = 'home' | 'tournaments' | 'rating' | 'profile';
@@ -50,10 +51,36 @@ export default function App() {
     history: false,
     aboutClub: false,
   });
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
+  const [isCheckingTerms, setIsCheckingTerms] = useState<boolean>(true);
 
   useEffect(() => {
     initTelegramApp();
+    
+    // Check if user has accepted terms
+    const accepted = localStorage.getItem('termsAccepted');
+    setHasAcceptedTerms(accepted === 'true');
+    setIsCheckingTerms(false);
   }, []);
+
+  const handleAcceptTerms = () => {
+    localStorage.setItem('termsAccepted', 'true');
+    setHasAcceptedTerms(true);
+  };
+
+  // Show loading while checking
+  if (isCheckingTerms) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white">Загрузка...</div>
+      </div>
+    );
+  }
+
+  // Show terms if not accepted
+  if (!hasAcceptedTerms) {
+    return <TermsAndConditions onAccept={handleAcceptTerms} />;
+  }
 
   const tabs: TabType[] = ['home', 'tournaments', 'rating', 'profile'];
   const activeIndex = tabs.indexOf(activeTab);

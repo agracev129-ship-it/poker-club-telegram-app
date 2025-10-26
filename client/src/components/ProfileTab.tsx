@@ -1,7 +1,16 @@
+import { useState } from 'react';
 import { useUser } from '../hooks/useUser';
 import { getInitials, formatRelativeTime } from '../lib/utils';
+import { SettingsView } from './SettingsView';
 
 // Icon components as inline SVGs
+const SettingsIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
 const MoreVerticalIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <circle cx="12" cy="12" r="1"/>
@@ -108,12 +117,23 @@ const getAchievementIconColor = (color?: string) => {
 
 export function ProfileTab() {
   const { user } = useUser();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-black pb-24">
-      {/* Profile Header */}
-      <div className="px-4 pt-6 pb-4">
-        <div className="flex items-center gap-3 mb-6">
+    <>
+      <div className="min-h-screen bg-black pb-24">
+        {/* Profile Header */}
+        <div className="px-4 pt-6 pb-4">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl">Профиль</h2>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
+            >
+              <SettingsIcon className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
           {user?.photo_url ? (
             <img
               src={user.photo_url}
@@ -283,24 +303,12 @@ export function ProfileTab() {
         </div>
       </div>
 
-      {/* Settings Card */}
-      <div className="px-4">
-        <div className="bg-gradient-to-br from-red-900/30 to-red-950/30 rounded-2xl p-4 border border-red-900/30">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center">
-              <MoreVerticalIcon className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <div className="text-sm">Настройки профиля</div>
-              <div className="text-xs text-gray-400">Данные и приватность</div>
-            </div>
-          </div>
-          <button className="text-sm text-red-600 flex items-center gap-1">
-            Открыть
-            <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
-          </button>
-        </div>
       </div>
-    </div>
+
+      {/* Settings View Modal */}
+      {isSettingsOpen && (
+        <SettingsView onClose={() => setIsSettingsOpen(false)} />
+      )}
+    </>
   );
 }
