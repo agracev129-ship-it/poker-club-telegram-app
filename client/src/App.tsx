@@ -53,6 +53,7 @@ export default function App() {
   });
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
   const [isCheckingTerms, setIsCheckingTerms] = useState<boolean>(true);
+  const [homeRefreshKey, setHomeRefreshKey] = useState<number>(0);
 
   useEffect(() => {
     initTelegramApp();
@@ -86,9 +87,10 @@ export default function App() {
   const activeIndex = tabs.indexOf(activeTab);
 
   const handleTabChange = (tab: TabType) => {
-    // If clicking on home tab, close all modals
+    // If clicking on home tab, close all modals and refresh
     if (tab === 'home') {
       setOpenModals({ seating: false, players: false, history: false, aboutClub: false });
+      setHomeRefreshKey(prev => prev + 1); // Force refresh HomeTab
     }
     setActiveTab(tab);
   };
@@ -100,6 +102,7 @@ export default function App() {
         <div className="h-full">
           {activeTab === 'home' && (
             <HomeTab 
+              key={homeRefreshKey} // Пересоздаем при возврате на вкладку
               onOpenSeating={() => setOpenModals(prev => ({ ...prev, seating: true }))}
               onCloseSeating={() => setOpenModals(prev => ({ ...prev, seating: false }))}
               onOpenPlayers={() => setOpenModals(prev => ({ ...prev, players: true }))}

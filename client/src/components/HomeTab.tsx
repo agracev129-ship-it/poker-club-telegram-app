@@ -7,10 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { games, Game } from './gamesData';
+import { games as localGames, Game as LocalGame } from './gamesData';
 import { useGameRegistration } from './GameRegistrationContext';
 import { useUser } from '../hooks/useUser';
-import { getInitials } from '../lib/utils';
+import { useGames } from '../hooks/useGames';
+import { Game, gamesAPI } from '../lib/api';
+import { getInitials, formatDate, formatTime } from '../lib/utils';
 import { SeatingView } from './SeatingView';
 import { PlayersView } from './PlayersView';
 import { HistoryView } from './HistoryView';
@@ -114,11 +116,35 @@ export function HomeTab({
   isAboutClubOpen
 }: HomeTabProps) {
   const { user, loading: userLoading } = useUser();
+  const { games: apiGames, loading: gamesLoading, refreshGames } = useGames({ status: 'upcoming' });
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0 });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [activityPeriod, setActivityPeriod] = useState<'month' | 'year' | 'all'>('month');
-  const { toggleRegistration, isRegistered: checkIsRegistered, registeredGames } = useGameRegistration();
+  const [registeredGameIds, setRegisteredGameIds] = useState<Set<number>>(new Set());
+  const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames } = useGameRegistration();
+
+  // Загрузка зарегистрированных игр через API
+  useEffect(() => {
+    const loadRegistrations = async () => {
+      if (apiGames.length === 0) return;
+      
+      const registeredIds = new Set<number>();
+      for (const game of apiGames) {
+        try {
+          const { isRegistered } = await gamesAPI.checkRegistration(game.id);
+          if (isRegistered) {
+            registeredIds.add(game.id);
+          }
+        } catch (error) {
+          console.error(`Error checking registration for game ${game.id}:`, error);
+        }
+      }
+      setRegisteredGameIds(registeredIds);
+    };
+    
+    loadRegistrations();
+  }, [apiGames]);
 
   useEffect(() => {
     // Calculate time until next game (example: 23.10 19:00)
@@ -150,17 +176,48 @@ export function HomeTab({
     setIsDialogOpen(true);
   };
 
-  const isRegistered = selectedGame ? checkIsRegistered(selectedGame.id) : false;
+  const handleToggleRegistration = async () => {
+    if (!selectedGame) return;
+    
+    try {
+      // Toggle через API
+      const { isRegistered } = await gamesAPI.checkRegistration(selectedGame.id);
+      if (isRegistered) {
+        await gamesAPI.unregister(selectedGame.id);
+        setRegisteredGameIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(selectedGame.id);
+          return newSet;
+        });
+      } else {
+        await gamesAPI.register(selectedGame.id);
+        setRegisteredGameIds(prev => new Set([...prev, selectedGame.id]));
+      }
+      
+      // Обновляем локальный контекст
+      localToggle(selectedGame.id);
+      
+      // Обновляем список игр
+      await refreshGames();
+      
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Ошибка при регистрации');
+    }
+  };
+
+  const isRegistered = selectedGame ? registeredGameIds.has(selectedGame.id) : false;
 
   // Get first two games
-  const firstGame = games[0];
-  const secondGame = games[1];
+  const firstGame = apiGames[0];
+  const secondGame = apiGames[1];
   
   // Get all registered games
-  const allRegisteredGames = games.filter(game => checkIsRegistered(game.id));
+  const allRegisteredGames = apiGames.filter(game => registeredGameIds.has(game.id));
   
   // Check if seating is available
-  const isSeatingAvailable = registeredGames.size > 0;
+  const isSeatingAvailable = registeredGameIds.size > 0;
   
   const handleSeatingClick = () => {
     onOpenSeating();
@@ -236,17 +293,17 @@ export function HomeTab({
               <div className="space-y-2 text-sm">
                 <div className="flex items-start gap-2">
                   <MapPinIcon className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-300">{game.location}</span>
+                  <span className="text-gray-300">{'location' in game ? game.location : 'Адрес клуба'}</span>
                 </div>
                 
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <CalendarIcon className="w-4 h-4 text-red-400" />
-                    <span className="text-gray-300">{game.date}</span>
+                    <span className="text-gray-300">{formatDate(game.date)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <ClockIcon className="w-4 h-4 text-red-400" />
-                    <span className="text-gray-300">{game.time}</span>
+                    <span className="text-gray-300">{formatTime(game.time)}</span>
                   </div>
                 </div>
               </div>
@@ -261,49 +318,51 @@ export function HomeTab({
         ))}
 
         {/* Tournament Cards Row */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Main Tournament Card */}
-          <button 
-            onClick={() => handleGameClick(firstGame)}
-            className="bg-gradient-to-br from-red-700 to-red-900 rounded-3xl p-4 relative overflow-hidden text-left hover:from-red-600 hover:to-red-800 transition-all"
-          >
-            <div className="relative z-10">
-              {/* Date Badge */}
-              <div className="inline-block bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
-                <div className="text-xs text-white/90">{firstGame.date}</div>
+        {!gamesLoading && apiGames.length >= 2 && (
+          <div className="grid grid-cols-2 gap-3">
+            {/* Main Tournament Card */}
+            <button 
+              onClick={() => handleGameClick(firstGame)}
+              className="bg-gradient-to-br from-red-700 to-red-900 rounded-3xl p-4 relative overflow-hidden text-left hover:from-red-600 hover:to-red-800 transition-all"
+            >
+              <div className="relative z-10">
+                {/* Date Badge */}
+                <div className="inline-block bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
+                  <div className="text-xs text-white/90">{formatDate(firstGame.date)}</div>
+                </div>
+                
+                <div className="mt-3">
+                  <div className="mb-1.5">{firstGame.name.split(' ').slice(0, 2).join(' ')}</div>
+                  <div className="text-2xl">{formatTime(firstGame.time)}</div>
+                </div>
+                <div className="absolute top-3 right-3 w-8 h-8 bg-black/20 rounded-full flex items-center justify-center">
+                  <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
+                </div>
               </div>
-              
-              <div className="mt-3">
-                <div className="mb-1.5">{firstGame.name.split(' ')[0]} {firstGame.name.split(' ')[1]}</div>
-                <div className="text-2xl">{firstGame.time}</div>
-              </div>
-              <div className="absolute top-3 right-3 w-8 h-8 bg-black/20 rounded-full flex items-center justify-center">
-                <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
-              </div>
-            </div>
-          </button>
+            </button>
 
-          {/* Second Tournament */}
-          <button 
-            onClick={() => handleGameClick(secondGame)}
-            className="bg-[#2d2d2d] rounded-3xl p-4 relative overflow-hidden text-left hover:bg-[#353535] transition-all"
-          >
-            <div className="relative z-10">
-              {/* Date Badge */}
-              <div className="inline-block bg-white/5 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
-                <div className="text-xs text-white/90">{secondGame.date}</div>
+            {/* Second Tournament */}
+            <button 
+              onClick={() => handleGameClick(secondGame)}
+              className="bg-[#2d2d2d] rounded-3xl p-4 relative overflow-hidden text-left hover:bg-[#353535] transition-all"
+            >
+              <div className="relative z-10">
+                {/* Date Badge */}
+                <div className="inline-block bg-white/5 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
+                  <div className="text-xs text-white/90">{formatDate(secondGame.date)}</div>
+                </div>
+                
+                <div className="mt-3">
+                  <div className="text-gray-300 mb-1.5">{secondGame.name.split(' ')[0]}</div>
+                  <div className="text-2xl">{formatTime(secondGame.time)}</div>
+                </div>
+                <div className="absolute top-3 right-3 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center">
+                  <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
+                </div>
               </div>
-              
-              <div className="mt-3">
-                <div className="text-gray-300 mb-1.5">{secondGame.name.split(' ')[0]}</div>
-                <div className="text-2xl">{secondGame.time}</div>
-              </div>
-              <div className="absolute top-3 right-3 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center">
-                <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
-              </div>
-            </div>
-          </button>
-        </div>
+            </button>
+          </div>
+        )}
 
         {/* Stats Card */}
         <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-3xl p-5 relative overflow-hidden border border-red-900/30">
@@ -448,15 +507,15 @@ export function HomeTab({
               <div className="flex items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{selectedGame.date}</span>
+                  <span className="text-gray-300">{formatDate(selectedGame.date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ClockIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{selectedGame.time}</span>
+                  <span className="text-gray-300">{formatTime(selectedGame.time)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <UsersIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{selectedGame.players}</span>
+                  <span className="text-gray-300">{selectedGame.registered_count} / {selectedGame.max_players}</span>
                 </div>
               </div>
 
@@ -475,7 +534,7 @@ export function HomeTab({
                     ? 'bg-gray-600 hover:bg-gray-700 shadow-gray-500/20'
                     : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-500/20'
                 }`}
-                onClick={() => toggleRegistration(selectedGame.id)}
+                onClick={handleToggleRegistration}
               >
                 {isRegistered && <XIcon className="w-5 h-5" />}
                 {isRegistered ? 'Отменить запись' : 'Зарегистрироваться'}

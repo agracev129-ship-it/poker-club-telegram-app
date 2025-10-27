@@ -147,11 +147,10 @@ export const User = {
       `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name, 
               u.photo_url, us.games_played, us.games_won, us.total_points,
               us.total_winnings, us.current_rank,
-              ROW_NUMBER() OVER (ORDER BY us.total_points DESC) as rank
+              ROW_NUMBER() OVER (ORDER BY us.total_points DESC NULLS LAST) as rank
        FROM users u
-       JOIN user_stats us ON us.user_id = u.id
-       WHERE us.games_played > 0
-       ORDER BY us.total_points DESC
+       LEFT JOIN user_stats us ON us.user_id = u.id
+       ORDER BY COALESCE(us.total_points, 0) DESC, u.created_at ASC
        LIMIT $1`,
       [limit]
     );

@@ -132,20 +132,20 @@ export function RatingTab() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-base truncate ${isCurrentUser ? 'text-white' : ''}`}>
-                        {player.first_name} {player.last_name || ''}
+                        {player.first_name || player.username || 'Игрок'} {player.last_name || ''}
                       </span>
                       {rank <= 3 && (
                         <MedalIcon className="w-4 h-4 text-yellow-500 shrink-0" />
                       )}
                     </div>
                     <div className="text-xs text-gray-400">
-                      {player.games_played} игр • {player.games_won} побед
+                      {player.games_played || 0} игр • {player.games_won || 0} побед
                     </div>
                   </div>
 
                   {/* Points */}
                   <div className="text-right shrink-0">
-                    <div className="text-lg text-yellow-500 font-medium">{player.total_points}</div>
+                    <div className="text-lg text-yellow-500 font-medium">{player.total_points || 0}</div>
                     <div className="text-xs text-gray-500">очков</div>
                   </div>
                 </div>

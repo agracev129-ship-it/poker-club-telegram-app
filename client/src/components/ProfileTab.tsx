@@ -124,16 +124,7 @@ export function ProfileTab() {
       <div className="min-h-screen bg-black pb-24">
         {/* Profile Header */}
         <div className="px-4 pt-6 pb-4">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl">Профиль</h2>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
-            >
-              <SettingsIcon className="w-5 h-5 text-white" />
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-6">
           {user?.photo_url ? (
             <img
               src={user.photo_url}
@@ -149,8 +140,11 @@ export function ProfileTab() {
             <h1 className="text-xl mb-1">{user?.first_name || 'Игрок'} {user?.last_name || ''}</h1>
             <p className="text-sm text-gray-400">Игрок • #{user?.current_rank || '—'} в рейтинге</p>
           </div>
-          <button className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
-            <MoreVerticalIcon className="w-5 h-5 text-white" />
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
+          >
+            <SettingsIcon className="w-5 h-5 text-white" />
           </button>
         </div>
       </div>
