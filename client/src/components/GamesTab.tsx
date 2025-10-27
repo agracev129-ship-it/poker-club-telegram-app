@@ -1,23 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGames, useGameRegistration } from '../hooks/useGames';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useGameRegistration as useLocalGameRegistration } from './GameRegistrationContext';
-import { formatDate, formatTime } from '../lib/utils';
-import { Game } from '../lib/api';
+import { formatDate, formatTime, getInitials } from '../lib/utils';
+import { Game, User, usersAPI, gamesAPI } from '../lib/api';
 import { vibrate } from '../lib/telegram';
-import { games as localGames } from './gamesData';
+import { useGameParticipants } from '../hooks/useGameParticipants';
 
 // Icon components as inline SVGs
 const XIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M18 6 6 18"/>
     <path d="m6 6 12 12"/>
-  </svg>
-);
-
-const ChevronDownIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="m6 9 6 6 6-6"/>
   </svg>
 );
 
@@ -60,14 +54,134 @@ const UserCheckIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Компонент для отображения игры с проверкой друзей
+function GameCard({ game, isGameRegistered, onJoinClick, onShowParticipants }: {
+  game: Game;
+  isGameRegistered: boolean;
+  onJoinClick: (game: Game) => void;
+  onShowParticipants: (game: Game) => void;
+}) {
+  const [friends, setFriends] = useState<User[]>([]);
+  const [participants, setParticipants] = useState<User[]>([]);
+  const [hasFriend, setHasFriend] = useState(false);
+
+  useEffect(() => {
+    // Загружаем друзей и участников для проверки
+    const checkFriends = async () => {
+      try {
+        const [friendsData, participantsData] = await Promise.all([
+          usersAPI.getFriends(),
+          gamesAPI.getRegistrations(game.id),
+        ]);
+        
+        setFriends(friendsData);
+        setParticipants(participantsData);
+        
+        // Проверяем есть ли друзья среди участников
+        const friendIds = friendsData.map(f => f.id);
+        const participantIds = participantsData.map(p => p.id);
+        const hasFriendRegistered = friendIds.some(fId => participantIds.includes(fId));
+        
+        setHasFriend(hasFriendRegistered);
+      } catch (error) {
+        console.error('Error checking friends:', error);
+        setHasFriend(false);
+      }
+    };
+    
+    checkFriends();
+  }, [game.id]);
+
+  return (
+    <div
+      className={`rounded-2xl p-4 border transition-all relative ${
+        isGameRegistered
+          ? 'bg-gradient-to-br from-red-700/30 to-red-900/30 border-red-700/50'
+          : 'bg-[#1a1a1a] border-gray-800 hover:border-gray-700'
+      }`}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h3 className="text-base mb-1">{game.name}</h3>
+          <div className={`flex items-center gap-3 text-xs ${
+            isGameRegistered ? 'text-gray-300' : 'text-gray-400'
+          }`}>
+            <div className="flex items-center gap-1">
+              <UsersIcon className="w-3.5 h-3.5" />
+              <span>{game.registered_count} / {game.max_players}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <ClockIcon className="w-3.5 h-3.5" />
+              <span>{formatTime(game.time)}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CalendarIcon className="w-3.5 h-3.5" />
+              <span>{formatDate(game.date)}</span>
+            </div>
+          </div>
+        </div>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowParticipants(game);
+          }}
+          className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 hover:bg-red-700/30 transition-colors ${
+            isGameRegistered ? 'bg-red-700/20' : 'bg-white/5'
+          }`}
+        >
+          <UsersIcon className="w-4 h-4" />
+        </button>
+      </div>
+      
+      {/* Friend Registered Badge */}
+      {hasFriend && (
+        <div className="mb-3 flex items-center gap-1.5 text-xs text-red-500">
+          <UserCheckIcon className="w-3.5 h-3.5" />
+          <span>Ваш друг зарегистрирован!</span>
+        </div>
+      )}
+      
+      <button
+        className={`w-full transition-all rounded-xl py-2.5 text-sm text-center tracking-wide flex items-center justify-center gap-2 ${
+          isGameRegistered
+            ? 'bg-white hover:bg-gray-200 text-black'
+            : 'bg-gradient-to-b from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white'
+        }`}
+        onClick={() => onJoinClick(game)}
+      >
+        {isGameRegistered && <CheckIcon className="w-4 h-4" />}
+        {isGameRegistered ? 'Вы зарегистрированы' : 'Присоединиться'}
+      </button>
+    </div>
+  );
+}
+
 export function GamesTab() {
   const { games, loading, refreshGames } = useGames({ status: 'upcoming' });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isPlayersDialogOpen, setIsPlayersDialogOpen] = useState(false);
-  const [selectedGameForPlayers, setSelectedGameForPlayers] = useState<typeof localGames[0] | null>(null);
+  const [selectedGameForPlayers, setSelectedGameForPlayers] = useState<Game | null>(null);
+  
   const { isRegistered: isAPIRegistered, toggleRegistration, refreshRegistration } = useGameRegistration(selectedGame?.id || 0);
   const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();
+  
+  // Получаем участников для выбранной игры в модальном окне
+  const { participants, hasFriendRegistered, loading: participantsLoading, refresh: refreshParticipants } = useGameParticipants(selectedGameForPlayers?.id || 0);
+  const [friendsList, setFriendsList] = useState<User[]>([]);
+
+  // Загружаем список друзей для проверки
+  useEffect(() => {
+    const loadFriends = async () => {
+      try {
+        const friends = await usersAPI.getFriends();
+        setFriendsList(friends);
+      } catch (error) {
+        console.error('Error loading friends:', error);
+      }
+    };
+    loadFriends();
+  }, []);
 
   const handleJoinClick = (game: Game) => {
     vibrate('light');
@@ -75,8 +189,8 @@ export function GamesTab() {
     setIsDialogOpen(true);
   };
 
-  const handleShowPlayers = (game: typeof localGames[0], e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleShowParticipants = (game: Game) => {
+    vibrate('light');
     setSelectedGameForPlayers(game);
     setIsPlayersDialogOpen(true);
   };
@@ -98,6 +212,11 @@ export function GamesTab() {
       // Refresh games list to update registered_count
       refreshGames();
       
+      // Refresh participants if we're viewing them
+      if (selectedGameForPlayers?.id === selectedGame.id) {
+        refreshParticipants();
+      }
+      
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error:', error);
@@ -106,6 +225,11 @@ export function GamesTab() {
   };
 
   const isRegistered = selectedGame ? (isAPIRegistered || checkIsRegistered(selectedGame.id)) : false;
+
+  // Проверяем является ли участник другом
+  const isFriend = (userId: number) => {
+    return friendsList.some(f => f.id === userId);
+  };
 
   return (
     <div className="min-h-screen bg-black pb-24">
@@ -119,79 +243,26 @@ export function GamesTab() {
       <div className="px-4 space-y-3">
         {loading ? (
           <div className="text-center text-gray-400 py-8">Загрузка...</div>
-        ) : (games.length === 0 && localGames.length === 0) ? (
+        ) : games.length === 0 ? (
           <div className="text-center text-gray-400 py-8">Нет предстоящих игр</div>
         ) : (
-          // Show both API games and local mock games
-          [...games, ...localGames.filter(lg => !games.find(g => g.id === lg.id))].map((game) => {
+          games.map((game) => {
             const isGameRegistered = checkIsRegistered(game.id);
-            const localGame = localGames.find(lg => lg.id === game.id);
             
             return (
-              <div
+              <GameCard
                 key={game.id}
-                className={`rounded-2xl p-4 border transition-all relative ${
-                  isGameRegistered
-                    ? 'bg-gradient-to-br from-red-700/30 to-red-900/30 border-red-700/50'
-                    : 'bg-[#1a1a1a] border-gray-800 hover:border-gray-700'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-base mb-1">{game.name}</h3>
-                    <div className={`flex items-center gap-3 text-xs ${
-                      isGameRegistered ? 'text-gray-300' : 'text-gray-400'
-                    }`}>
-                      <div className="flex items-center gap-1">
-                        <UsersIcon className="w-3.5 h-3.5" />
-                        <span>{'registered_count' in game ? `${game.registered_count} / ${game.max_players}` : localGame?.players || '0'}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ClockIcon className="w-3.5 h-3.5" />
-                        <span>{formatTime(game.time)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <CalendarIcon className="w-3.5 h-3.5" />
-                        <span>{formatDate(game.date)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={(e) => localGame && handleShowPlayers(localGame, e)}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 hover:bg-red-700/30 transition-colors ${
-                      isGameRegistered ? 'bg-red-700/20' : 'bg-white/5'
-                    }`}
-                  >
-                    <UsersIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                
-                {/* Friend Registered Badge */}
-                {localGame?.hasFriendRegistered && (
-                  <div className="mb-3 flex items-center gap-1.5 text-xs text-red-500">
-                    <UserCheckIcon className="w-3.5 h-3.5" />
-                    <span>Ваш друг зарегистрирован!</span>
-                  </div>
-                )}
-                
-                <button
-                  className={`w-full transition-all rounded-xl py-2.5 text-sm text-center tracking-wide flex items-center justify-center gap-2 ${
-                    isGameRegistered
-                      ? 'bg-white hover:bg-gray-200 text-black'
-                      : 'bg-gradient-to-b from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white'
-                  }`}
-                  onClick={() => handleJoinClick(game)}
-                >
-                  {isGameRegistered && <CheckIcon className="w-4 h-4" />}
-                  {isGameRegistered ? 'Вы зарегистрированы' : 'Присоединиться'}
-                </button>
-              </div>
+                game={game}
+                isGameRegistered={isGameRegistered}
+                onJoinClick={handleJoinClick}
+                onShowParticipants={handleShowParticipants}
+              />
             );
           })
         )}
       </div>
 
-      {/* Dialog */}
+      {/* Registration Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="bg-[#1a1a1a] border-gray-800 text-white" aria-describedby={undefined}>
           <DialogHeader>
@@ -213,7 +284,7 @@ export function GamesTab() {
                 </div>
                 <div className="flex items-center gap-2">
                   <UsersIcon className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-300">{'registered_count' in selectedGame ? `${selectedGame.registered_count} / ${selectedGame.max_players}` : '—'}</span>
+                  <span className="text-gray-300">{selectedGame.registered_count} / {selectedGame.max_players}</span>
                 </div>
               </div>
 
@@ -253,39 +324,57 @@ export function GamesTab() {
               <p className="text-sm text-gray-400 mt-1">{selectedGameForPlayers.name}</p>
             )}
           </DialogHeader>
-          {selectedGameForPlayers && (
-            <div className="mt-4 overflow-y-auto flex-1">
+          <div className="mt-4 overflow-y-auto flex-1">
+            {participantsLoading ? (
+              <div className="text-center text-gray-400 py-8">Загрузка...</div>
+            ) : participants.length === 0 ? (
+              <div className="text-center text-gray-400 py-8">Нет зарегистрированных игроков</div>
+            ) : (
               <div className="space-y-2">
-                {selectedGameForPlayers.registeredPlayers.map((player) => (
-                  <div
-                    key={player.id}
-                    className={`p-3 rounded-xl flex items-center justify-between ${
-                      player.isFriend
-                        ? 'bg-gradient-to-br from-red-700/20 to-red-900/20 border border-red-700/30'
-                        : 'bg-[#252525]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-red-700 to-red-900 rounded-full flex items-center justify-center">
-                        <span className="text-sm">{player.name.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">{player.name}</span>
-                          {player.isFriend && (
-                            <span className="text-xs text-red-500 bg-red-900/30 px-2 py-0.5 rounded-full">
-                              Друг
-                            </span>
+                {participants.map((player) => {
+                  const playerIsFriend = isFriend(player.id);
+                  
+                  return (
+                    <div
+                      key={player.id}
+                      className={`p-3 rounded-xl flex items-center justify-between ${
+                        playerIsFriend
+                          ? 'bg-gradient-to-br from-red-700/20 to-red-900/20 border border-red-700/30'
+                          : 'bg-[#252525]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {player.photo_url ? (
+                          <img
+                            src={player.photo_url}
+                            alt={player.first_name}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-to-br from-red-700 to-red-900 rounded-full flex items-center justify-center">
+                            <span className="text-sm">{getInitials(player.first_name, player.last_name)}</span>
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{player.first_name} {player.last_name || ''}</span>
+                            {playerIsFriend && (
+                              <span className="text-xs text-red-500 bg-red-900/30 px-2 py-0.5 rounded-full">
+                                Друг
+                              </span>
+                            )}
+                          </div>
+                          {player.username && (
+                            <div className="text-xs text-gray-400">@{player.username}</div>
                           )}
                         </div>
-                        <div className="text-xs text-gray-400">Рейтинг: {player.rating}</div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

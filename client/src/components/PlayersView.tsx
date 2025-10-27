@@ -59,13 +59,22 @@ export function PlayersView({ onClose }: PlayersViewProps) {
   const [allPlayers, setAllPlayers] = useState<User[]>([]);
   const [friends, setFriends] = useState<User[]>([]);
   const [friendRequests, setFriendRequests] = useState<User[]>([]);
-  const [sentRequests, setSentRequests] = useState<number[]>([]);
+  const [sentRequests, setSentRequests] = useState<number[]>(() => {
+    // Загружаем из localStorage при инициализации
+    const saved = localStorage.getItem('sentFriendRequests');
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [playerToRemove, setPlayerToRemove] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const tabs: TabType[] = ['all', 'friends', 'requests'];
   const activeIndex = tabs.indexOf(activeTab);
+
+  // Сохраняем sentRequests в localStorage при изменении
+  useEffect(() => {
+    localStorage.setItem('sentFriendRequests', JSON.stringify(sentRequests));
+  }, [sentRequests]);
 
   // Load data on mount
   useEffect(() => {
