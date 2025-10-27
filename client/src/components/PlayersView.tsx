@@ -180,7 +180,7 @@ export function PlayersView({ onClose }: PlayersViewProps) {
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
-      <div className="px-4 pt-6 pb-4">
+      <div className="px-4 pt-6 pb-4 shrink-0">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl">Игроки</h2>
           <button
@@ -252,7 +252,7 @@ export function PlayersView({ onClose }: PlayersViewProps) {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-24">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-gray-400">Загрузка...</div>
