@@ -17,7 +17,20 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   
   // Проверяем, является ли пользователь администратором
-  const isAdmin = user ? ADMIN_TELEGRAM_IDS.includes(user.telegram_id) : false;
+  // Проверяем и как число, и как строку для совместимости
+  const isAdmin = user ? ADMIN_TELEGRAM_IDS.includes(Number(user.telegram_id)) || ADMIN_TELEGRAM_IDS.includes(user.telegram_id as any) : false;
+
+  // Debug logging
+  useEffect(() => {
+    if (user) {
+      console.log('🔍 Admin Check:', {
+        telegram_id: user.telegram_id,
+        type: typeof user.telegram_id,
+        isAdmin,
+        ADMIN_IDS: ADMIN_TELEGRAM_IDS
+      });
+    }
+  }, [user, isAdmin]);
 
   // Load admin mode from localStorage только если пользователь администратор
   useEffect(() => {
