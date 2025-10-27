@@ -1,5 +1,6 @@
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useUser } from '../hooks/useUser';
+import { getInitials } from '../lib/utils';
 
 // Icon components as inline SVGs
 const TrophyIcon = ({ className }: { className?: string }) => (
@@ -20,138 +21,139 @@ const TrendingUpIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const MedalIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/>
+    <path d="M11 12 5.12 2.2"/>
+    <path d="m13 12 5.88-9.8"/>
+    <path d="M8 7h8"/>
+    <circle cx="12" cy="17" r="5"/>
+    <path d="M12 18v-2h-.5"/>
+  </svg>
+);
+
 export function RatingTab() {
   const { user } = useUser();
   const { leaderboard, loading } = useLeaderboard(50);
 
-  const topPlayers = leaderboard.slice(0, 8);
-
   return (
     <div className="min-h-screen bg-black pb-24">
-      {/* Compact Header */}
+      {/* Header */}
       <div className="px-4 pt-6 pb-4">
         <h2 className="text-2xl mb-1">Рейтинг</h2>
         <p className="text-sm text-gray-400">Топ игроков клуба</p>
       </div>
 
       {/* Your Position Card */}
-      <div className="px-4 mb-4">
+      <div className="px-4 mb-6">
         <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-2xl p-4 border border-red-900/30">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs text-gray-400 mb-1">Ваша позиция</div>
-              <div className="text-2xl">#{user?.current_rank || '—'}</div>
+            <div className="flex items-center gap-3">
+              {user?.photo_url ? (
+                <img
+                  src={user.photo_url}
+                  alt={user.first_name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-red-700"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center border-2 border-red-700">
+                  <span className="text-lg">{getInitials(user?.first_name || 'И', user?.last_name)}</span>
+                </div>
+              )}
+              <div>
+                <div className="text-sm text-gray-400">Ваша позиция</div>
+                <div className="text-2xl">#{user?.current_rank || '—'}</div>
+              </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-gray-400 mb-1">Рейтинг</div>
-              <div className="text-xl text-yellow-500">{user?.total_points || 0}</div>
-            </div>
-            <div className="w-12 h-12 bg-red-700/20 rounded-full flex items-center justify-center">
-              <TrophyIcon className="w-6 h-6 text-red-600" />
+              <div className="text-sm text-gray-400">Очки</div>
+              <div className="text-2xl text-yellow-500">{user?.total_points || 0}</div>
             </div>
           </div>
-          {user?.current_rank && user.current_rank > 10 && (
-            <div className="text-xs text-gray-400 mt-3">
-              До топ-10: <span className="text-white">165 очков</span>
-            </div>
-          )}
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-center text-gray-400 py-8">Загрузка...</div>
-      ) : topPlayers.length === 0 ? (
-        <div className="text-center text-gray-400 py-8">Нет данных</div>
-      ) : (
-        <>
-          {/* Top 3 */}
-          <div className="px-4 mb-4">
-            <div className="text-sm text-gray-400 mb-2">Топ-3</div>
-            <div className="grid grid-cols-3 gap-2">
-              {/* 2nd Place */}
-              {topPlayers[1] && (
-                <div className="flex flex-col items-center pt-6">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center mb-2 text-sm">
-                    2
-                  </div>
-                  <div className="bg-[#1a1a1a] rounded-xl p-2.5 w-full text-center border border-gray-800">
-                    <div className="text-xs mb-1 truncate">{topPlayers[1].username || topPlayers[1].first_name}</div>
-                    <div className="text-xs text-gray-500">{topPlayers[1].total_points}</div>
-                  </div>
-                </div>
-              )}
-
-              {/* 1st Place */}
-              {topPlayers[0] && (
-                <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center mb-2">
-                    <TrophyIcon className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="bg-gradient-to-br from-red-700 to-red-900 rounded-xl p-2.5 w-full text-center">
-                    <div className="text-xs mb-1 truncate">{topPlayers[0].username || topPlayers[0].first_name}</div>
-                    <div className="text-xs">{topPlayers[0].total_points}</div>
-                  </div>
-                </div>
-              )}
-
-              {/* 3rd Place */}
-              {topPlayers[2] && (
-                <div className="flex flex-col items-center pt-6">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center mb-2 text-sm">
-                    3
-                  </div>
-                  <div className="bg-[#1a1a1a] rounded-xl p-2.5 w-full text-center border border-gray-800">
-                    <div className="text-xs mb-1 truncate">{topPlayers[2].username || topPlayers[2].first_name}</div>
-                    <div className="text-xs text-gray-500">{topPlayers[2].total_points}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Full Leaderboard */}
-          <div className="px-4">
-            <div className="text-sm text-gray-400 mb-2">Общий рейтинг</div>
-            <div className="space-y-2">
-              {topPlayers.map((player, index) => (
+      {/* Leaderboard */}
+      <div className="px-4">
+        <div className="text-sm text-gray-400 mb-3">Общий рейтинг</div>
+        
+        {loading ? (
+          <div className="text-center text-gray-400 py-8">Загрузка...</div>
+        ) : leaderboard.length === 0 ? (
+          <div className="text-center text-gray-400 py-8">Нет данных</div>
+        ) : (
+          <div className="space-y-2">
+            {leaderboard.map((player, index) => {
+              const isCurrentUser = player.id === user?.id;
+              const rank = index + 1;
+              
+              return (
                 <div
                   key={player.id}
-                  className="bg-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 border border-gray-800"
+                  className={`rounded-2xl p-4 flex items-center gap-3 transition-all ${
+                    isCurrentUser
+                      ? 'bg-gradient-to-br from-red-700/30 to-red-900/30 border border-red-700/50'
+                      : 'bg-[#1a1a1a] border border-gray-800'
+                  }`}
                 >
+                  {/* Rank Badge */}
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${
-                      index === 0
-                        ? 'bg-gradient-to-br from-yellow-500 to-orange-500'
-                        : index === 1
-                        ? 'bg-gradient-to-br from-gray-400 to-gray-500'
-                        : index === 2
-                        ? 'bg-gradient-to-br from-orange-500 to-orange-600'
-                        : 'bg-gray-800'
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium shrink-0 ${
+                      rank === 1
+                        ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white'
+                        : rank === 2
+                        ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white'
+                        : rank === 3
+                        ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white'
+                        : isCurrentUser
+                        ? 'bg-red-700/30 text-white'
+                        : 'bg-gray-800 text-gray-400'
                     }`}
                   >
-                    {index + 1}
+                    {rank === 1 ? <TrophyIcon className="w-5 h-5" /> : rank}
                   </div>
+
+                  {/* Avatar */}
+                  <div className="shrink-0">
+                    {player.photo_url ? (
+                      <img
+                        src={player.photo_url}
+                        alt={player.first_name || 'User'}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+                        <span className="text-sm">{getInitials(player.first_name || 'U', player.last_name)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Player Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm truncate">{player.username || player.first_name}</span>
-                      {player.current_rank && player.current_rank < 5 && (
-                        <TrendingUpIcon className="w-3 h-3 text-green-500 shrink-0" />
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-base truncate ${isCurrentUser ? 'text-white' : ''}`}>
+                        {player.first_name} {player.last_name || ''}
+                      </span>
+                      {rank <= 3 && (
+                        <MedalIcon className="w-4 h-4 text-yellow-500 shrink-0" />
                       )}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-400">
                       {player.games_played} игр • {player.games_won} побед
                     </div>
                   </div>
+
+                  {/* Points */}
                   <div className="text-right shrink-0">
-                    <div className="text-sm text-yellow-500">{player.total_points}</div>
-                    <div className="text-xs text-gray-500">pts</div>
+                    <div className="text-lg text-yellow-500 font-medium">{player.total_points}</div>
+                    <div className="text-xs text-gray-500">очков</div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

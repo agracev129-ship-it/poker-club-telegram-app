@@ -55,20 +55,28 @@ const UserCheckIcon = ({ className }: { className?: string }) => (
 );
 
 // Компонент для отображения игры с проверкой друзей
-function GameCard({ game, isGameRegistered, onJoinClick, onShowParticipants }: {
+function GameCard({ game, onJoinClick, onShowParticipants }: {
   game: Game;
-  isGameRegistered: boolean;
   onJoinClick: (game: Game) => void;
   onShowParticipants: (game: Game) => void;
 }) {
   const [friends, setFriends] = useState<User[]>([]);
   const [participants, setParticipants] = useState<User[]>([]);
   const [hasFriend, setHasFriend] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [checkingRegistration, setCheckingRegistration] = useState(true);
 
   useEffect(() => {
-    // Загружаем друзей и участников для проверки
-    const checkFriends = async () => {
+    // Проверяем регистрацию и друзей
+    const loadData = async () => {
       try {
+        setCheckingRegistration(true);
+        
+        // Проверяем регистрацию пользователя через API
+        const { isRegistered: apiRegistered } = await gamesAPI.checkRegistration(game.id);
+        setIsRegistered(apiRegistered);
+        
+        // Загружаем участников и друзей параллельно
         const [friendsData, participantsData] = await Promise.all([
           usersAPI.getFriends(),
           gamesAPI.getRegistrations(game.id),
@@ -84,18 +92,21 @@ function GameCard({ game, isGameRegistered, onJoinClick, onShowParticipants }: {
         
         setHasFriend(hasFriendRegistered);
       } catch (error) {
-        console.error('Error checking friends:', error);
+        console.error('Error loading game data:', error);
         setHasFriend(false);
+        setIsRegistered(false);
+      } finally {
+        setCheckingRegistration(false);
       }
     };
     
-    checkFriends();
+    loadData();
   }, [game.id]);
 
   return (
     <div
       className={`rounded-2xl p-4 border transition-all relative ${
-        isGameRegistered
+        isRegistered
           ? 'bg-gradient-to-br from-red-700/30 to-red-900/30 border-red-700/50'
           : 'bg-[#1a1a1a] border-gray-800 hover:border-gray-700'
       }`}
@@ -104,7 +115,7 @@ function GameCard({ game, isGameRegistered, onJoinClick, onShowParticipants }: {
         <div>
           <h3 className="text-base mb-1">{game.name}</h3>
           <div className={`flex items-center gap-3 text-xs ${
-            isGameRegistered ? 'text-gray-300' : 'text-gray-400'
+            isRegistered ? 'text-gray-300' : 'text-gray-400'
           }`}>
             <div className="flex items-center gap-1">
               <UsersIcon className="w-3.5 h-3.5" />
@@ -126,7 +137,7 @@ function GameCard({ game, isGameRegistered, onJoinClick, onShowParticipants }: {
             onShowParticipants(game);
           }}
           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 hover:bg-red-700/30 transition-colors ${
-            isGameRegistered ? 'bg-red-700/20' : 'bg-white/5'
+            isRegistered ? 'bg-red-700/20' : 'bg-white/5'
           }`}
         >
           <UsersIcon className="w-4 h-4" />
@@ -143,14 +154,21 @@ function GameCard({ game, isGameRegistered, onJoinClick, onShowParticipants }: {
       
       <button
         className={`w-full transition-all rounded-xl py-2.5 text-sm text-center tracking-wide flex items-center justify-center gap-2 ${
-          isGameRegistered
+          isRegistered
             ? 'bg-white hover:bg-gray-200 text-black'
             : 'bg-gradient-to-b from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white'
         }`}
         onClick={() => onJoinClick(game)}
+        disabled={checkingRegistration}
       >
-        {isGameRegistered && <CheckIcon className="w-4 h-4" />}
-        {isGameRegistered ? 'Вы зарегистрированы' : 'Присоединиться'}
+        {checkingRegistration ? (
+          'Загрузка...'
+        ) : (
+          <>
+            {isRegistered && <CheckIcon className="w-4 h-4" />}
+            {isRegistered ? 'Вы зарегистрированы' : 'Присоединиться'}
+          </>
+        )}
       </button>
     </div>
   );
@@ -162,6 +180,7 @@ export function GamesTab() {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isPlayersDialogOpen, setIsPlayersDialogOpen] = useState(false);
   const [selectedGameForPlayers, setSelectedGameForPlayers] = useState<Game | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const { isRegistered: isAPIRegistered, toggleRegistration, refreshRegistration } = useGameRegistration(selectedGame?.id || 0);
   const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();
@@ -193,6 +212,8 @@ export function GamesTab() {
     vibrate('light');
     setSelectedGameForPlayers(game);
     setIsPlayersDialogOpen(true);
+    // Обновляем участников при открытии
+    setTimeout(() => refreshParticipants(), 100);
   };
 
   const handleToggleRegistration = async () => {
@@ -210,14 +231,15 @@ export function GamesTab() {
       await refreshRegistration();
       
       // Refresh games list to update registered_count
-      refreshGames();
+      await refreshGames();
       
-      // Refresh participants if we're viewing them
-      if (selectedGameForPlayers?.id === selectedGame.id) {
-        refreshParticipants();
-      }
+      // Всегда обновляем участников после регистрации/отмены
+      await refreshParticipants();
       
       setIsDialogOpen(false);
+      
+      // Обновляем ключ для принудительного обновления GameCard
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error:', error);
       alert('Ошибка при регистрации');
@@ -246,19 +268,14 @@ export function GamesTab() {
         ) : games.length === 0 ? (
           <div className="text-center text-gray-400 py-8">Нет предстоящих игр</div>
         ) : (
-          games.map((game) => {
-            const isGameRegistered = checkIsRegistered(game.id);
-            
-            return (
-              <GameCard
-                key={game.id}
-                game={game}
-                isGameRegistered={isGameRegistered}
-                onJoinClick={handleJoinClick}
-                onShowParticipants={handleShowParticipants}
-              />
-            );
-          })
+          games.map((game) => (
+            <GameCard
+              key={`${game.id}-${refreshKey}`}
+              game={game}
+              onJoinClick={handleJoinClick}
+              onShowParticipants={handleShowParticipants}
+            />
+          ))
         )}
       </div>
 
