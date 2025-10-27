@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useUser } from '../hooks/useUser';
 import { getInitials, formatRelativeTime } from '../lib/utils';
 import { SettingsView } from './SettingsView';
+import { useAdmin } from './AdminContext';
 
 // Icon components as inline SVGs
 const SettingsIcon = ({ className }: { className?: string }) => (
@@ -115,9 +116,21 @@ const getAchievementIconColor = (color?: string) => {
   }
 };
 
+const ShieldCheckIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+    <path d="m9 12 2 2 4-4"/>
+  </svg>
+);
+
 export function ProfileTab() {
   const { user } = useUser();
+  const { isAdmin, setAdminMode } = useAdmin();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const handleActivateAdminMode = () => {
+    setAdminMode(true);
+  };
 
   return (
     <>
@@ -233,6 +246,29 @@ export function ProfileTab() {
           )}
         </div>
       </div>
+
+      {/* Admin Mode Activation (only for admins) */}
+      {isAdmin && (
+        <div className="px-4 mb-4">
+          <button
+            onClick={handleActivateAdminMode}
+            className="w-full bg-gradient-to-br from-red-700/40 to-red-900/40 rounded-2xl p-4 border border-red-700/50 hover:from-red-700/50 hover:to-red-900/50 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-700/30 rounded-full flex items-center justify-center">
+                  <ShieldCheckIcon className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm">Режим администратора</div>
+                  <div className="text-xs text-gray-400">Управление турнирами и пользователями</div>
+                </div>
+              </div>
+              <ChevronDownIcon className="w-5 h-5 rotate-[-90deg]" />
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Recent Activity */}
       <div className="px-4 mb-4">

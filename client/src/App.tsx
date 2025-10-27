@@ -4,7 +4,12 @@ import { HomeTab } from './components/HomeTab';
 import { GamesTab } from './components/GamesTab';
 import { RatingTab } from './components/RatingTab';
 import { ProfileTab } from './components/ProfileTab';
+import { AdminHomeTab } from './components/AdminHomeTab';
+import { AdminTournamentsTab } from './components/AdminTournamentsTab';
+import { AdminProfileTab } from './components/AdminProfileTab';
 import { GameRegistrationProvider } from './components/GameRegistrationContext';
+import { TournamentsProvider } from './components/TournamentsContext';
+import { AdminProvider, useAdmin } from './components/AdminContext';
 import { TermsAndConditions } from './components/TermsAndConditions';
 import { initTelegramApp } from './lib/telegram';
 
@@ -43,7 +48,15 @@ const UserIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export default function App() {
+const ShieldCheckIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+    <path d="m9 12 2 2 4-4"/>
+  </svg>
+);
+
+function AppContent() {
+  const { isAdminMode } = useAdmin();
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [openModals, setOpenModals] = useState({
     seating: false,
@@ -96,35 +109,57 @@ export default function App() {
   };
 
   return (
-    <GameRegistrationProvider>
-      <div className="min-h-screen bg-black text-white pb-32">
-        {/* Content */}
-        <div className="h-full">
-          {activeTab === 'home' && (
-            <HomeTab 
-              key={homeRefreshKey} // Пересоздаем при возврате на вкладку
-              onOpenSeating={() => setOpenModals(prev => ({ ...prev, seating: true }))}
-              onCloseSeating={() => setOpenModals(prev => ({ ...prev, seating: false }))}
-              onOpenPlayers={() => setOpenModals(prev => ({ ...prev, players: true }))}
-              onClosePlayers={() => setOpenModals(prev => ({ ...prev, players: false }))}
-              onOpenHistory={() => setOpenModals(prev => ({ ...prev, history: true }))}
-              onCloseHistory={() => setOpenModals(prev => ({ ...prev, history: false }))}
-              onOpenAboutClub={() => setOpenModals(prev => ({ ...prev, aboutClub: true }))}
-              onCloseAboutClub={() => setOpenModals(prev => ({ ...prev, aboutClub: false }))}
-              isSeatingOpen={openModals.seating}
-              isPlayersOpen={openModals.players}
-              isHistoryOpen={openModals.history}
-              isAboutClubOpen={openModals.aboutClub}
-            />
-          )}
-          {activeTab === 'tournaments' && <GamesTab />}
-          {activeTab === 'rating' && <RatingTab />}
-          {activeTab === 'profile' && <ProfileTab />}
-        </div>
+    <div className="min-h-screen bg-black text-white pb-32">
+      {/* Content */}
+      <div className="h-full">
+        {isAdminMode ? (
+          <>
+            {/* Admin Mode Views */}
+            {activeTab === 'home' && <AdminHomeTab />}
+            {activeTab === 'tournaments' && <AdminTournamentsTab />}
+            {activeTab === 'rating' && <RatingTab />}
+            {activeTab === 'profile' && <AdminProfileTab />}
+          </>
+        ) : (
+          <>
+            {/* User Mode Views */}
+            {activeTab === 'home' && (
+              <HomeTab 
+                key={homeRefreshKey}
+                onOpenSeating={() => setOpenModals(prev => ({ ...prev, seating: true }))}
+                onCloseSeating={() => setOpenModals(prev => ({ ...prev, seating: false }))}
+                onOpenPlayers={() => setOpenModals(prev => ({ ...prev, players: true }))}
+                onClosePlayers={() => setOpenModals(prev => ({ ...prev, players: false }))}
+                onOpenHistory={() => setOpenModals(prev => ({ ...prev, history: true }))}
+                onCloseHistory={() => setOpenModals(prev => ({ ...prev, history: false }))}
+                onOpenAboutClub={() => setOpenModals(prev => ({ ...prev, aboutClub: true }))}
+                onCloseAboutClub={() => setOpenModals(prev => ({ ...prev, aboutClub: false }))}
+                isSeatingOpen={openModals.seating}
+                isPlayersOpen={openModals.players}
+                isHistoryOpen={openModals.history}
+                isAboutClubOpen={openModals.aboutClub}
+              />
+            )}
+            {activeTab === 'tournaments' && <GamesTab />}
+            {activeTab === 'rating' && <RatingTab />}
+            {activeTab === 'profile' && <ProfileTab />}
+          </>
+        )}
+      </div>
 
-        {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 px-2 py-3 z-50">
-          <div className="relative flex items-center justify-around max-w-md mx-auto">
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 px-2 py-3 z-50">
+        {/* Admin Mode Indicator */}
+        {isAdminMode && (
+          <div className="absolute top-[-32px] left-0 right-0 bg-red-900/40 border-t border-red-700/50 px-4 py-1">
+            <div className="flex items-center justify-center gap-2 text-xs">
+              <ShieldCheckIcon className="w-3 h-3 text-red-400" />
+              <span className="text-red-400">Режим администратора активен</span>
+            </div>
+          </div>
+        )}
+        
+        <div className="relative flex items-center justify-around max-w-md mx-auto">
             {/* Animated indicator */}
             <motion.div
               className="absolute bg-red-700/20 rounded-2xl"
@@ -215,10 +250,21 @@ export default function App() {
                 Профиль
               </span>
             </button>
-          </div>
         </div>
       </div>
-    </GameRegistrationProvider>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <TournamentsProvider>
+      <GameRegistrationProvider>
+        <AdminProvider>
+          <AppContent />
+        </AdminProvider>
+      </GameRegistrationProvider>
+    </TournamentsProvider>
   );
 }
 
