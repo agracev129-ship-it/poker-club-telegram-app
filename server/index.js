@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import usersRouter from './routes/users.js';
 import gamesRouter from './routes/games.js';
 import tournamentsRouter from './routes/tournaments.js';
+import { initSeating } from './database/init-seating.js';
 
 dotenv.config();
 
@@ -83,10 +84,17 @@ app.use((err, req, res, next) => {
 });
 
 // Запуск сервера
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || '*'}`);
+  
+  // Initialize seating tables on startup
+  try {
+    await initSeating();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize seating tables (may already exist):', error.message);
+  }
 });
 
 // Graceful shutdown
