@@ -236,6 +236,51 @@ export const gamesAPI = {
   async getMyGames(status?: string): Promise<Game[]> {
     return fetchAPI(`/games/user/my-games${status ? `?status=${status}` : ''}`);
   },
+
+  // Admin tournament management
+  async startTournament(id: number): Promise<{ message: string; assignments: any[] }> {
+    return fetchAPI(`/games/${id}/start`, { method: 'POST' });
+  },
+
+  async getSeating(id: number): Promise<any[]> {
+    return fetchAPI(`/games/${id}/seating`);
+  },
+
+  async eliminatePlayer(id: number, userId: number, finishPlace: number, pointsEarned: number): Promise<{ message: string }> {
+    return fetchAPI(`/games/${id}/eliminate`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, finishPlace, pointsEarned }),
+    });
+  },
+
+  async restorePlayer(id: number, userId: number): Promise<{ message: string }> {
+    return fetchAPI(`/games/${id}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  async addBonusPoints(id: number, userId: number, bonusPoints: number): Promise<{ message: string }> {
+    return fetchAPI(`/games/${id}/bonus-points`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, bonusPoints }),
+    });
+  },
+
+  async rebalanceTables(id: number, seating: any[]): Promise<{ message: string }> {
+    return fetchAPI(`/games/${id}/rebalance`, {
+      method: 'POST',
+      body: JSON.stringify({ seating }),
+    });
+  },
+
+  async finishTournament(id: number): Promise<{ message: string; results: any[] }> {
+    return fetchAPI(`/games/${id}/finish`, { method: 'POST' });
+  },
+
+  async cancelStart(id: number): Promise<{ message: string }> {
+    return fetchAPI(`/games/${id}/cancel-start`, { method: 'POST' });
+  },
 };
 
 // ============= TOURNAMENTS API =============

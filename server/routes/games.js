@@ -224,5 +224,125 @@ router.get('/user/my-games', authenticateTelegram, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/games/:id/start - Начать турнир (только для админов)
+ */
+router.post('/:id/start', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const assignments = await Game.startTournament(gameId);
+    res.json({ message: 'Tournament started', assignments });
+  } catch (error) {
+    console.error('Error starting tournament:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/games/:id/seating - Получить рассадку игроков
+ */
+router.get('/:id/seating', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const seating = await Game.getSeating(gameId);
+    res.json(seating);
+  } catch (error) {
+    console.error('Error getting seating:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/eliminate - Отметить игрока как выбывшего (только для админов)
+ */
+router.post('/:id/eliminate', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId, finishPlace, pointsEarned } = req.body;
+    
+    await Game.eliminatePlayer(gameId, userId, finishPlace, pointsEarned);
+    res.json({ message: 'Player eliminated' });
+  } catch (error) {
+    console.error('Error eliminating player:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/restore - Восстановить игрока (только для админов)
+ */
+router.post('/:id/restore', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId } = req.body;
+    
+    await Game.restorePlayer(gameId, userId);
+    res.json({ message: 'Player restored' });
+  } catch (error) {
+    console.error('Error restoring player:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/bonus-points - Начислить бонусные очки (только для админов)
+ */
+router.post('/:id/bonus-points', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId, bonusPoints } = req.body;
+    
+    await Game.addBonusPoints(gameId, userId, bonusPoints);
+    res.json({ message: 'Bonus points added' });
+  } catch (error) {
+    console.error('Error adding bonus points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/rebalance - Ребалансировать столы (только для админов)
+ */
+router.post('/:id/rebalance', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { seating } = req.body;
+    
+    await Game.rebalanceTables(gameId, seating);
+    res.json({ message: 'Tables rebalanced' });
+  } catch (error) {
+    console.error('Error rebalancing tables:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/finish - Завершить турнир (только для админов)
+ */
+router.post('/:id/finish', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const results = await Game.finishTournament(gameId);
+    res.json({ message: 'Tournament finished', results });
+  } catch (error) {
+    console.error('Error finishing tournament:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/games/:id/cancel-start - Отменить начало турнира (только для админов)
+ */
+router.post('/:id/cancel-start', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    await Game.cancelTournamentStart(gameId);
+    res.json({ message: 'Tournament start cancelled' });
+  } catch (error) {
+    console.error('Error cancelling tournament start:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
 

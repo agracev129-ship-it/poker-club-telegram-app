@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { useTournaments, Tournament } from './TournamentsContext';
 import { CreateTournamentView } from './CreateTournamentView';
 import { AdminTournamentManagementView } from './AdminTournamentManagementView';
-import { games } from './gamesData';
+import { useGames } from '../hooks/useGames';
+import { gamesAPI, Game } from '../lib/api';
 
 const ShieldCheckIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -94,34 +94,36 @@ const formatDateDisplay = (dateStr: string): string => {
 };
 
 export function AdminTournamentsTab() {
-  const { tournaments, addTournament, deleteTournament } = useTournaments();
+  const { games, loading, refreshGames } = useGames({ status: 'upcoming' });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [selectedTournament, setSelectedTournament] = useState<Game | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
-  // Filter out finished tournaments for the main list
-  const upcomingTournaments = tournaments.filter(t => t.tournamentStatus !== 'finished');
+  // Refresh on mount
+  useEffect(() => {
+    refreshGames();
+  }, []);
 
-  const handleDeleteTournament = () => {
-    if (deleteConfirm) {
-      deleteTournament(deleteConfirm.id);
+  // Filter out finished tournaments for the main list
+  const upcomingTournaments = games;
+
+  const handleDeleteTournament = async () => {
+    if (!deleteConfirm) return;
+    
+    try {
+      await gamesAPI.delete(deleteConfirm.id);
       alert('Турнир удален');
       setDeleteConfirm(null);
+      refreshGames();
+    } catch (error) {
+      console.error('Error deleting tournament:', error);
+      alert('Ошибка при удалении турнира');
     }
   };
 
-  const handleSaveTournament = (tournament: any) => {
-    addTournament(tournament);
-    alert('Турнир создан');
-  };
-
-  const loadTestTournaments = () => {
-    // Load tournaments with 30 players (ID 5, 6, 7)
-    const testTournaments = games.filter(g => g.id >= 5 && g.id <= 7);
-    testTournaments.forEach(tournament => {
-      addTournament(tournament as Tournament);
-    });
-    alert(`Загружено ${testTournaments.length} тестовых турнира`);
+  const handleSaveTournament = async () => {
+    // Callback после создания турнира
+    await refreshGames();
   };
 
   return (
@@ -151,14 +153,6 @@ export function AdminTournamentsTab() {
             <PlusIcon className="w-5 h-5" />
             <span>Создать турнир</span>
           </button>
-          
-          <button
-            onClick={loadTestTournaments}
-            className="w-full bg-gradient-to-br from-gray-700 to-gray-900 rounded-2xl p-3 border border-gray-700/50 hover:from-gray-600 hover:to-gray-800 transition-all flex items-center justify-center gap-2"
-          >
-            <DatabaseIcon className="w-4 h-4" />
-            <span className="text-sm">Загрузить тестовые турниры (30 игроков)</span>
-          </button>
         </div>
       </div>
 
@@ -173,7 +167,11 @@ export function AdminTournamentsTab() {
             <span className="text-xs text-gray-400">{upcomingTournaments.length} запланировано</span>
           </div>
           
-          {upcomingTournaments.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              Загрузка турниров...
+            </div>
+          ) : upcomingTournaments.length > 0 ? (
             <div className="space-y-2">
               {upcomingTournaments.map((tournament) => (
                 <div
@@ -194,29 +192,29 @@ export function AdminTournamentsTab() {
                       </div>
                       <div className="flex items-center gap-1">
                         <UsersIcon className="w-3 h-3" />
-                        <span>{tournament.players} мест</span>
+                        <span>{tournament.registered_count || 0} / {tournament.max_players}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {tournament.tournamentStatus && (
+                    {tournament.tournament_status && (
                       <div className={`text-xs shrink-0 px-2 py-0.5 rounded-full ${
-                        tournament.tournamentStatus === 'upcoming'
+                        tournament.tournament_status === 'upcoming'
                           ? 'bg-gray-700/50 text-gray-300'
-                          : tournament.tournamentStatus === 'started'
+                          : tournament.tournament_status === 'started'
                           ? 'bg-green-700/30 text-green-400'
                           : 'bg-red-700/30 text-red-400'
                       }`}>
-                        {tournament.tournamentStatus === 'upcoming' 
+                        {tournament.tournament_status === 'upcoming' 
                           ? 'Ожидание' 
-                          : tournament.tournamentStatus === 'started' 
+                          : tournament.tournament_status === 'started' 
                           ? 'Идёт' 
                           : 'Завершён'}
                       </div>
                     )}
-                    {!tournament.tournamentStatus && (
+                    {!tournament.tournament_status && (
                       <div className="text-xs text-green-400 shrink-0">
-                        {tournament.currentPlayers === tournament.maxPlayers ? 'Заполнен' : 'Открыт'}
+                        {tournament.registered_count === tournament.max_players ? 'Заполнен' : 'Открыт'}
                       </div>
                     )}
                     <button

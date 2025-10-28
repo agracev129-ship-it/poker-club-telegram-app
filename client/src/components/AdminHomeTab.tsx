@@ -1,4 +1,6 @@
-import { useTournaments } from './TournamentsContext';
+import { useState, useEffect } from 'react';
+import { useGames } from '../hooks/useGames';
+import { usersAPI } from '../lib/api';
 
 // Helper function to format date
 const formatDateDisplay = (dateStr: string): string => {
@@ -61,12 +63,32 @@ const AlertCircleIcon = ({ className }: { className?: string }) => (
 );
 
 export function AdminHomeTab() {
-  const { tournaments } = useTournaments();
+  const { games, loading } = useGames({ status: 'upcoming' });
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [activeToday, setActiveToday] = useState(0);
 
-  // Filter out finished tournaments
-  const activeTournaments = tournaments.filter(t => t.tournamentStatus !== 'finished');
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const users = await usersAPI.getAll(1000, 0);
+        setTotalUsers(users.length);
+        
+        // Подсчет активных сегодня (упрощенно)
+        const today = new Date().toISOString().split('T')[0];
+        const active = users.filter(u => {
+          const lastActive = new Date(u.last_active).toISOString().split('T')[0];
+          return lastActive === today;
+        });
+        setActiveToday(active.length);
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    };
+    
+    loadStats();
+  }, []);
 
-  // Get upcoming tournaments
+  const activeTournaments = games.filter(g => g.tournament_status !== 'finished');
   const upcomingTournaments = activeTournaments.slice(0, 5);
 
   return (
@@ -96,10 +118,10 @@ export function AdminHomeTab() {
               <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
                 <UsersIcon className="w-5 h-5 text-blue-400" />
               </div>
-              <div className="text-2xl">247</div>
+              <div className="text-2xl">{totalUsers}</div>
             </div>
             <div className="text-xs text-gray-400">Всего игроков</div>
-            <div className="text-xs text-blue-400 mt-1">+12 за неделю</div>
+            <div className="text-xs text-blue-400 mt-1">Зарегистрировано</div>
           </div>
 
           <div className="bg-gradient-to-br from-yellow-900/30 to-yellow-950/30 rounded-2xl p-4 border border-yellow-700/30">
@@ -124,7 +146,11 @@ export function AdminHomeTab() {
             <span className="text-xs text-gray-400">{activeTournaments.length} активно</span>
           </div>
           
-          {upcomingTournaments.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              Загрузка...
+            </div>
+          ) : upcomingTournaments.length > 0 ? (
             <div className="space-y-2">
               {upcomingTournaments.map((tournament) => (
                 <div
@@ -134,11 +160,11 @@ export function AdminHomeTab() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm mb-0.5 truncate">{tournament.name}</div>
                     <div className="text-xs text-gray-400">
-                      {formatDateDisplay(tournament.date)}, {tournament.time} • {tournament.players} мест
+                      {formatDateDisplay(tournament.date)}, {tournament.time} • {tournament.registered_count || 0} / {tournament.max_players} мест
                     </div>
                   </div>
                   <div className="text-xs shrink-0">
-                    {tournament.currentPlayers === tournament.maxPlayers ? (
+                    {tournament.registered_count === tournament.max_players ? (
                       <span className="text-red-400">Заполнен</span>
                     ) : (
                       <span className="text-green-400">Открыт</span>
@@ -155,7 +181,7 @@ export function AdminHomeTab() {
         </div>
 
         {/* Alerts */}
-        {tournaments.some(t => t.queueCount > 0) && (
+        {games.length > 0 && (
           <div className="bg-gradient-to-br from-orange-900/30 to-orange-950/30 rounded-2xl p-4 border border-orange-700/30">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center shrink-0">

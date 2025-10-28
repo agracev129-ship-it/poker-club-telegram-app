@@ -1,7 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Button } from './ui/button';
-import { Tournament, PlayerSeating, useTournaments } from './TournamentsContext';
+import { Game, gamesAPI, User } from '../lib/api';
+
+// Types
+interface PlayerSeating {
+  user_id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  table_number: number;
+  seat_number: number;
+  is_eliminated: boolean;
+  finish_place?: number;
+  points_earned?: number;
+  bonus_points?: number;
+}
 
 const XIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -62,208 +77,199 @@ const CheckCircleIcon = ({ className }: { className?: string }) => (
 );
 
 interface AdminTournamentManagementViewProps {
-  tournament: Tournament;
+  tournament: Game;
   onClose: () => void;
 }
 
 export function AdminTournamentManagementView({ tournament, onClose }: AdminTournamentManagementViewProps) {
-  const { updateTournament } = useTournaments();
-  const [seating, setSeating] = useState<PlayerSeating[]>(tournament.seating || []);
+  const [seating, setSeating] = useState<PlayerSeating[]>([]);
+  const [registeredPlayers, setRegisteredPlayers] = useState<User[]>([]);
   const [tournamentStatus, setTournamentStatus] = useState<'upcoming' | 'started' | 'finished'>(
-    tournament.tournamentStatus || 'upcoming'
+    (tournament.tournament_status as any) || 'upcoming'
   );
   const [bonusPointsDialog, setBonusPointsDialog] = useState<{ playerId: number; playerName: string } | null>(null);
   const [bonusPointsAmount, setBonusPointsAmount] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Generate seating arrangement when tournament starts
-  const generateSeating = () => {
-    const players = tournament.registeredPlayers || [];
-    const playersPerTable = 10; // Poker table standard
-    const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
-    
-    const newSeating: PlayerSeating[] = shuffledPlayers.map((player, index) => ({
-      playerId: player.id,
-      playerName: player.name,
-      table: Math.floor(index / playersPerTable) + 1,
-      seat: (index % playersPerTable) + 1,
-      isEliminated: false,
-    }));
+  // Load seating and registrations
+  useEffect(() => {
+    loadTournamentData();
+  }, [tournament.id]);
 
-    setSeating(newSeating);
-    return newSeating;
-  };
-
-  // Rebalance tables to consolidate players
-  const handleRebalanceTables = () => {
-    const activePlayers = seating.filter(p => !p.isEliminated);
-    const playersPerTable = 10;
-    
-    const tablesNeeded = Math.ceil(activePlayers.length / playersPerTable);
-    
-    const playersByTable: Record<number, PlayerSeating[]> = {};
-    activePlayers.forEach(player => {
-      if (!playersByTable[player.table]) {
-        playersByTable[player.table] = [];
-      }
-      playersByTable[player.table].push(player);
-    });
-    
-    const existingTables = Object.keys(playersByTable).map(Number).sort((a, b) => a - b);
-    const tablesToKeep = existingTables.slice(0, tablesNeeded);
-    const tablesToClose = existingTables.slice(tablesNeeded);
-    
-    const playersToRelocate: PlayerSeating[] = [];
-    tablesToClose.forEach(tableNum => {
-      playersToRelocate.push(...playersByTable[tableNum]);
-    });
-    
-    const shuffledPlayersToRelocate = [...playersToRelocate].sort(() => Math.random() - 0.5);
-    
-    const availableSeats: Array<{ table: number; seat: number }> = [];
-    tablesToKeep.forEach(tableNum => {
-      const occupiedSeats = new Set(playersByTable[tableNum].map(p => p.seat));
-      for (let seat = 1; seat <= playersPerTable; seat++) {
-        if (!occupiedSeats.has(seat)) {
-          availableSeats.push({ table: tableNum, seat });
-        }
-      }
-    });
-    
-    const relocationMap = new Map<number, { table: number; seat: number }>();
-    shuffledPlayersToRelocate.forEach((player, index) => {
-      if (index < availableSeats.length) {
-        relocationMap.set(player.playerId, availableSeats[index]);
-      }
-    });
-    
-    const updatedSeating = seating.map(player => {
-      if (player.isEliminated) return player;
+  const loadTournamentData = async () => {
+    try {
+      setLoading(true);
       
-      const relocation = relocationMap.get(player.playerId);
-      if (relocation) {
-        return {
-          ...player,
-          table: relocation.table,
-          seat: relocation.seat,
-        };
-      }
+      // Загружаем зарегистрированных игроков
+      const players = await gamesAPI.getRegistrations(tournament.id);
+      setRegisteredPlayers(players);
       
-      return player;
-    });
-
-    setSeating(updatedSeating);
-    updateTournament(tournament.id, {
-      seating: updatedSeating,
-    });
-    
-    const movedCount = relocationMap.size;
-    alert(`Столы ребалансированы! Пересажено игроков: ${movedCount}`);
-  };
-
-  const handleStartTournament = () => {
-    const newSeating = generateSeating();
-    setTournamentStatus('started');
-    updateTournament(tournament.id, {
-      tournamentStatus: 'started',
-      seating: newSeating,
-    });
-    alert('Турнир начался! Рассадка сгенерирована.');
-  };
-
-  const handleCancelTournament = () => {
-    setSeating([]);
-    setTournamentStatus('upcoming');
-    updateTournament(tournament.id, {
-      tournamentStatus: 'upcoming',
-      seating: [],
-    });
-    setShowCancelConfirm(false);
-    alert('Турнир отменен. Можно начать заново.');
-  };
-
-  const handleFinishTournament = () => {
-    setTournamentStatus('finished');
-    updateTournament(tournament.id, {
-      tournamentStatus: 'finished',
-    });
-    alert('Турнир завершён! Результаты сохранены в историю.');
-    setTimeout(() => onClose(), 1500);
-  };
-
-  const handleEliminatePlayer = (playerId: number) => {
-    const activePlayers = seating.filter(p => !p.isEliminated);
-    const newPlace = activePlayers.length;
-    
-    const pointDist = tournament.pointDistribution || [];
-    const points = pointDist.find(p => p.place === newPlace)?.points || 0;
-
-    const updatedSeating = seating.map(p => {
-      if (p.playerId === playerId) {
-        return {
-          ...p,
-          isEliminated: true,
-          finishPlace: newPlace,
-          pointsEarned: points,
-        };
+      // Загружаем рассадку если турнир начался
+      if (tournament.tournament_status === 'started' || tournament.tournament_status === 'finished') {
+        const seatingData = await gamesAPI.getSeating(tournament.id);
+        setSeating(seatingData);
       }
-      return p;
-    });
-
-    setSeating(updatedSeating);
-    updateTournament(tournament.id, {
-      seating: updatedSeating,
-    });
-
-    alert(`Игрок выбыл. Место: ${newPlace}, Очки: ${points}`);
-
-    const remainingPlayers = updatedSeating.filter(p => !p.isEliminated);
-    if (remainingPlayers.length === 1) {
-      const winner = remainingPlayers[0];
-      const firstPlacePoints = pointDist.find(p => p.place === 1)?.points || 0;
-      const finalSeating = updatedSeating.map(p => {
-        if (p.playerId === winner.playerId) {
-          return {
-            ...p,
-            isEliminated: true,
-            finishPlace: 1,
-            pointsEarned: firstPlacePoints,
-          };
-        }
-        return p;
-      });
-
-      setSeating(finalSeating);
-      setTournamentStatus('finished');
-      updateTournament(tournament.id, {
-        tournamentStatus: 'finished',
-        seating: finalSeating,
-      });
-      alert(`Турнир завершен! Победитель: ${winner.playerName}`);
+    } catch (error) {
+      console.error('Error loading tournament data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRestorePlayer = (playerId: number) => {
-    const updatedSeating = seating.map(p => {
-      if (p.playerId === playerId) {
-        return {
-          ...p,
-          isEliminated: false,
-          finishPlace: undefined,
-          pointsEarned: undefined,
-        };
-      }
-      return p;
-    });
+  // Rebalance tables to consolidate players
+  const handleRebalanceTables = async () => {
+    try {
+      const activePlayers = seating.filter(p => !p.is_eliminated);
+      const playersPerTable = 10;
+      
+      const tablesNeeded = Math.ceil(activePlayers.length / playersPerTable);
+      
+      const playersByTable: Record<number, PlayerSeating[]> = {};
+      activePlayers.forEach(player => {
+        if (!playersByTable[player.table_number]) {
+          playersByTable[player.table_number] = [];
+        }
+        playersByTable[player.table_number].push(player);
+      });
+      
+      const existingTables = Object.keys(playersByTable).map(Number).sort((a, b) => a - b);
+      const tablesToKeep = existingTables.slice(0, tablesNeeded);
+      const tablesToClose = existingTables.slice(tablesNeeded);
+      
+      const playersToRelocate: PlayerSeating[] = [];
+      tablesToClose.forEach(tableNum => {
+        playersToRelocate.push(...playersByTable[tableNum]);
+      });
+      
+      const shuffledPlayersToRelocate = [...playersToRelocate].sort(() => Math.random() - 0.5);
+      
+      const availableSeats: Array<{ table: number; seat: number }> = [];
+      tablesToKeep.forEach(tableNum => {
+        const occupiedSeats = new Set(playersByTable[tableNum].map(p => p.seat_number));
+        for (let seat = 1; seat <= playersPerTable; seat++) {
+          if (!occupiedSeats.has(seat)) {
+            availableSeats.push({ table: tableNum, seat });
+          }
+        }
+      });
+      
+      const rebalanceData = shuffledPlayersToRelocate.map((player, index) => ({
+        userId: player.user_id,
+        tableNumber: index < availableSeats.length ? availableSeats[index].table : player.table_number,
+        seatNumber: index < availableSeats.length ? availableSeats[index].seat : player.seat_number,
+      }));
 
-    setSeating(updatedSeating);
-    updateTournament(tournament.id, {
-      seating: updatedSeating,
-    });
-    alert('Игрок восстановлен');
+      await gamesAPI.rebalanceTables(tournament.id, rebalanceData);
+      await loadTournamentData();
+      
+      alert(`Столы ребалансированы! Пересажено игроков: ${rebalanceData.length}`);
+    } catch (error) {
+      console.error('Error rebalancing tables:', error);
+      alert('Ошибка при ребалансировке столов');
+    }
   };
 
-  const handleAddBonusPoints = () => {
+  const handleStartTournament = async () => {
+    try {
+      setLoading(true);
+      await gamesAPI.startTournament(tournament.id);
+      setTournamentStatus('started');
+      await loadTournamentData();
+      alert('Турнир начался! Рассадка сгенерирована.');
+    } catch (error) {
+      console.error('Error starting tournament:', error);
+      alert('Ошибка при начале турнира: ' + (error instanceof Error ? error.message : ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelTournament = async () => {
+    try {
+      setLoading(true);
+      await gamesAPI.cancelStart(tournament.id);
+      setSeating([]);
+      setTournamentStatus('upcoming');
+      setShowCancelConfirm(false);
+      alert('Турнир отменен. Можно начать заново.');
+      await loadTournamentData();
+    } catch (error) {
+      console.error('Error cancelling tournament:', error);
+      alert('Ошибка при отмене турнира');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFinishTournament = async () => {
+    try {
+      setLoading(true);
+      await gamesAPI.finishTournament(tournament.id);
+      setTournamentStatus('finished');
+      alert('Турнир завершён! Результаты сохранены в историю.');
+      setTimeout(() => onClose(), 1500);
+    } catch (error) {
+      console.error('Error finishing tournament:', error);
+      alert('Ошибка при завершении турнира');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEliminatePlayer = async (playerId: number) => {
+    try {
+      const activePlayers = seating.filter(p => !p.is_eliminated);
+      const newPlace = activePlayers.length;
+      
+      // Get points from localStorage tournamentSettings
+      const tournamentSettings = JSON.parse(localStorage.getItem('tournamentSettings') || '{}');
+      const settings = tournamentSettings[tournament.id] || {};
+      const pointDist = settings.pointDistribution || [];
+      const points = pointDist.find((p: any) => p.place === newPlace)?.points || 0;
+
+      // Call API to eliminate player
+      await gamesAPI.eliminatePlayer(tournament.id, playerId, newPlace, points);
+      
+      // Reload seating
+      await loadTournamentData();
+      
+      alert(`Игрок выбыл. Место: ${newPlace}, Очки: ${points}`);
+
+      // Check if only one player remains
+      const updatedSeating = await gamesAPI.getSeating(tournament.id);
+      const remainingPlayers = updatedSeating.filter((p: any) => !p.is_eliminated);
+      
+      if (remainingPlayers.length === 1) {
+        const winner = remainingPlayers[0];
+        const firstPlacePoints = pointDist.find((p: any) => p.place === 1)?.points || 0;
+        
+        // Eliminate winner with 1st place
+        await gamesAPI.eliminatePlayer(tournament.id, winner.user_id, 1, firstPlacePoints);
+        
+        // Finish tournament
+        await handleFinishTournament();
+        
+        alert(`Турнир завершен! Победитель: ${winner.first_name} ${winner.last_name || ''}`);
+      }
+    } catch (error) {
+      console.error('Error eliminating player:', error);
+      alert('Ошибка при выбывании игрока');
+    }
+  };
+
+  const handleRestorePlayer = async (playerId: number) => {
+    try {
+      await gamesAPI.restorePlayer(tournament.id, playerId);
+      await loadTournamentData();
+      alert('Игрок восстановлен');
+    } catch (error) {
+      console.error('Error restoring player:', error);
+      alert('Ошибка при восстановлении игрока');
+    }
+  };
+
+  const handleAddBonusPoints = async () => {
     if (!bonusPointsDialog) return;
     
     const points = parseInt(bonusPointsAmount);
@@ -272,47 +278,40 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
       return;
     }
 
-    const updatedSeating = seating.map(p => {
-      if (p.playerId === bonusPointsDialog.playerId) {
-        return {
-          ...p,
-          bonusPoints: (p.bonusPoints || 0) + points,
-        };
-      }
-      return p;
-    });
-
-    setSeating(updatedSeating);
-    updateTournament(tournament.id, {
-      seating: updatedSeating,
-    });
-    alert(`Начислено +${points} бонусных очков игроку ${bonusPointsDialog.playerName}`);
-    setBonusPointsDialog(null);
-    setBonusPointsAmount('');
+    try {
+      await gamesAPI.addBonusPoints(tournament.id, bonusPointsDialog.playerId, points);
+      await loadTournamentData();
+      alert(`Начислено +${points} бонусных очков игроку ${bonusPointsDialog.playerName}`);
+      setBonusPointsDialog(null);
+      setBonusPointsAmount('');
+    } catch (error) {
+      console.error('Error adding bonus points:', error);
+      alert('Ошибка при начислении бонусных очков');
+    }
   };
 
   // Group players by table
   const tableGroups = seating.reduce((acc, player) => {
-    if (!acc[player.table]) {
-      acc[player.table] = [];
+    if (!acc[player.table_number]) {
+      acc[player.table_number] = [];
     }
-    acc[player.table].push(player);
+    acc[player.table_number].push(player);
     return acc;
   }, {} as Record<number, PlayerSeating[]>);
 
   Object.keys(tableGroups).forEach(tableNum => {
-    tableGroups[Number(tableNum)].sort((a, b) => a.seat - b.seat);
+    tableGroups[Number(tableNum)].sort((a, b) => a.seat_number - b.seat_number);
   });
 
   const activePlayers = seating
-    .filter(p => !p.isEliminated)
+    .filter(p => !p.is_eliminated)
     .sort((a, b) => {
-      if (a.table !== b.table) {
-        return a.table - b.table;
+      if (a.table_number !== b.table_number) {
+        return a.table_number - b.table_number;
       }
-      return a.seat - b.seat;
+      return a.seat_number - b.seat_number;
     });
-  const eliminatedPlayers = seating.filter(p => p.isEliminated).sort((a, b) => (a.finishPlace || 0) - (b.finishPlace || 0));
+  const eliminatedPlayers = seating.filter(p => p.is_eliminated).sort((a, b) => (a.finish_place || 0) - (b.finish_place || 0));
 
   return (
     <motion.div
@@ -337,7 +336,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
                 {tournamentStatus === 'upcoming' ? 'Ожидание' : tournamentStatus === 'started' ? 'В процессе' : 'Завершен'}
               </span>
               <span className="text-xs text-gray-400">
-                Игроков: {tournament.currentPlayers}/{tournament.maxPlayers}
+                Игроков: {tournament.registered_count || 0}/{tournament.max_players}
               </span>
             </div>
           </div>
@@ -350,7 +349,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
         </div>
 
         {/* Start Tournament Button */}
-        {tournamentStatus === 'upcoming' && tournament.currentPlayers > 0 && (
+        {tournamentStatus === 'upcoming' && (tournament.registered_count || 0) > 0 && (
           <div className="mb-6">
             <Button
               onClick={handleStartTournament}
@@ -362,7 +361,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
           </div>
         )}
 
-        {tournamentStatus === 'upcoming' && tournament.currentPlayers === 0 && (
+        {tournamentStatus === 'upcoming' && (tournament.registered_count || 0) === 0 && (
           <div className="bg-gray-800/30 rounded-2xl p-6 mb-6 text-center">
             <p className="text-gray-400">Нет зарегистрированных игроков</p>
           </div>
@@ -425,7 +424,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
                       {/* Top row - 5 seats */}
                       <div className="grid grid-cols-5 gap-3">
                         {[1, 2, 3, 4, 5].map(seatNum => {
-                          const player = players.find(p => p.seat === seatNum && !p.isEliminated);
+                          const player = players.find(p => p.seat_number === seatNum && !p.is_eliminated);
                           return (
                             <div
                               key={seatNum}
@@ -437,7 +436,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
                             >
                               <div className="text-xs text-gray-400 mb-1">{seatNum}</div>
                               {player && (
-                                <div className="text-xs truncate w-full px-1">{player.playerName}</div>
+                                <div className="text-xs truncate w-full px-1">{player.first_name}</div>
                               )}
                             </div>
                           );
@@ -446,7 +445,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
                       {/* Bottom row - 5 seats */}
                       <div className="grid grid-cols-5 gap-3">
                         {[6, 7, 8, 9, 10].map(seatNum => {
-                          const player = players.find(p => p.seat === seatNum && !p.isEliminated);
+                          const player = players.find(p => p.seat_number === seatNum && !p.is_eliminated);
                           return (
                             <div
                               key={seatNum}
@@ -458,7 +457,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
                             >
                               <div className="text-xs text-gray-400 mb-1">{seatNum}</div>
                               {player && (
-                                <div className="text-xs truncate w-full px-1">{player.playerName}</div>
+                                <div className="text-xs truncate w-full px-1">{player.first_name}</div>
                               )}
                             </div>
                           );
@@ -471,19 +470,19 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
                   <div className="space-y-2">
                     {activeTablePlayers.map(player => (
                       <div
-                        key={player.playerId}
+                        key={player.user_id}
                         className="bg-[#1a1a1a] rounded-xl p-3 flex items-center justify-between gap-2"
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm mb-0.5 truncate">{player.playerName}</div>
-                          <div className="text-xs text-gray-400">Стол {player.table}, Место {player.seat}</div>
-                          {player.bonusPoints && player.bonusPoints > 0 && (
-                            <div className="text-xs text-yellow-400 mt-0.5">Бонус: +{player.bonusPoints}</div>
+                          <div className="text-sm mb-0.5 truncate">{player.first_name} {player.last_name || ''}</div>
+                          <div className="text-xs text-gray-400">Стол {player.table_number}, Место {player.seat_number}</div>
+                          {player.bonus_points && player.bonus_points > 0 && (
+                            <div className="text-xs text-yellow-400 mt-0.5">Бонус: +{player.bonus_points}</div>
                           )}
                         </div>
                         <div className="flex gap-2 shrink-0">
                           <Button
-                            onClick={() => setBonusPointsDialog({ playerId: player.playerId, playerName: player.playerName })}
+                            onClick={() => setBonusPointsDialog({ playerId: player.user_id, playerName: `${player.first_name} ${player.last_name || ''}` })}
                             variant="outline"
                             className="bg-yellow-700/20 border-yellow-700/50 hover:bg-yellow-700/30 text-yellow-400 hover:text-yellow-300 text-xs px-3"
                           >
@@ -491,7 +490,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
                             Доп.очки
                           </Button>
                           <Button
-                            onClick={() => handleEliminatePlayer(player.playerId)}
+                            onClick={() => handleEliminatePlayer(player.user_id)}
                             variant="outline"
                             className="bg-red-700/20 border-red-700/50 hover:bg-red-700/30 text-red-400 hover:text-red-300 text-xs px-3"
                           >
@@ -514,40 +513,40 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
             <h3 className="text-lg mb-4">Выбывшие игроки ({eliminatedPlayers.length})</h3>
             <div className="space-y-2">
               {eliminatedPlayers.map(player => {
-                const totalPoints = (player.pointsEarned || 0) + (player.bonusPoints || 0);
+                const totalPoints = (player.points_earned || 0) + (player.bonus_points || 0);
                 return (
                   <div
-                    key={player.playerId}
+                    key={player.user_id}
                     className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 rounded-xl p-3 border border-gray-700/30"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center shrink-0">
-                          <span className="text-sm">#{player.finishPlace}</span>
+                          <span className="text-sm">#{player.finish_place}</span>
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm truncate">{player.playerName}</div>
+                          <div className="text-sm truncate">{player.first_name} {player.last_name || ''}</div>
                           <div className="text-xs text-gray-400">
-                            Стол {player.table}, Место {player.seat}
+                            Стол {player.table_number}, Место {player.seat_number}
                           </div>
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-sm text-yellow-400">
-                          {player.bonusPoints && player.bonusPoints > 0 ? (
+                          {player.bonus_points && player.bonus_points > 0 ? (
                             <div>
                               <div>+{totalPoints} очков</div>
                               <div className="text-xs text-gray-400">
-                                ({player.pointsEarned} + {player.bonusPoints} бонус)
+                                ({player.points_earned} + {player.bonus_points} бонус)
                               </div>
                             </div>
                           ) : (
-                            <div>+{player.pointsEarned} очков</div>
+                            <div>+{player.points_earned} очков</div>
                           )}
                         </div>
                         {tournamentStatus === 'started' && (
                           <button
-                            onClick={() => handleRestorePlayer(player.playerId)}
+                            onClick={() => handleRestorePlayer(player.user_id)}
                             className="text-xs text-gray-500 hover:text-gray-300 transition-colors mt-1"
                           >
                             Восстановить
@@ -572,7 +571,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
         )}
 
         {/* No Players Registered Yet */}
-        {tournamentStatus === 'upcoming' && !tournament.registeredPlayers?.length && (
+        {tournamentStatus === 'upcoming' && registeredPlayers.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
               <TrophyIcon className="w-8 h-8 text-gray-600" />

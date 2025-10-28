@@ -252,6 +252,192 @@ export const Game = {
         ]
       );
     }
+  },
+
+  /**
+   * Начинает турнир и генерирует рассадку
+   */
+  async startTournament(gameId) {
+    // Получаем список зарегистрированных игроков
+    const registrations = await this.getRegisteredUsers(gameId);
+    
+    if (registrations.length === 0) {
+      throw new Error('No players registered');
+    }
+
+    // Обновляем статус турнира
+    await query(
+      `UPDATE games SET tournament_status = 'started' WHERE id = $1`,
+      [gameId]
+    );
+
+    // Генерируем рассадку (10 игроков за столом)
+    const playersPerTable = 10;
+    const shuffledPlayers = [...registrations].sort(() => Math.random() - 0.5);
+
+    // Удаляем старые назначения если есть
+    await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);
+
+    // Создаем новые назначения
+    const assignments = [];
+    for (let i = 0; i < shuffledPlayers.length; i++) {
+      const player = shuffledPlayers[i];
+      const tableNumber = Math.floor(i / playersPerTable) + 1;
+      const seatNumber = (i % playersPerTable) + 1;
+
+      await query(
+        `INSERT INTO table_assignments (game_id, user_id, table_number, seat_number)
+         VALUES ($1, $2, $3, $4)`,
+        [gameId, player.id, tableNumber, seatNumber]
+      );
+
+      assignments.push({
+        userId: player.id,
+        userName: `${player.first_name} ${player.last_name || ''}`.trim(),
+        tableNumber,
+        seatNumber,
+      });
+    }
+
+    return assignments;
+  },
+
+  /**
+   * Получает рассадку игроков для турнира
+   */
+  async getSeating(gameId) {
+    const result = await query(
+      `SELECT ta.*, u.first_name, u.last_name, u.username, u.photo_url
+       FROM table_assignments ta
+       JOIN users u ON u.id = ta.user_id
+       WHERE ta.game_id = $1
+       ORDER BY ta.table_number, ta.seat_number`,
+      [gameId]
+    );
+
+    return result.rows;
+  },
+
+  /**
+   * Отмечает игрока как выбывшего
+   */
+  async eliminatePlayer(gameId, userId, finishPlace, pointsEarned) {
+    await query(
+      `UPDATE table_assignments
+       SET is_eliminated = true, finish_place = $1, points_earned = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE game_id = $3 AND user_id = $4`,
+      [finishPlace, pointsEarned, gameId, userId]
+    );
+  },
+
+  /**
+   * Восстанавливает игрока
+   */
+  async restorePlayer(gameId, userId) {
+    await query(
+      `UPDATE table_assignments
+       SET is_eliminated = false, finish_place = NULL, points_earned = 0, updated_at = CURRENT_TIMESTAMP
+       WHERE game_id = $1 AND user_id = $2`,
+      [gameId, userId]
+    );
+  },
+
+  /**
+   * Начисляет бонусные очки игроку
+   */
+  async addBonusPoints(gameId, userId, bonusPoints) {
+    await query(
+      `UPDATE table_assignments
+       SET bonus_points = bonus_points + $1, updated_at = CURRENT_TIMESTAMP
+       WHERE game_id = $2 AND user_id = $3`,
+      [bonusPoints, gameId, userId]
+    );
+  },
+
+  /**
+   * Ребалансировка столов (обновление рассадки)
+   */
+  async rebalanceTables(gameId, newSeating) {
+    // newSeating: [{ userId, tableNumber, seatNumber }, ...]
+    for (const assignment of newSeating) {
+      await query(
+        `UPDATE table_assignments
+         SET table_number = $1, seat_number = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE game_id = $3 AND user_id = $4`,
+        [assignment.tableNumber, assignment.seatNumber, gameId, assignment.userId]
+      );
+    }
+  },
+
+  /**
+   * Завершает турнир и начисляет очки всем игрокам
+   */
+  async finishTournament(gameId) {
+    // Получаем всех игроков с рассадкой
+    const seating = await this.getSeating(gameId);
+
+    // Обновляем статус турнира
+    await query(
+      `UPDATE games SET tournament_status = 'finished', status = 'completed' WHERE id = $1`,
+      [gameId]
+    );
+
+    // Начисляем очки каждому игроку
+    for (const player of seating) {
+      if (player.is_eliminated && player.points_earned !== null) {
+        const totalPoints = player.points_earned + (player.bonus_points || 0);
+
+        // Обновляем статистику пользователя
+        await query(
+          `UPDATE user_stats
+           SET games_played = games_played + 1,
+               games_won = games_won + CASE WHEN $1 = 1 THEN 1 ELSE 0 END,
+               total_points = total_points + $2
+           WHERE user_id = $3`,
+          [player.finish_place, totalPoints, player.user_id]
+        );
+
+        // Обновляем регистрацию
+        await query(
+          `UPDATE game_registrations 
+           SET status = 'participated', position = $1
+           WHERE game_id = $2 AND user_id = $3`,
+          [player.finish_place, gameId, player.user_id]
+        );
+
+        // Добавляем активность
+        await query(
+          `INSERT INTO user_activities (user_id, activity_type, description, related_id)
+           VALUES ($1, $2, $3, $4)`,
+          [
+            player.user_id,
+            player.finish_place === 1 ? 'game_won' : 'game_participated',
+            player.finish_place === 1 ? 'Победа в турнире' : `${player.finish_place}-е место в турнире`,
+            gameId
+          ]
+        );
+      }
+    }
+
+    // Обновляем рейтинги
+    const { default: User } = await import('./User.js');
+    await User.updateRankings();
+
+    return seating;
+  },
+
+  /**
+   * Отменяет начало турнира (возвращает в статус upcoming)
+   */
+  async cancelTournamentStart(gameId) {
+    // Удаляем рассадку
+    await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);
+    
+    // Возвращаем статус
+    await query(
+      `UPDATE games SET tournament_status = 'upcoming' WHERE id = $1`,
+      [gameId]
+    );
   }
 };
 

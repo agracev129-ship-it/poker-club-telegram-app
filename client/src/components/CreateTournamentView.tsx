@@ -5,6 +5,7 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Button } from './ui/button';
+import { gamesAPI } from '../lib/api';
 
 const XIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -105,34 +106,47 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || !date || !time) {
       alert('Пожалуйста, заполните все обязательные поля');
       return;
     }
 
-    const newTournament = {
-      id: Date.now(),
-      name: name.toUpperCase(),
-      players: `0 / ${maxPlayers}`,
-      currentPlayers: 0,
-      maxPlayers,
-      queueCount: 0,
-      time,
-      date,
-      location,
-      status: 'upcoming',
-      description,
-      hasFriendRegistered: false,
-      registeredPlayers: [],
-      pointDistribution,
-      autoBalance,
-      tournamentStatus: 'upcoming' as const,
-      seating: [],
-    };
+    try {
+      // Создаем турнир через API
+      const gameData = {
+        name: name.toUpperCase(),
+        description: description || `Турнир на ${maxPlayers} игроков. ${location}`,
+        game_type: 'tournament',
+        date,
+        time,
+        max_players: maxPlayers,
+        buy_in: 0, // Можно добавить поле в форму
+        status: 'upcoming',
+      };
 
-    onSave(newTournament);
-    onClose();
+      const createdGame = await gamesAPI.create(gameData);
+      
+      // Сохраняем point distribution в localStorage для этого турнира
+      const tournamentSettings = JSON.parse(localStorage.getItem('tournamentSettings') || '{}');
+      tournamentSettings[createdGame.id] = {
+        pointDistribution,
+        autoBalance,
+        location,
+      };
+      localStorage.setItem('tournamentSettings', JSON.stringify(tournamentSettings));
+
+      alert('Турнир успешно создан!');
+      onClose();
+      
+      // Уведомляем родительский компонент для обновления списка
+      if (onSave) {
+        onSave(createdGame);
+      }
+    } catch (error) {
+      console.error('Error creating tournament:', error);
+      alert('Ошибка при создании турнира: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+    }
   };
 
   return (

@@ -48,13 +48,6 @@ const UserIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ShieldCheckIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
-    <path d="m9 12 2 2 4-4"/>
-  </svg>
-);
-
 function AppContent() {
   const { isAdminMode } = useAdmin();
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -149,16 +142,6 @@ function AppContent() {
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 px-2 py-3 z-50">
-        {/* Admin Mode Indicator */}
-        {isAdminMode && (
-          <div className="absolute top-[-32px] left-0 right-0 bg-red-900/40 border-t border-red-700/50 px-4 py-1">
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <ShieldCheckIcon className="w-3 h-3 text-red-400" />
-              <span className="text-red-400">Режим администратора активен</span>
-            </div>
-          </div>
-        )}
-        
         <div className="relative flex items-center justify-around max-w-md mx-auto">
             {/* Animated indicator */}
             <motion.div
