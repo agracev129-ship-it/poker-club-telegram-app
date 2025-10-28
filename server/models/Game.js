@@ -18,8 +18,10 @@ export const Game = {
     const params = [];
     let paramCount = 1;
     
-    if (filters.status) {
-      conditions.push(`g.status = $${paramCount}`);
+    // Фильтр по tournament_status (если передан как status)
+    if (filters.status && filters.status !== 'all') {
+      // Проверяем есть ли поле tournament_status
+      conditions.push(`(g.tournament_status = $${paramCount} OR (g.tournament_status IS NULL AND g.status = $${paramCount}))`);
       params.push(filters.status);
       paramCount++;
     }

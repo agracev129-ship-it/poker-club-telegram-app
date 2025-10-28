@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAdmin } from './AdminContext';
 import { SettingsView } from './SettingsView';
+import { useGames } from '../hooks/useGames';
+import { usersAPI } from '../lib/api';
 
 const ShieldCheckIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -61,6 +63,33 @@ const UserIcon = ({ className }: { className?: string }) => (
 export function AdminProfileTab() {
   const { setAdminMode } = useAdmin();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { games, loading: gamesLoading } = useGames({ status: 'all' });
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [activeToday, setActiveToday] = useState(0);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const users = await usersAPI.getAll(1000, 0);
+        setTotalUsers(users.length);
+        
+        // Подсчет активных сегодня
+        const today = new Date().toISOString().split('T')[0];
+        const active = users.filter(u => {
+          const lastActive = new Date(u.last_active).toISOString().split('T')[0];
+          return lastActive === today;
+        });
+        setActiveToday(active.length);
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    };
+    
+    loadStats();
+  }, []);
+
+  const finishedTournaments = games.filter(g => g.tournament_status === 'finished').length;
+  const upcomingTournaments = games.filter(g => g.tournament_status === 'upcoming').length;
 
   const handleExitAdminMode = () => {
     setAdminMode(false);
@@ -116,7 +145,7 @@ export function AdminProfileTab() {
               <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
                 <UsersIcon className="w-5 h-5 text-blue-500" />
               </div>
-              <div className="text-2xl">247</div>
+              <div className="text-2xl">{totalUsers}</div>
             </div>
             <div className="text-xs text-gray-400">Всего игроков</div>
           </div>
@@ -125,7 +154,7 @@ export function AdminProfileTab() {
               <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center">
                 <TrophyIcon className="w-5 h-5 text-yellow-500" />
               </div>
-              <div className="text-2xl">89</div>
+              <div className="text-2xl">{gamesLoading ? '...' : finishedTournaments}</div>
             </div>
             <div className="text-xs text-gray-400">Турниров проведено</div>
           </div>
@@ -134,7 +163,7 @@ export function AdminProfileTab() {
               <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
                 <CalendarIcon className="w-5 h-5 text-green-500" />
               </div>
-              <div className="text-2xl">12</div>
+              <div className="text-2xl">{gamesLoading ? '...' : upcomingTournaments}</div>
             </div>
             <div className="text-xs text-gray-400">Запланировано</div>
           </div>
@@ -143,7 +172,7 @@ export function AdminProfileTab() {
               <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
                 <UserIcon className="w-5 h-5 text-purple-500" />
               </div>
-              <div className="text-2xl">45</div>
+              <div className="text-2xl">{activeToday}</div>
             </div>
             <div className="text-xs text-gray-400">Активных сегодня</div>
           </div>

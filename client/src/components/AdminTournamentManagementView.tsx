@@ -410,7 +410,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
 
             {/* Table Groups */}
             {Object.entries(tableGroups).map(([tableNum, players]) => {
-              const activeTablePlayers = players.filter(p => !p.isEliminated);
+              const activeTablePlayers = players.filter(p => !p.is_eliminated);
               if (activeTablePlayers.length === 0) return null;
 
               return (
