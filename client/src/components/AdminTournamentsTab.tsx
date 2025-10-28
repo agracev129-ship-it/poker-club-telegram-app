@@ -237,8 +237,8 @@ export function AdminTournamentsTab() {
           )}
         </div>
 
-        {/* Alerts */}
-        {tournaments.some(t => t.queueCount > 0) && (
+        {/* Alerts - показываем если есть турниры с максимумом игроков */}
+        {upcomingTournaments.some(t => t.registered_count === t.max_players) && (
           <div className="bg-gradient-to-br from-orange-900/30 to-orange-950/30 rounded-2xl p-4 border border-orange-700/30">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center shrink-0">
@@ -247,7 +247,7 @@ export function AdminTournamentsTab() {
               <div>
                 <div className="text-sm mb-1">Требуется внимание</div>
                 <div className="text-xs text-gray-400">
-                  Есть игроки в очереди ожидания на некоторые турниры
+                  Некоторые турниры полностью заполнены
                 </div>
               </div>
             </div>
