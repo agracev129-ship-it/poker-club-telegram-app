@@ -281,6 +281,24 @@ export const gamesAPI = {
   async cancelStart(id: number): Promise<{ message: string }> {
     return fetchAPI(`/games/${id}/cancel-start`, { method: 'POST' });
   },
+
+  async getTournamentResults(id: number): Promise<{
+    game: Game;
+    participants: Array<{
+      user_id: number;
+      first_name: string;
+      last_name?: string;
+      username?: string;
+      photo_url?: string;
+      finish_place?: number;
+      points_earned: number;
+      bonus_points: number;
+      total_points: number;
+      participated: boolean;
+    }>;
+  }> {
+    return fetchAPI(`/games/${id}/results`);
+  },
 };
 
 // ============= TOURNAMENTS API =============

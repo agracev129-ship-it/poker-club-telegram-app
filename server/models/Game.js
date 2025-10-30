@@ -489,6 +489,78 @@ export const Game = {
       `UPDATE games SET tournament_status = 'upcoming' WHERE id = $1`,
       [gameId]
     );
+  },
+
+  /**
+   * Получает результаты завершенного турнира с участниками и их местами
+   */
+  async getTournamentResults(gameId) {
+    // Получаем информацию о турнире
+    const gameResult = await query(
+      `SELECT g.*, COUNT(DISTINCT gr.user_id) as total_players
+       FROM games g
+       LEFT JOIN game_registrations gr ON g.id = gr.game_id AND gr.status IN ('registered', 'participated')
+       WHERE g.id = $1
+       GROUP BY g.id`,
+      [gameId]
+    );
+
+    if (gameResult.rows.length === 0) {
+      throw new Error('Game not found');
+    }
+
+    const game = gameResult.rows[0];
+
+    // Получаем участников с их результатами из table_assignments
+    const participantsResult = await query(
+      `SELECT 
+        ta.user_id,
+        ta.finish_place,
+        ta.points_earned,
+        ta.bonus_points,
+        ta.is_eliminated,
+        u.first_name,
+        u.last_name,
+        u.username,
+        u.photo_url,
+        gr.status as registration_status
+       FROM game_registrations gr
+       JOIN users u ON gr.user_id = u.id
+       LEFT JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
+       WHERE gr.game_id = $1
+       ORDER BY 
+         CASE 
+           WHEN ta.finish_place IS NULL THEN 9999
+           ELSE ta.finish_place
+         END ASC`,
+      [gameId]
+    );
+
+    return {
+      game: {
+        id: game.id,
+        name: game.name,
+        description: game.description,
+        date: game.date,
+        time: game.time,
+        buy_in: game.buy_in,
+        max_players: game.max_players,
+        total_players: game.total_players,
+        tournament_status: game.tournament_status,
+      },
+      participants: participantsResult.rows.map(p => ({
+        user_id: p.user_id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        username: p.username,
+        photo_url: p.photo_url,
+        finish_place: p.finish_place,
+        points_earned: p.points_earned || 0,
+        bonus_points: p.bonus_points || 0,
+        total_points: (p.points_earned || 0) + (p.bonus_points || 0),
+        participated: p.registration_status === 'participated',
+      })),
+    };
   }
 };
 

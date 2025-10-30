@@ -344,5 +344,19 @@ router.post('/:id/cancel-start', authenticateTelegram, requireAdmin, async (req,
   }
 });
 
+/**
+ * GET /api/games/:id/results - Получить результаты завершенного турнира
+ */
+router.get('/:id/results', authenticateTelegram, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const results = await Game.getTournamentResults(gameId);
+    res.json(results);
+  } catch (error) {
+    console.error('Error getting tournament results:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
 

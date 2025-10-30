@@ -1,20 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { GameParticipantsView, Participant } from './GameParticipantsView';
+import { useGames } from '../hooks/useGames';
+import { gamesAPI, Game } from '../lib/api';
+import { useUser } from '../hooks/useUser';
 
 // Helper function to format date
-const formatDate = (date: Date): string => {
+const formatDate = (date: Date | string): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
   const monthsFull = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
   
-  return `${date.getDate()} ${monthsFull[date.getMonth()]} ${date.getFullYear()}`;
+  return `${dateObj.getDate()} ${monthsFull[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
 };
 
-const formatDateShort = (date: Date): string => {
+const formatDateShort = (date: Date | string): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
   const months = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
   
-  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  return `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
 };
 
 // Icon components
@@ -72,140 +76,9 @@ const MedalIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Mock data for game history
-interface GameHistory {
-  id: number;
-  name: string;
-  date: string;
-  time: string;
-  players: string;
-  buyIn: string;
-  prize: string;
-  position?: number;
-  participated: boolean;
-}
-
-// Function to generate mock participants for a game
-const generateParticipants = (gameId: number, totalPlayers: number, userPosition?: number): Participant[] => {
-  const names = [
-    'Александр Иванов', 'Дмитрий Петров', 'Сергей Смирнов', 'Андрей Кузнецов',
-    'Максим Попов', 'Игорь Васильев', 'Владимир Соколов', 'Павел Михайлов',
-    'Николай Федоров', 'Артем Морозов', 'Виктор Волков', 'Денис Алексеев',
-    'Роман Лебедев', 'Евгений Семенов', 'Олег Егоров', 'Илья Павлов',
-    'Константин Козлов', 'Антон Степанов', 'Вадим Николаев', 'Юрий Орлов',
-    'Михаил Андреев', 'Станислав Макаров', 'Борис Никитин', 'Григорий Захаров',
-    'Леонид Зайцев', 'Валерий Соловьев', 'Геннадий Борисов', 'Тимур Яковлев',
-    'Кирилл Григорьев', 'Глеб Романов'
-  ];
-  
-  const avatars = ['🎯', '🎲', '🃏', '💎', '⭐', '🔥', '⚡', '🎪', '🎭', '🎨', '🎸', '🎺', '🎻', '🎹', '🥁', '🎤'];
-  
-  const prizes = ['50,000₽', '30,000₽', '20,000₽'];
-  
-  const participants: Participant[] = [];
-  
-  for (let i = 0; i < totalPlayers; i++) {
-    const position = i + 1;
-    const isUser = userPosition !== undefined && position === userPosition;
-    
-    participants.push({
-      id: i + 1,
-      name: isUser ? 'Вы (Игрок)' : names[i % names.length],
-      position,
-      avatar: avatars[i % avatars.length],
-      prize: position <= 3 ? prizes[position - 1] : undefined,
-    });
-  }
-  
-  return participants;
+const getInitials = (firstName: string, lastName?: string): string => {
+  return `${firstName.charAt(0)}${lastName?.charAt(0) || ''}`.toUpperCase();
 };
-
-const gameHistory: GameHistory[] = [
-  {
-    id: 1,
-    name: 'Турнир Холдем',
-    date: '26 окт 2024',
-    time: '19:00',
-    players: '24/30',
-    buyIn: '5,000₽',
-    prize: '120,000₽',
-    position: 3,
-    participated: true,
-  },
-  {
-    id: 2,
-    name: 'Омаха PLO',
-    date: '25 окт 2024',
-    time: '20:00',
-    players: '18/20',
-    buyIn: '3,000₽',
-    prize: '54,000₽',
-    participated: false,
-  },
-  {
-    id: 3,
-    name: 'Турнир Холдем',
-    date: '24 окт 2024',
-    time: '19:00',
-    players: '30/30',
-    buyIn: '5,000₽',
-    prize: '150,000₽',
-    position: 1,
-    participated: true,
-  },
-  {
-    id: 4,
-    name: 'Быстрый турнир',
-    date: '23 окт 2024',
-    time: '18:00',
-    players: '16/20',
-    buyIn: '2,000₽',
-    prize: '32,000₽',
-    participated: false,
-  },
-  {
-    id: 5,
-    name: 'Турнир Холдем',
-    date: '22 окт 2024',
-    time: '19:00',
-    players: '28/30',
-    buyIn: '5,000₽',
-    prize: '140,000₽',
-    position: 7,
-    participated: true,
-  },
-  {
-    id: 6,
-    name: 'Омаха PLO',
-    date: '21 окт 2024',
-    time: '20:00',
-    players: '20/20',
-    buyIn: '3,000₽',
-    prize: '60,000₽',
-    participated: false,
-  },
-  {
-    id: 7,
-    name: 'Турнир Холдем',
-    date: '20 окт 2024',
-    time: '19:00',
-    players: '25/30',
-    buyIn: '5,000₽',
-    prize: '125,000₽',
-    position: 5,
-    participated: true,
-  },
-  {
-    id: 8,
-    name: 'Быстрый турнир',
-    date: '19 окт 2024',
-    time: '18:00',
-    players: '18/20',
-    buyIn: '2,000₽',
-    prize: '36,000₽',
-    participated: false,
-  },
-];
 
 type TabType = 'all' | 'my';
 
@@ -213,50 +86,209 @@ interface HistoryViewProps {
   onClose: () => void;
 }
 
+interface TournamentResults {
+  game: Game;
+  participants: Array<{
+    user_id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    photo_url?: string;
+    finish_place?: number;
+    points_earned: number;
+    bonus_points: number;
+    total_points: number;
+    participated: boolean;
+  }>;
+}
+
 export function HistoryView({ onClose }: HistoryViewProps) {
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedGame, setSelectedGame] = useState<GameHistory | null>(null);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [tournamentResults, setTournamentResults] = useState<TournamentResults | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  const { user } = useUser();
+  const { games: allGames, loading: gamesLoading } = useGames({ status: 'all' });
+
+  // Фильтруем только завершенные турниры
+  const finishedGames = allGames.filter(g => g.tournament_status === 'finished');
 
   const tabs: TabType[] = ['all', 'my'];
   const activeIndex = tabs.indexOf(activeTab);
 
+  // Проверяем участие пользователя в турнире
+  const [myGameIds, setMyGameIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    const checkParticipation = async () => {
+      if (!user) return;
+      
+      const participatedGameIds = new Set<number>();
+      
+      for (const game of finishedGames) {
+        try {
+          const results = await gamesAPI.getTournamentResults(game.id);
+          const userParticipated = results.participants.some(p => p.user_id === user.id && p.participated);
+          if (userParticipated) {
+            participatedGameIds.add(game.id);
+          }
+        } catch (error) {
+          console.error(`Error checking participation for game ${game.id}:`, error);
+        }
+      }
+      
+      setMyGameIds(participatedGameIds);
+    };
+
+    checkParticipation();
+  }, [finishedGames, user]);
+
   // Filter games based on active tab and selected date
-  const filteredGames = gameHistory.filter(game => {
-    const tabMatch = activeTab === 'all' || (activeTab === 'my' && game.participated);
+  const filteredGames = finishedGames.filter(game => {
+    const tabMatch = activeTab === 'all' || (activeTab === 'my' && myGameIds.has(game.id));
     
     if (!selectedDate) return tabMatch;
     
-    // Simple date matching (in real app would use proper date parsing)
-    const gameDate = game.date.toLowerCase();
-    const selectedDateStr = formatDateShort(selectedDate).toLowerCase();
+    // Date matching
+    const gameDate = new Date(game.date);
+    const sameDate = 
+      gameDate.getDate() === selectedDate.getDate() &&
+      gameDate.getMonth() === selectedDate.getMonth() &&
+      gameDate.getFullYear() === selectedDate.getFullYear();
     
-    return tabMatch && gameDate === selectedDateStr;
+    return tabMatch && sameDate;
   });
 
   // Handle game click to show participants
-  const handleGameClick = (game: GameHistory) => {
-    setSelectedGame(game);
-    setShowParticipants(true);
+  const handleGameClick = async (game: Game) => {
+    try {
+      setLoading(true);
+      const results = await gamesAPI.getTournamentResults(game.id);
+      setTournamentResults(results);
+      setSelectedGame(game);
+      setShowParticipants(true);
+    } catch (error) {
+      console.error('Error loading tournament results:', error);
+      alert('Ошибка при загрузке результатов турнира');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // If showing participants, render GameParticipantsView
-  if (showParticipants && selectedGame) {
-    const totalPlayers = parseInt(selectedGame.players.split('/')[0]);
-    const participants = generateParticipants(
-      selectedGame.id,
-      totalPlayers,
-      selectedGame.position
-    );
+  // Get user's position in a game
+  const getUserPosition = (gameId: number): number | undefined => {
+    // This will be set when we load tournament results
+    return undefined;
+  };
+
+  // If showing participants, render participants view
+  if (showParticipants && tournamentResults && selectedGame) {
+    const userParticipant = tournamentResults.participants.find(p => p.user_id === user?.id);
 
     return (
-      <GameParticipantsView
-        onClose={() => setShowParticipants(false)}
-        gameName={selectedGame.name}
-        gameDate={`${selectedGame.date} в ${selectedGame.time}`}
-        participants={participants}
-      />
+      <div className="fixed inset-0 bg-black z-50 flex flex-col">
+        {/* Header */}
+        <div className="px-4 pt-6 pb-4">
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={() => setShowParticipants(false)}
+              className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl text-center flex-1">{selectedGame.name}</h2>
+            <div className="w-10" /> {/* Spacer */}
+          </div>
+          <p className="text-sm text-gray-400 text-center">
+            {formatDate(selectedGame.date)} в {selectedGame.time}
+          </p>
+        </div>
+
+        {/* Participants List */}
+        <div className="flex-1 overflow-y-auto px-4 pb-6">
+          <div className="space-y-2">
+            {tournamentResults.participants
+              .filter(p => p.participated)
+              .map((participant) => {
+                const isCurrentUser = participant.user_id === user?.id;
+                const place = participant.finish_place;
+
+                return (
+                  <div
+                    key={participant.user_id}
+                    className={`rounded-2xl p-4 flex items-center gap-3 ${
+                      isCurrentUser
+                        ? 'bg-gradient-to-br from-red-700/30 to-red-900/30 border border-red-700/50'
+                        : place && place <= 3
+                        ? 'bg-gradient-to-br from-yellow-900/20 to-yellow-950/20 border border-yellow-700/30'
+                        : 'bg-[#1a1a1a] border border-gray-800'
+                    }`}
+                  >
+                    {/* Position Badge */}
+                    {place && (
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
+                        place === 1
+                          ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black'
+                          : place === 2
+                          ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black'
+                          : place === 3
+                          ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-black'
+                          : 'bg-gray-700 text-white'
+                      }`}>
+                        <span className="font-bold">{place}</span>
+                      </div>
+                    )}
+
+                    {/* Avatar */}
+                    {participant.photo_url ? (
+                      <img
+                        src={participant.photo_url}
+                        alt={participant.first_name}
+                        className="w-12 h-12 rounded-full object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center shrink-0">
+                        <span className="text-sm">{getInitials(participant.first_name, participant.last_name)}</span>
+                      </div>
+                    )}
+
+                    {/* Name and Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm truncate">
+                          {isCurrentUser ? 'Вы' : `${participant.first_name} ${participant.last_name || ''}`}
+                        </span>
+                        {isCurrentUser && (
+                          <span className="text-xs bg-red-700/30 text-red-400 px-2 py-0.5 rounded-full shrink-0">
+                            Вы
+                          </span>
+                        )}
+                      </div>
+                      {participant.username && (
+                        <div className="text-xs text-gray-400">@{participant.username}</div>
+                      )}
+                    </div>
+
+                    {/* Points */}
+                    <div className="text-right shrink-0">
+                      <div className="text-sm text-yellow-400">
+                        +{participant.total_points}
+                      </div>
+                      {participant.bonus_points > 0 && (
+                        <div className="text-xs text-gray-400">
+                          ({participant.points_earned} + {participant.bonus_points})
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -355,85 +387,82 @@ export function HistoryView({ onClose }: HistoryViewProps) {
 
       {/* Games List */}
       <div className="flex-1 overflow-y-auto px-4 pb-6">
-        <div className="space-y-3">
-          {filteredGames.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-red-700/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrophyIcon className="w-8 h-8 text-red-600" />
+        {gamesLoading || loading ? (
+          <div className="text-center py-12 text-gray-400">Загрузка...</div>
+        ) : (
+          <div className="space-y-3">
+            {filteredGames.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-red-700/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrophyIcon className="w-8 h-8 text-red-600" />
+                </div>
+                <p className="text-gray-400">
+                  {selectedDate ? 'Нет игр на выбранную дату' : 'История игр пуста'}
+                </p>
               </div>
-              <p className="text-gray-400">
-                {selectedDate ? 'Нет игр на выбранную дату' : 'История игр пуста'}
-              </p>
-            </div>
-          ) : (
-            filteredGames.map((game) => (
-              <div
-                key={game.id}
-                className={`rounded-3xl p-5 relative overflow-hidden cursor-pointer transition-all ${
-                  game.participated
-                    ? 'bg-gradient-to-br from-red-900/30 to-red-950/30 border border-red-900/30 hover:from-red-900/40 hover:to-red-950/40'
-                    : 'bg-[#1a1a1a] border border-gray-800 hover:bg-[#252525]'
-                }`}
-                onClick={() => handleGameClick(game)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg">{game.name}</h3>
-                      {game.participated && game.position && (
-                        <div className="flex items-center gap-1 bg-red-700/30 px-2 py-1 rounded-full">
-                          <MedalIcon className="w-3.5 h-3.5 text-red-400" />
-                          <span className="text-xs text-red-400">{game.position} место</span>
+            ) : (
+              filteredGames.map((game) => {
+                const participated = myGameIds.has(game.id);
+
+                return (
+                  <div
+                    key={game.id}
+                    className={`rounded-3xl p-5 relative overflow-hidden cursor-pointer transition-all ${
+                      participated
+                        ? 'bg-gradient-to-br from-red-900/30 to-red-950/30 border border-red-900/30 hover:from-red-900/40 hover:to-red-950/40'
+                        : 'bg-[#1a1a1a] border border-gray-800 hover:bg-[#252525]'
+                    }`}
+                    onClick={() => handleGameClick(game)}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg">{game.name}</h3>
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                      <div className="flex items-center gap-1.5">
-                        <CalendarIcon className="w-4 h-4" />
-                        <span>{game.date}</span>
+                        
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <div className="flex items-center gap-1.5">
+                            <CalendarIcon className="w-4 h-4" />
+                            <span>{formatDateShort(game.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <ClockIcon className="w-4 h-4" />
+                            <span>{game.time}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <ClockIcon className="w-4 h-4" />
-                        <span>{game.time}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-800">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Игроки</div>
+                        <div className="flex items-center gap-1.5">
+                          <UsersIcon className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-300">{game.registered_count || 0}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Бай-ин</div>
+                        <div className="text-sm text-gray-300">{game.buy_in || '—'}₽</div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-gray-800">
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Игроки</div>
-                    <div className="flex items-center gap-1.5">
-                      <UsersIcon className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm text-gray-300">{game.players}</span>
-                    </div>
+                    {participated && (
+                      <div className="mt-3 pt-3 border-t border-red-900/30">
+                        <div className="flex items-center gap-2 text-xs text-red-400">
+                          <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                          <span>Вы участвовали в этой игре</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Бай-ин</div>
-                    <div className="text-sm text-gray-300">{game.buyIn}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Призовой</div>
-                    <div className="text-sm text-gray-300">{game.prize}</div>
-                  </div>
-                </div>
-
-                {game.participated && (
-                  <div className="mt-3 pt-3 border-t border-red-900/30">
-                    <div className="flex items-center gap-2 text-xs text-red-400">
-                      <div className="w-2 h-2 bg-red-600 rounded-full"></div>
-                      <span>Вы участвовали в этой игре</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
 
