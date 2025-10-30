@@ -100,3 +100,5 @@ npm run build
 
 См. файл `FUNCTIONALITY-FIXES.md` для полной технической информации.
 
+
+

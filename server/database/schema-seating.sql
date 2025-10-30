@@ -36,3 +36,5 @@ COMMENT ON COLUMN table_assignments.finish_place IS 'Итоговое место
 COMMENT ON COLUMN table_assignments.points_earned IS 'Очки за место в турнире';
 COMMENT ON COLUMN table_assignments.bonus_points IS 'Бонусные очки от администратора';
 
+
+

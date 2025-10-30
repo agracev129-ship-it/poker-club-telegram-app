@@ -377,6 +377,16 @@ export const Game = {
   async finishTournament(gameId) {
     // Получаем всех игроков с рассадкой
     const seating = await this.getSeating(gameId);
+    
+    // Получаем всех зарегистрированных игроков (включая тех кто не в рассадке)
+    const registrationsResult = await query(
+      `SELECT gr.user_id, u.first_name, u.last_name
+       FROM game_registrations gr
+       JOIN users u ON gr.user_id = u.id
+       WHERE gr.game_id = $1 AND gr.status = 'registered'`,
+      [gameId]
+    );
+    const allRegistered = registrationsResult.rows;
 
     // Обновляем статус турнира
     await query(
@@ -384,19 +394,44 @@ export const Game = {
       [gameId]
     );
 
-    // Начисляем очки каждому игроку
-    for (const player of seating) {
-      if (player.is_eliminated && player.points_earned !== null) {
-        const totalPoints = player.points_earned + (player.bonus_points || 0);
+    // Создаем Map для быстрого поиска игроков в рассадке
+    const seatingMap = new Map(seating.map(p => [p.user_id, p]));
 
-        // Обновляем статистику пользователя
+    // Начисляем очки каждому игроку
+    for (const registration of allRegistered) {
+      const playerInSeating = seatingMap.get(registration.user_id);
+      
+      let totalPoints = 0;
+      let finishPlace = null;
+      let participated = false;
+
+      if (playerInSeating) {
+        // Игрок был в рассадке
+        if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
+          totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
+          finishPlace = playerInSeating.finish_place;
+          participated = true;
+        } else if (playerInSeating.is_eliminated === false) {
+          // Игрок активен на момент завершения - начисляем 0 очков но засчитываем участие
+          totalPoints = (playerInSeating.bonus_points || 0);
+          participated = true;
+        }
+      } else {
+        // Игрок зарегистрирован но не был в рассадке (турнир завершен до старта или игрок не явился)
+        participated = false;
+      }
+
+      if (participated) {
+        // Обновляем статистику пользователя (создаем если нет)
         await query(
-          `UPDATE user_stats
-           SET games_played = games_played + 1,
-               games_won = games_won + CASE WHEN $1 = 1 THEN 1 ELSE 0 END,
-               total_points = total_points + $2
-           WHERE user_id = $3`,
-          [player.finish_place, totalPoints, player.user_id]
+          `INSERT INTO user_stats (user_id, games_played, games_won, total_points)
+           VALUES ($1, 1, $2, $3)
+           ON CONFLICT (user_id) 
+           DO UPDATE SET 
+             games_played = user_stats.games_played + 1,
+             games_won = user_stats.games_won + $2,
+             total_points = user_stats.total_points + $3`,
+          [registration.user_id, finishPlace === 1 ? 1 : 0, totalPoints]
         );
 
         // Обновляем регистрацию
@@ -404,19 +439,33 @@ export const Game = {
           `UPDATE game_registrations 
            SET status = 'participated', position = $1
            WHERE game_id = $2 AND user_id = $3`,
-          [player.finish_place, gameId, player.user_id]
+          [finishPlace, gameId, registration.user_id]
         );
 
         // Добавляем активность
+        const description = finishPlace === 1 
+          ? 'Победа в турнире'
+          : finishPlace 
+          ? `${finishPlace}-е место в турнире`
+          : 'Участие в турнире';
+          
         await query(
           `INSERT INTO user_activities (user_id, activity_type, description, related_id)
            VALUES ($1, $2, $3, $4)`,
           [
-            player.user_id,
-            player.finish_place === 1 ? 'game_won' : 'game_participated',
-            player.finish_place === 1 ? 'Победа в турнире' : `${player.finish_place}-е место в турнире`,
+            registration.user_id,
+            finishPlace === 1 ? 'game_won' : 'game_participated',
+            description,
             gameId
           ]
+        );
+      } else {
+        // Игрок не участвовал - помечаем регистрацию как cancelled
+        await query(
+          `UPDATE game_registrations 
+           SET status = 'cancelled'
+           WHERE game_id = $1 AND user_id = $2`,
+          [gameId, registration.user_id]
         );
       }
     }
