@@ -105,7 +105,7 @@ export function AdminTournamentsTab() {
   }, []);
 
   // Show all active tournaments (upcoming + started, exclude finished)
-  const upcomingTournaments = games.filter(g => g.tournament_status !== 'finished');
+  const upcomingTournaments = games.filter(g => !g.tournament_status || g.tournament_status === 'upcoming' || g.tournament_status === 'started');
 
   const handleDeleteTournament = async () => {
     if (!deleteConfirm) return;

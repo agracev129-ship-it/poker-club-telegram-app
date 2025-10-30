@@ -124,8 +124,8 @@ export function HomeTab({
   const [registeredGameIds, setRegisteredGameIds] = useState<Set<number>>(new Set());
   const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames } = useGameRegistration();
   
-  // Показываем только незавершенные турниры
-  const apiGames = allGames.filter(g => g.tournament_status !== 'finished');
+  // Показываем только незавершенные турниры (upcoming и started)
+  const apiGames = allGames.filter(g => !g.tournament_status || g.tournament_status === 'upcoming' || g.tournament_status === 'started');
 
   // Загрузка зарегистрированных игр через API
   useEffect(() => {

@@ -194,7 +194,7 @@ export function GamesTab() {
   const [refreshKey, setRefreshKey] = useState(0);
   
   // Показываем только предстоящие и идущие турниры, исключаем завершенные
-  const games = allGames.filter(g => g.tournament_status !== 'finished');
+  const games = allGames.filter(g => !g.tournament_status || g.tournament_status === 'upcoming' || g.tournament_status === 'started');
   
   const { isRegistered: isAPIRegistered, toggleRegistration, refreshRegistration } = useGameRegistration(selectedGame?.id || 0);
   const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();
