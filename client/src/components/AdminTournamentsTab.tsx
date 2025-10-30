@@ -94,7 +94,7 @@ const formatDateDisplay = (dateStr: string): string => {
 };
 
 export function AdminTournamentsTab() {
-  const { games, loading, refreshGames } = useGames({ status: 'all' });
+  const { games: upcomingTournaments, loading, refreshGames } = useGames({ status: 'upcoming' });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<Game | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
@@ -103,9 +103,6 @@ export function AdminTournamentsTab() {
   useEffect(() => {
     refreshGames();
   }, []);
-
-  // Show all active tournaments (upcoming + started, exclude finished)
-  const upcomingTournaments = games.filter(g => !g.tournament_status || g.tournament_status === 'upcoming' || g.tournament_status === 'started');
 
   const handleDeleteTournament = async () => {
     if (!deleteConfirm) return;

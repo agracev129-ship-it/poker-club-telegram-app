@@ -116,16 +116,13 @@ export function HomeTab({
   isAboutClubOpen
 }: HomeTabProps) {
   const { user, loading: userLoading } = useUser();
-  const { games: allGames, loading: gamesLoading, refreshGames } = useGames({ status: 'all' });
+  const { games: apiGames, loading: gamesLoading, refreshGames } = useGames({ status: 'upcoming' });
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0 });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [activityPeriod, setActivityPeriod] = useState<'month' | 'year' | 'all'>('month');
   const [registeredGameIds, setRegisteredGameIds] = useState<Set<number>>(new Set());
-  const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames } = useGameRegistration();
-  
-  // Показываем только незавершенные турниры (upcoming и started)
-  const apiGames = allGames.filter(g => !g.tournament_status || g.tournament_status === 'upcoming' || g.tournament_status === 'started');
+  const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames} = useGameRegistration();
 
   // Загрузка зарегистрированных игр через API
   useEffect(() => {

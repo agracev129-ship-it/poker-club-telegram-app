@@ -111,10 +111,34 @@ export function HistoryView({ onClose }: HistoryViewProps) {
   const [loading, setLoading] = useState(false);
   
   const { user } = useUser();
-  const { games: allGames, loading: gamesLoading } = useGames({ status: 'all' });
+  // Загружаем ТОЛЬКО завершенные турниры напрямую
+  const [allGames, setAllGames] = useState<Game[]>([]);
+  const [gamesLoading, setGamesLoading] = useState(true);
 
-  // Фильтруем только завершенные турниры
-  const finishedGames = allGames.filter(g => g.tournament_status === 'finished');
+  // Загружаем все игры и фильтруем завершенные
+  useEffect(() => {
+    const loadFinishedGames = async () => {
+      try {
+        setGamesLoading(true);
+        const response = await gamesAPI.getAll({});
+        // Фильтруем только завершенные и со статусом 'completed'
+        const finished = response.filter(g => 
+          g.tournament_status === 'finished' || 
+          g.status === 'completed'
+        );
+        setAllGames(finished);
+      } catch (error) {
+        console.error('Error loading finished games:', error);
+        setAllGames([]);
+      } finally {
+        setGamesLoading(false);
+      }
+    };
+
+    loadFinishedGames();
+  }, []);
+
+  const finishedGames = allGames;
 
   const tabs: TabType[] = ['all', 'my'];
   const activeIndex = tabs.indexOf(activeTab);

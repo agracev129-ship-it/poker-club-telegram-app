@@ -186,15 +186,12 @@ function GameCard({ game, onJoinClick, onShowParticipants }: {
 }
 
 export function GamesTab() {
-  const { games: allGames, loading, refreshGames } = useGames({ status: 'all' });
+  const { games, loading, refreshGames } = useGames({ status: 'upcoming' });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isPlayersDialogOpen, setIsPlayersDialogOpen] = useState(false);
   const [selectedGameForPlayers, setSelectedGameForPlayers] = useState<Game | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  
-  // Показываем только предстоящие и идущие турниры, исключаем завершенные
-  const games = allGames.filter(g => !g.tournament_status || g.tournament_status === 'upcoming' || g.tournament_status === 'started');
   
   const { isRegistered: isAPIRegistered, toggleRegistration, refreshRegistration } = useGameRegistration(selectedGame?.id || 0);
   const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();
