@@ -65,6 +65,10 @@ function GameCard({ game, onJoinClick, onShowParticipants }: {
   const [hasFriend, setHasFriend] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [checkingRegistration, setCheckingRegistration] = useState(true);
+  
+  // Проверяем статус турнира
+  const isStarted = game.tournament_status === 'started';
+  const isUpcoming = !game.tournament_status || game.tournament_status === 'upcoming';
 
   useEffect(() => {
     // Проверяем регистрацию и друзей
@@ -152,35 +156,45 @@ function GameCard({ game, onJoinClick, onShowParticipants }: {
         </div>
       )}
       
-      <button
-        className={`w-full transition-all rounded-xl py-2.5 text-sm text-center tracking-wide flex items-center justify-center gap-2 ${
-          isRegistered
-            ? 'bg-white hover:bg-gray-200 text-black'
-            : 'bg-gradient-to-b from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white'
-        }`}
-        onClick={() => onJoinClick(game)}
-        disabled={checkingRegistration}
-      >
-        {checkingRegistration ? (
-          'Загрузка...'
-        ) : (
-          <>
-            {isRegistered && <CheckIcon className="w-4 h-4" />}
-            {isRegistered ? 'Вы зарегистрированы' : 'Присоединиться'}
-          </>
-        )}
-      </button>
+      {isStarted ? (
+        <div className="w-full bg-green-700/20 border border-green-700/50 rounded-xl py-2.5 text-sm text-center text-green-400 flex items-center justify-center gap-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <span>Турнир в процессе</span>
+        </div>
+      ) : (
+        <button
+          className={`w-full transition-all rounded-xl py-2.5 text-sm text-center tracking-wide flex items-center justify-center gap-2 ${
+            isRegistered
+              ? 'bg-white hover:bg-gray-200 text-black'
+              : 'bg-gradient-to-b from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white'
+          }`}
+          onClick={() => onJoinClick(game)}
+          disabled={checkingRegistration}
+        >
+          {checkingRegistration ? (
+            'Загрузка...'
+          ) : (
+            <>
+              {isRegistered && <CheckIcon className="w-4 h-4" />}
+              {isRegistered ? 'Вы зарегистрированы' : 'Присоединиться'}
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }
 
 export function GamesTab() {
-  const { games, loading, refreshGames } = useGames({ status: 'upcoming' });
+  const { games: allGames, loading, refreshGames } = useGames({ status: 'all' });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isPlayersDialogOpen, setIsPlayersDialogOpen] = useState(false);
   const [selectedGameForPlayers, setSelectedGameForPlayers] = useState<Game | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  
+  // Показываем только предстоящие и идущие турниры, исключаем завершенные
+  const games = allGames.filter(g => g.tournament_status !== 'finished');
   
   const { isRegistered: isAPIRegistered, toggleRegistration, refreshRegistration } = useGameRegistration(selectedGame?.id || 0);
   const { isRegistered: checkIsRegistered, toggleRegistration: localToggle } = useLocalGameRegistration();

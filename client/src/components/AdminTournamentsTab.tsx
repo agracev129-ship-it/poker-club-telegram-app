@@ -94,7 +94,7 @@ const formatDateDisplay = (dateStr: string): string => {
 };
 
 export function AdminTournamentsTab() {
-  const { games, loading, refreshGames } = useGames({ status: 'upcoming' });
+  const { games, loading, refreshGames } = useGames({ status: 'all' });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<Game | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
@@ -104,8 +104,8 @@ export function AdminTournamentsTab() {
     refreshGames();
   }, []);
 
-  // Filter out finished tournaments for the main list
-  const upcomingTournaments = games;
+  // Show all active tournaments (upcoming + started, exclude finished)
+  const upcomingTournaments = games.filter(g => g.tournament_status !== 'finished');
 
   const handleDeleteTournament = async () => {
     if (!deleteConfirm) return;
@@ -267,7 +267,10 @@ export function AdminTournamentsTab() {
       {selectedTournament && (
         <AdminTournamentManagementView
           tournament={selectedTournament}
-          onClose={() => setSelectedTournament(null)}
+          onClose={() => {
+            setSelectedTournament(null);
+            refreshGames();
+          }}
         />
       )}
 

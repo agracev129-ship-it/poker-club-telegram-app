@@ -105,11 +105,9 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
       const players = await gamesAPI.getRegistrations(tournament.id);
       setRegisteredPlayers(players);
       
-      // Загружаем рассадку если турнир начался
-      if (tournament.tournament_status === 'started' || tournament.tournament_status === 'finished') {
-        const seatingData = await gamesAPI.getSeating(tournament.id);
-        setSeating(seatingData);
-      }
+      // Всегда пытаемся загрузить рассадку (API вернет пустой массив если рассадки нет)
+      const seatingData = await gamesAPI.getSeating(tournament.id);
+      setSeating(seatingData);
     } catch (error) {
       console.error('Error loading tournament data:', error);
     } finally {
