@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser } from '../hooks/useUser';
 import { getInitials, formatRelativeTime } from '../lib/utils';
 import { SettingsView } from './SettingsView';
 import { useAdmin } from './AdminContext';
+import { useLeaderboard } from '../hooks/useLeaderboard';
 
 // Icon components as inline SVGs
 const SettingsIcon = ({ className }: { className?: string }) => (
@@ -126,7 +127,19 @@ const ShieldCheckIcon = ({ className }: { className?: string }) => (
 export function ProfileTab() {
   const { user } = useUser();
   const { isAdmin, setAdminMode } = useAdmin();
+  const { leaderboard } = useLeaderboard(100);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [userRank, setUserRank] = useState<number | null>(null);
+
+  // Вычисляем позицию пользователя из рейтинга
+  useEffect(() => {
+    if (user && leaderboard.length > 0) {
+      const rank = leaderboard.findIndex(p => p.id === user.id) + 1;
+      setUserRank(rank > 0 ? rank : (user.current_rank || null));
+    } else if (user?.current_rank) {
+      setUserRank(user.current_rank);
+    }
+  }, [user, leaderboard]);
 
   const handleActivateAdminMode = () => {
     setAdminMode(true);
@@ -151,7 +164,7 @@ export function ProfileTab() {
           )}
           <div className="flex-1">
             <h1 className="text-xl mb-1">{user?.first_name || 'Игрок'} {user?.last_name || ''}</h1>
-            <p className="text-sm text-gray-400">Игрок • #{user?.current_rank || '—'} в рейтинге</p>
+            <p className="text-sm text-gray-400">Игрок • #{userRank || '—'} в рейтинге</p>
           </div>
           <button
             onClick={() => setIsSettingsOpen(true)}

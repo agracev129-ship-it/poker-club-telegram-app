@@ -38,3 +38,4 @@ COMMENT ON COLUMN table_assignments.bonus_points IS 'Бонусные очки �
 
 
 
+

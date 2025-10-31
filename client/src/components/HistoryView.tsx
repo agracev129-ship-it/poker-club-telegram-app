@@ -143,18 +143,23 @@ export function HistoryView({ onClose }: HistoryViewProps) {
   const tabs: TabType[] = ['all', 'my'];
   const activeIndex = tabs.indexOf(activeTab);
 
-  // Проверяем участие пользователя в турнире
+  // Проверяем участие пользователя в турнире и загружаем количество участников
   const [myGameIds, setMyGameIds] = useState<Set<number>>(new Set());
+  const [participantCounts, setParticipantCounts] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
     const checkParticipation = async () => {
       if (!user) return;
       
       const participatedGameIds = new Set<number>();
+      const counts = new Map<number, number>();
       
       for (const game of finishedGames) {
         try {
           const results = await gamesAPI.getTournamentResults(game.id);
+          const participatedPlayers = results.participants.filter(p => p.participated);
+          counts.set(game.id, participatedPlayers.length);
+          
           const userParticipated = results.participants.some(p => p.user_id === user.id && p.participated);
           if (userParticipated) {
             participatedGameIds.add(game.id);
@@ -165,6 +170,7 @@ export function HistoryView({ onClose }: HistoryViewProps) {
       }
       
       setMyGameIds(participatedGameIds);
+      setParticipantCounts(counts);
     };
 
     checkParticipation();
@@ -410,7 +416,7 @@ export function HistoryView({ onClose }: HistoryViewProps) {
       </div>
 
       {/* Games List */}
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pb-32">
         {gamesLoading || loading ? (
           <div className="text-center py-12 text-gray-400">Загрузка...</div>
         ) : (
@@ -462,7 +468,7 @@ export function HistoryView({ onClose }: HistoryViewProps) {
                         <div className="text-xs text-gray-500 mb-1">Игроки</div>
                         <div className="flex items-center gap-1.5">
                           <UsersIcon className="w-3.5 h-3.5 text-gray-400" />
-                          <span className="text-sm text-gray-300">{game.registered_count || 0}</span>
+                          <span className="text-sm text-gray-300">{participantCounts.get(game.id) || 0}</span>
                         </div>
                       </div>
                       <div>

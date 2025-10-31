@@ -36,6 +36,10 @@ export function RatingTab() {
   const { user } = useUser();
   const { leaderboard, loading } = useLeaderboard(50);
 
+  // Находим позицию текущего пользователя в рейтинге
+  const userRank = user ? leaderboard.findIndex(p => p.id === user.id) + 1 : 0;
+  const displayRank = userRank > 0 ? userRank : (user?.current_rank || null);
+
   return (
     <div className="min-h-screen bg-black pb-24">
       {/* Header */}
@@ -62,7 +66,7 @@ export function RatingTab() {
               )}
               <div>
                 <div className="text-sm text-gray-400">Ваша позиция</div>
-                <div className="text-2xl">#{user?.current_rank || '—'}</div>
+                <div className="text-2xl">#{displayRank || '—'}</div>
               </div>
             </div>
             <div className="text-right">
