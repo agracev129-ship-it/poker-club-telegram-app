@@ -8,7 +8,22 @@ const router = express.Router();
 router.post('/', authenticateTelegram, checkUserBlocked, async (req, res) => {
   try {
     const { currentName, currentAvatarUrl, requestedName, requestedAvatarUrl } = req.body;
-    const userId = req.user.id;
+    
+    // Получаем userId из req.user или находим пользователя по telegram_id
+    let userId;
+    if (req.user) {
+      userId = req.user.id;
+    } else if (req.telegramUser) {
+      // Импортируем User model вверху файла
+      const User = (await import('../models/User.js')).User;
+      const user = await User.findByTelegramId(req.telegramUser.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found. Please register first.' });
+      }
+      userId = user.id;
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     // Проверка что есть хотя бы одно изменение
     if (!requestedName && requestedAvatarUrl === undefined) {
@@ -45,7 +60,21 @@ router.get('/', authenticateTelegram, requireAdmin, async (req, res) => {
 // Получить запросы текущего пользователя
 router.get('/my', authenticateTelegram, checkUserBlocked, async (req, res) => {
   try {
-    const userId = req.user.id;
+    // Получаем userId из req.user или находим пользователя по telegram_id
+    let userId;
+    if (req.user) {
+      userId = req.user.id;
+    } else if (req.telegramUser) {
+      const User = (await import('../models/User.js')).User;
+      const user = await User.findByTelegramId(req.telegramUser.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      userId = user.id;
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { status } = req.query;
     const requests = await ProfileRequest.getByUserId(userId, status);
     res.json(requests);

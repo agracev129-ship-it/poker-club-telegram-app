@@ -21,6 +21,15 @@ router.get('/me', authenticateTelegram, async (req, res) => {
       photo_url: telegramUser.photo_url
     });
     
+    // Проверяем блокировку ПОСЛЕ создания пользователя
+    if (user.is_blocked) {
+      return res.status(403).json({ 
+        error: 'Доступ заблокирован',
+        message: 'Ваш аккаунт был заблокирован администратором. Обратитесь в поддержку для получения дополнительной информации.',
+        blocked: true
+      });
+    }
+    
     // Получаем полный профиль
     const profile = await User.getFullProfile(user.id);
     

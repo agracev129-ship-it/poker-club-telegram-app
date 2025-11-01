@@ -51,7 +51,7 @@ export function verifyTelegramWebAppData(initData) {
 /**
  * Middleware для проверки Telegram авторизации
  */
-export function authenticateTelegram(req, res, next) {
+export async function authenticateTelegram(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
   
   if (!initData) {
@@ -68,6 +68,12 @@ export function authenticateTelegram(req, res, next) {
     const userDataStr = urlParams.get('user');
     if (userDataStr) {
       req.telegramUser = JSON.parse(userDataStr);
+      
+      // Находим или создаем пользователя в БД и добавляем в req.user
+      const user = await User.findByTelegramId(req.telegramUser.id);
+      if (user) {
+        req.user = user;
+      }
     }
   } catch (error) {
     console.error('Error parsing user data:', error);
