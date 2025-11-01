@@ -28,7 +28,7 @@ class ProfileRequest {
         pcr.*,
         u.name as user_name,
         u.telegram_id,
-        u.avatar_url as user_avatar_url
+        u.photo_url as user_avatar_url
       FROM profile_change_requests pcr
       JOIN users u ON pcr.user_id = u.id
     `;
@@ -53,7 +53,7 @@ class ProfileRequest {
         pcr.*,
         u.name as user_name,
         u.telegram_id,
-        u.avatar_url as user_avatar_url
+        u.photo_url as user_avatar_url
       FROM profile_change_requests pcr
       JOIN users u ON pcr.user_id = u.id
       WHERE pcr.id = $1

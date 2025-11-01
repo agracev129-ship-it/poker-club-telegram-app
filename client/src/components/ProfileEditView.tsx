@@ -53,24 +53,14 @@ export function ProfileEditView({ onClose }: ProfileEditViewProps) {
   const currentAvatarUrl = user?.photo_url || '';
 
   const handleSubmit = async () => {
-    console.log('=== Profile Edit Submit Started ===');
-    console.log('User:', user);
-    console.log('Current name:', currentName);
-    console.log('Requested name:', requestedName);
-    console.log('Current avatar:', currentAvatarUrl);
-    console.log('Requested avatar:', requestedAvatarUrl);
-    console.log('Remove avatar:', removeAvatar);
-
     // Проверка что есть хотя бы одно изменение
     if (!requestedName && !requestedAvatarUrl && !removeAvatar) {
-      console.error('No changes provided');
       toast.error('Укажите хотя бы одно изменение');
       return;
     }
 
     // Проверка что имя отличается от текущего
     if (requestedName && requestedName === currentName) {
-      console.error('Name is the same as current');
       toast.error('Новое имя совпадает с текущим');
       return;
     }
@@ -78,25 +68,18 @@ export function ProfileEditView({ onClose }: ProfileEditViewProps) {
     setIsSubmitting(true);
 
     try {
-      const requestData = {
+      await profileRequestsAPI.create({
         currentName,
         currentAvatarUrl,
         requestedName: requestedName || undefined,
         requestedAvatarUrl: removeAvatar ? '' : (requestedAvatarUrl || undefined),
-      };
-      
-      console.log('Sending request data:', requestData);
-      
-      const response = await profileRequestsAPI.create(requestData);
-      
-      console.log('Request created successfully:', response);
+      });
+
       toast.success('Запрос на изменение профиля отправлен');
       toast.info('Ожидайте одобрения администратора');
       onClose();
     } catch (error: any) {
       console.error('Error submitting profile request:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
       toast.error(error.message || 'Ошибка при отправке запроса');
     } finally {
       setIsSubmitting(false);
