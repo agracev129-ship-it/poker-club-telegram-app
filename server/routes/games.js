@@ -1,7 +1,7 @@
 import express from 'express';
 import { Game } from '../models/Game.js';
 import { User } from '../models/User.js';
-import { authenticateTelegram, requireAdmin } from '../middleware/telegram-auth.js';
+import { authenticateTelegram, requireAdmin, checkUserBlocked } from '../middleware/telegram-auth.js';
 
 const router = express.Router();
 
@@ -102,7 +102,7 @@ router.delete('/:id', authenticateTelegram, requireAdmin, async (req, res) => {
 /**
  * POST /api/games/:id/register - Зарегистрироваться на игру
  */
-router.post('/:id/register', authenticateTelegram, async (req, res) => {
+router.post('/:id/register', authenticateTelegram, checkUserBlocked, async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
     const telegramUser = req.telegramUser;
@@ -131,7 +131,7 @@ router.post('/:id/register', authenticateTelegram, async (req, res) => {
 /**
  * DELETE /api/games/:id/register - Отменить регистрацию на игру
  */
-router.delete('/:id/register', authenticateTelegram, async (req, res) => {
+router.delete('/:id/register', authenticateTelegram, checkUserBlocked, async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
     const telegramUser = req.telegramUser;

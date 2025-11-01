@@ -48,7 +48,8 @@ export function ProfileEditView({ onClose }: ProfileEditViewProps) {
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const currentName = user?.first_name || '';
+  // Используем name если есть, иначе формируем из first_name и last_name
+  const currentName = user?.name || (user?.first_name + (user?.last_name ? ` ${user.last_name}` : '')) || '';
   const currentAvatarUrl = user?.photo_url || '';
 
   const handleSubmit = async () => {

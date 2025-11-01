@@ -18,18 +18,22 @@ export const User = {
   async upsert(userData) {
     const { telegram_id, username, first_name, last_name, photo_url } = userData;
     
+    // Создаем отображаемое имя из first_name и last_name
+    const displayName = first_name + (last_name ? ` ${last_name}` : '');
+    
     const result = await query(
-      `INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, last_active)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      `INSERT INTO users (telegram_id, username, first_name, last_name, name, photo_url, last_active)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
        ON CONFLICT (telegram_id) 
        DO UPDATE SET 
          username = EXCLUDED.username,
          first_name = EXCLUDED.first_name,
          last_name = EXCLUDED.last_name,
+         name = EXCLUDED.name,
          photo_url = EXCLUDED.photo_url,
          last_active = CURRENT_TIMESTAMP
        RETURNING *`,
-      [telegram_id, username, first_name, last_name, photo_url]
+      [telegram_id, username, first_name, last_name, displayName, photo_url]
     );
     
     const user = result.rows[0];

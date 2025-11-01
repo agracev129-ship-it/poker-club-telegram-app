@@ -1,6 +1,12 @@
 -- Add is_blocked field to users table
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE;
 
+-- Add name field to users table (display name)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+
+-- Update existing users to set name from first_name + last_name
+UPDATE users SET name = CONCAT(first_name, COALESCE(' ' || last_name, '')) WHERE name IS NULL;
+
 -- Create profile_change_requests table
 CREATE TABLE IF NOT EXISTS profile_change_requests (
   id SERIAL PRIMARY KEY,

@@ -43,6 +43,7 @@ export interface User {
   username?: string;
   first_name: string;
   last_name?: string;
+  name?: string;  // Отображаемое имя (first_name + last_name)
   photo_url?: string;
   is_admin: boolean;
   is_blocked?: boolean;
