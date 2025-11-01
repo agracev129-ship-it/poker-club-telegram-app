@@ -42,7 +42,8 @@ export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
   // Refresh on mount
   useEffect(() => {
     refreshRequests();
-  }, [refreshRequests]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Получаем pending requests напрямую из контекста
   const pendingRequests = requests.filter(req => req.status === 'pending');

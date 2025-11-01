@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { profileRequestsAPI, ProfileChangeRequest as APIProfileRequest } from '../lib/api';
 
 export interface ProfileChangeRequest {
@@ -43,7 +43,7 @@ export function ProfileModerationProvider({ children }: { children: ReactNode })
   const [requests, setRequests] = useState<ProfileChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refreshRequests = async () => {
+  const refreshRequests = useCallback(async () => {
     try {
       setLoading(true);
       const apiRequests = await profileRequestsAPI.getAll();
@@ -55,11 +55,11 @@ export function ProfileModerationProvider({ children }: { children: ReactNode })
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshRequests();
-  }, []);
+  }, [refreshRequests]);
 
   const approveRequest = async (requestId: number): Promise<void> => {
     try {
