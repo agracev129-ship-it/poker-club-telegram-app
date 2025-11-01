@@ -36,26 +36,21 @@ interface ProfileModerationViewProps {
 }
 
 export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
-  const { getPendingRequests, approveRequest, rejectRequest, loading, refreshRequests } = useProfileModeration();
-  const [pendingRequests, setPendingRequests] = useState(getPendingRequests());
+  const { requests, approveRequest, rejectRequest, loading, refreshRequests } = useProfileModeration();
   const [processing, setProcessing] = useState<number | null>(null);
-
-  // Update pending requests when component mounts or when requests change
-  useEffect(() => {
-    setPendingRequests(getPendingRequests());
-  }, [getPendingRequests]);
 
   // Refresh on mount
   useEffect(() => {
     refreshRequests();
-  }, []);
+  }, [refreshRequests]);
+
+  // Получаем pending requests напрямую из контекста
+  const pendingRequests = requests.filter(req => req.status === 'pending');
 
   const handleApprove = async (requestId: number) => {
     setProcessing(requestId);
     try {
       await approveRequest(requestId);
-      await refreshRequests(); // Обновляем список с сервера
-      setPendingRequests(getPendingRequests()); // Обновляем локальный список
       toast.success('Заявка одобрена');
     } catch (error: any) {
       console.error('Error approving request:', error);
@@ -69,8 +64,6 @@ export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
     setProcessing(requestId);
     try {
       await rejectRequest(requestId);
-      await refreshRequests(); // Обновляем список с сервера
-      setPendingRequests(getPendingRequests()); // Обновляем локальный список
       toast.success('Заявка отклонена');
     } catch (error: any) {
       console.error('Error rejecting request:', error);

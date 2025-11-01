@@ -54,12 +54,7 @@ const UserIcon = ({ className }: { className?: string }) => (
 
 function AppContent() {
   const { isAdminMode } = useAdmin();
-  // Восстанавливаем активную вкладку из localStorage (отдельно для админа и пользователя)
-  const [activeTab, setActiveTab] = useState<TabType>(() => {
-    const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
-    const saved = localStorage.getItem(key);
-    return (saved as TabType) || 'home';
-  });
+  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [openModals, setOpenModals] = useState({
     seating: false,
     players: false,
@@ -71,6 +66,7 @@ function AppContent() {
   const [isCheckingTerms, setIsCheckingTerms] = useState<boolean>(true);
   const [homeRefreshKey, setHomeRefreshKey] = useState<number>(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     initTelegramApp();
@@ -80,60 +76,56 @@ function AppContent() {
     setHasAcceptedTerms(accepted === 'true');
     setIsCheckingTerms(false);
 
-    // Отслеживание видимости клавиатуры через visualViewport API
-    const handleResize = () => {
-      if (window.visualViewport) {
-        const viewportHeight = window.visualViewport.height;
-        const windowHeight = window.innerHeight;
-        // Клавиатура видна если viewport существенно меньше окна
-        setIsKeyboardVisible(windowHeight - viewportHeight > 150);
+    // Простое отслеживание фокуса на input элементах
+    const handleFocusIn = (e: Event) => {
+      if (e.target instanceof HTMLInputElement || 
+          e.target instanceof HTMLTextAreaElement) {
+        setIsKeyboardVisible(true);
       }
     };
 
-    // Также отслеживаем focus на input элементах
-    const handleFocusIn = (e: FocusEvent) => {
+    const handleFocusOut = (e: Event) => {
       if (e.target instanceof HTMLInputElement || 
           e.target instanceof HTMLTextAreaElement) {
-        // Небольшая задержка чтобы клавиатура успела открыться
-        setTimeout(() => setIsKeyboardVisible(true), 300);
-      }
-    };
-
-    const handleFocusOut = (e: FocusEvent) => {
-      if (e.target instanceof HTMLInputElement || 
-          e.target instanceof HTMLTextAreaElement) {
-        // Задержка перед скрытием
+        // Небольшая задержка на случай переключения между полями
         setTimeout(() => {
-          // Проверяем, не переключились ли на другой input
-          if (!(document.activeElement instanceof HTMLInputElement) &&
-              !(document.activeElement instanceof HTMLTextAreaElement)) {
+          const activeEl = document.activeElement;
+          if (!(activeEl instanceof HTMLInputElement) &&
+              !(activeEl instanceof HTMLTextAreaElement)) {
             setIsKeyboardVisible(false);
           }
-        }, 100);
+        }, 150);
       }
     };
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-    }
     
     document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', handleFocusOut);
 
     return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize);
-      }
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', handleFocusOut);
     };
   }, []);
 
+  // Восстанавливаем вкладку после загрузки isAdminMode
+  useEffect(() => {
+    if (!isInitialized) {
+      const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        setActiveTab(saved as TabType);
+      }
+      setIsInitialized(true);
+    }
+  }, [isAdminMode, isInitialized]);
+
   // Сохраняем активную вкладку в localStorage (отдельно для админа и пользователя)
   useEffect(() => {
-    const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
-    localStorage.setItem(key, activeTab);
-  }, [activeTab, isAdminMode]);
+    if (isInitialized) {
+      const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
+      localStorage.setItem(key, activeTab);
+    }
+  }, [activeTab, isAdminMode, isInitialized]);
 
   const handleAcceptTerms = () => {
     localStorage.setItem('termsAccepted', 'true');
