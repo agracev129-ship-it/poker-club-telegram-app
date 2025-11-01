@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import { User } from '../models/User.js';
 
 dotenv.config();
 
@@ -102,5 +103,33 @@ export function extractUserFromInitData(initData) {
     console.error('Error extracting user data:', error);
   }
   return null;
+}
+
+/**
+ * Middleware для проверки блокировки пользователя
+ * Должен использоваться после authenticateTelegram
+ */
+export async function checkUserBlocked(req, res, next) {
+  try {
+    if (!req.telegramUser) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const isBlocked = await User.isBlockedByTelegramId(req.telegramUser.id);
+    
+    if (isBlocked) {
+      return res.status(403).json({ 
+        error: 'Доступ заблокирован',
+        message: 'Ваш аккаунт был заблокирован администратором. Обратитесь в поддержку для получения дополнительной информации.',
+        blocked: true
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Error checking user block status:', error);
+    // В случае ошибки пропускаем пользователя (fail-open)
+    next();
+  }
 }
 

@@ -9,7 +9,9 @@ import dotenv from 'dotenv';
 import usersRouter from './routes/users.js';
 import gamesRouter from './routes/games.js';
 import tournamentsRouter from './routes/tournaments.js';
+import profileRequestsRouter from './routes/profile-requests.js';
 import { initSeating } from './database/init-seating.js';
+import { initProfileModeration } from './database/init-profile-moderation.js';
 
 dotenv.config();
 
@@ -51,6 +53,7 @@ app.use((req, res, next) => {
 app.use('/api/users', usersRouter);
 app.use('/api/games', gamesRouter);
 app.use('/api/tournaments', tournamentsRouter);
+app.use('/api/profile-requests', profileRequestsRouter);
 
 // Главная страница
 app.get('/', (req, res) => {
@@ -94,6 +97,13 @@ app.listen(PORT, async () => {
     await initSeating();
   } catch (error) {
     console.error('⚠️ Failed to initialize seating tables (may already exist):', error.message);
+  }
+  
+  // Initialize profile moderation tables on startup
+  try {
+    await initProfileModeration();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize profile moderation tables (may already exist):', error.message);
   }
 });
 

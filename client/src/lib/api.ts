@@ -37,6 +37,7 @@ export interface User {
   last_name?: string;
   photo_url?: string;
   is_admin: boolean;
+  is_blocked?: boolean;
   created_at: string;
   last_active: string;
 }
@@ -394,9 +395,92 @@ export const tournamentsAPI = {
   },
 };
 
+// ============= PROFILE REQUESTS API =============
+
+export interface ProfileChangeRequest {
+  id: number;
+  user_id: number;
+  current_name: string;
+  current_avatar_url?: string;
+  requested_name?: string;
+  requested_avatar_url?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
+  user_name?: string;
+  telegram_id?: number;
+  user_avatar_url?: string;
+}
+
+export const profileRequestsAPI = {
+  async create(data: {
+    currentName: string;
+    currentAvatarUrl?: string;
+    requestedName?: string;
+    requestedAvatarUrl?: string;
+  }): Promise<ProfileChangeRequest> {
+    return fetchAPI('/profile-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getAll(status?: 'pending' | 'approved' | 'rejected'): Promise<ProfileChangeRequest[]> {
+    return fetchAPI(`/profile-requests${status ? `?status=${status}` : ''}`);
+  },
+
+  async getMy(status?: string): Promise<ProfileChangeRequest[]> {
+    return fetchAPI(`/profile-requests/my${status ? `?status=${status}` : ''}`);
+  },
+
+  async getById(id: number): Promise<ProfileChangeRequest> {
+    return fetchAPI(`/profile-requests/${id}`);
+  },
+
+  async approve(id: number): Promise<ProfileChangeRequest> {
+    return fetchAPI(`/profile-requests/${id}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  async reject(id: number): Promise<ProfileChangeRequest> {
+    return fetchAPI(`/profile-requests/${id}/reject`, {
+      method: 'POST',
+    });
+  },
+
+  async delete(id: number): Promise<void> {
+    return fetchAPI(`/profile-requests/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============= USER MANAGEMENT API =============
+
+export const userManagementAPI = {
+  async search(query: string): Promise<User[]> {
+    return fetchAPI(`/users/search?q=${encodeURIComponent(query)}`);
+  },
+
+  async block(userId: number): Promise<{ message: string; user: User }> {
+    return fetchAPI(`/users/${userId}/block`, {
+      method: 'POST',
+    });
+  },
+
+  async unblock(userId: number): Promise<{ message: string; user: User }> {
+    return fetchAPI(`/users/${userId}/unblock`, {
+      method: 'POST',
+    });
+  },
+};
+
 export default {
   users: usersAPI,
   games: gamesAPI,
   tournaments: tournamentsAPI,
+  profileRequests: profileRequestsAPI,
+  userManagement: userManagementAPI,
 };
 

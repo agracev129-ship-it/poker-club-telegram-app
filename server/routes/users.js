@@ -330,5 +330,62 @@ router.delete('/remove-friend', authenticateTelegram, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/users/search - Поиск пользователей по имени (только для админов)
+ */
+router.get('/search', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim().length === 0) {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+    
+    const users = await User.search(q, 50);
+    res.json(users);
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/users/:id/block - Заблокировать пользователя (только для админов)
+ */
+router.post('/:id/block', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const user = await User.block(userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ message: 'User blocked successfully', user });
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/users/:id/unblock - Разблокировать пользователя (только для админов)
+ */
+router.post('/:id/unblock', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const user = await User.unblock(userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ message: 'User unblocked successfully', user });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
 

@@ -36,48 +36,46 @@ interface ProfileModerationViewProps {
 }
 
 export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
-  const { getPendingRequests, approveRequest, rejectRequest } = useProfileModeration();
+  const { getPendingRequests, approveRequest, rejectRequest, loading, refreshRequests } = useProfileModeration();
   const [pendingRequests, setPendingRequests] = useState(getPendingRequests());
+  const [processing, setProcessing] = useState<number | null>(null);
 
   // Update pending requests when component mounts or when requests change
   useEffect(() => {
     setPendingRequests(getPendingRequests());
   }, [getPendingRequests]);
 
-  const handleApprove = (requestId: number) => {
-    const approvedRequest = approveRequest(requestId);
-    if (approvedRequest) {
-      // Update user profile in localStorage
-      const savedProfile = localStorage.getItem('userProfile');
-      if (savedProfile) {
-        const profile = JSON.parse(savedProfile);
-        
-        if (approvedRequest.requestedName) {
-          profile.name = approvedRequest.requestedName;
-        }
-        
-        if (approvedRequest.requestedAvatar !== undefined) {
-          profile.avatar = approvedRequest.requestedAvatar || undefined;
-        }
-        
-        localStorage.setItem('userProfile', JSON.stringify(profile));
-      }
-      
+  // Refresh on mount
+  useEffect(() => {
+    refreshRequests();
+  }, []);
+
+  const handleApprove = async (requestId: number) => {
+    setProcessing(requestId);
+    try {
+      await approveRequest(requestId);
       toast.success('Заявка одобрена');
       setPendingRequests(getPendingRequests());
+    } catch (error: any) {
+      console.error('Error approving request:', error);
+      toast.error(error.message || 'Ошибка при одобрении заявки');
+    } finally {
+      setProcessing(null);
     }
   };
 
-  const handleReject = (requestId: number) => {
-    rejectRequest(requestId);
-    toast.success('Заявка отклонена');
-    setPendingRequests(getPendingRequests());
-  };
-
-  const handleResetDemoData = () => {
-    // Clear all data and reload
-    localStorage.removeItem('profileModerationRequests');
-    window.location.reload();
+  const handleReject = async (requestId: number) => {
+    setProcessing(requestId);
+    try {
+      await rejectRequest(requestId);
+      toast.success('Заявка отклонена');
+      setPendingRequests(getPendingRequests());
+    } catch (error: any) {
+      console.error('Error rejecting request:', error);
+      toast.error(error.message || 'Ошибка при отклонении заявки');
+    } finally {
+      setProcessing(null);
+    }
   };
 
   return (
@@ -104,7 +102,11 @@ export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
       </div>
 
       <div className="px-4 py-6 pb-24">
-        {pendingRequests.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="text-gray-500">Загрузка заявок...</div>
+          </div>
+        ) : pendingRequests.length > 0 ? (
           <div className="space-y-4">
             {pendingRequests.map((request) => (
               <motion.div
@@ -203,17 +205,23 @@ export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => handleApprove(request.id)}
-                    className="flex-1 h-11 rounded-xl bg-green-600/20 flex items-center justify-center hover:bg-green-600/30 transition-colors border border-green-600/40"
+                    disabled={processing === request.id}
+                    className="flex-1 h-11 rounded-xl bg-green-600/20 flex items-center justify-center hover:bg-green-600/30 transition-colors border border-green-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CheckIcon className="w-5 h-5 text-green-400 mr-2" />
-                    <span className="text-sm text-green-400">Принять</span>
+                    <span className="text-sm text-green-400">
+                      {processing === request.id ? 'Обработка...' : 'Принять'}
+                    </span>
                   </button>
                   <button
                     onClick={() => handleReject(request.id)}
-                    className="flex-1 h-11 rounded-xl bg-red-600/20 flex items-center justify-center hover:bg-red-600/30 transition-colors border border-red-600/40"
+                    disabled={processing === request.id}
+                    className="flex-1 h-11 rounded-xl bg-red-600/20 flex items-center justify-center hover:bg-red-600/30 transition-colors border border-red-600/40 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <XIcon className="w-5 h-5 text-red-400 mr-2" />
-                    <span className="text-sm text-red-400">Отклонить</span>
+                    <span className="text-sm text-red-400">
+                      {processing === request.id ? 'Обработка...' : 'Отклонить'}
+                    </span>
                   </button>
                 </div>
               </motion.div>
@@ -225,27 +233,9 @@ export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
               <UserCheckIcon className="w-10 h-10 text-gray-600" />
             </div>
             <p className="text-gray-500 text-center mb-2">Нет заявок на модерацию</p>
-            <p className="text-xs text-gray-600 text-center mb-4">
+            <p className="text-xs text-gray-600 text-center">
               Здесь будут появляться заявки<br />на изменение профилей пользователей
             </p>
-            <button
-              onClick={handleResetDemoData}
-              className="px-6 py-2.5 bg-purple-600/20 border border-purple-600/40 rounded-xl text-sm text-purple-400 hover:bg-purple-600/30 transition-colors"
-            >
-              Загрузить демо-данные
-            </button>
-          </div>
-        )}
-        
-        {/* Reset Demo Data Button (for testing) */}
-        {pendingRequests.length > 0 && (
-          <div className="mt-6 flex justify-center">
-            <button
-              onClick={handleResetDemoData}
-              className="px-6 py-2.5 bg-[#1a1a1a] border border-gray-800 rounded-xl text-sm text-gray-500 hover:bg-[#252525] hover:text-gray-400 transition-all"
-            >
-              Сбросить и загрузить демо-данные
-            </button>
           </div>
         )}
       </div>

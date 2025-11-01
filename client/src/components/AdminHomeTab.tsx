@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useGames } from '../hooks/useGames';
 import { usersAPI } from '../lib/api';
 import { useProfileModeration } from './ProfileModerationContext';
+import { PlayersManagementView } from './PlayersManagementView';
 
 // Helper function to format date
 const formatDateDisplay = (dateStr: string): string => {
@@ -80,7 +81,8 @@ export function AdminHomeTab({ onOpenProfileModeration }: AdminHomeTabProps) {
   const { getPendingRequests } = useProfileModeration();
   const [totalUsers, setTotalUsers] = useState(0);
   const [activeToday, setActiveToday] = useState(0);
-  
+  const [isPlayersManagementOpen, setIsPlayersManagementOpen] = useState(false);
+
   const pendingProfileRequests = getPendingRequests();
 
   useEffect(() => {
@@ -180,6 +182,32 @@ export function AdminHomeTab({ onOpenProfileModeration }: AdminHomeTabProps) {
           </div>
         </button>
 
+        {/* Players Management Button */}
+        <button
+          onClick={() => setIsPlayersManagementOpen(true)}
+          className="w-full bg-[#1a1a1a] rounded-2xl p-4 border border-gray-800 hover:bg-[#252525] transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center border border-blue-600/40">
+                <UsersIcon className="w-6 h-6 text-blue-500" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-sm mb-0.5">Управление игроками</h3>
+                <p className="text-xs text-gray-500">Блокировка и управление пользователями</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-3 py-1.5 bg-blue-600/20 border border-blue-600/40 rounded-full text-blue-400">
+                {totalUsers}
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </div>
+          </div>
+        </button>
+
         {/* Upcoming Tournaments */}
         <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-gray-800">
           <div className="flex items-center justify-between mb-3">
@@ -241,6 +269,11 @@ export function AdminHomeTab({ onOpenProfileModeration }: AdminHomeTabProps) {
           </div>
         )}
       </div>
+
+      {/* Players Management View Modal */}
+      {isPlayersManagementOpen && (
+        <PlayersManagementView onClose={() => setIsPlayersManagementOpen(false)} />
+      )}
     </div>
   );
 }

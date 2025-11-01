@@ -189,6 +189,81 @@ export const User = {
     );
     
     return result.rows;
+  },
+
+  /**
+   * Поиск пользователей по имени
+   */
+  async search(searchTerm, limit = 50) {
+    const searchPattern = `%${searchTerm}%`;
+    const result = await query(
+      `SELECT u.*, us.games_played, us.games_won, us.total_points, 
+              us.total_winnings, us.current_rank
+       FROM users u
+       LEFT JOIN user_stats us ON us.user_id = u.id
+       WHERE LOWER(u.username) LIKE LOWER($1)
+          OR LOWER(u.first_name) LIKE LOWER($1)
+          OR LOWER(u.last_name) LIKE LOWER($1)
+       ORDER BY u.created_at DESC
+       LIMIT $2`,
+      [searchPattern, limit]
+    );
+    
+    return result.rows;
+  },
+
+  /**
+   * Блокирует пользователя
+   */
+  async block(userId) {
+    const result = await query(
+      `UPDATE users 
+       SET is_blocked = TRUE 
+       WHERE id = $1
+       RETURNING *`,
+      [userId]
+    );
+    
+    return result.rows[0];
+  },
+
+  /**
+   * Разблокирует пользователя
+   */
+  async unblock(userId) {
+    const result = await query(
+      `UPDATE users 
+       SET is_blocked = FALSE 
+       WHERE id = $1
+       RETURNING *`,
+      [userId]
+    );
+    
+    return result.rows[0];
+  },
+
+  /**
+   * Проверяет заблокирован ли пользователь
+   */
+  async isBlocked(userId) {
+    const result = await query(
+      'SELECT is_blocked FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    return result.rows[0]?.is_blocked || false;
+  },
+
+  /**
+   * Проверяет заблокирован ли пользователь по Telegram ID
+   */
+  async isBlockedByTelegramId(telegramId) {
+    const result = await query(
+      'SELECT is_blocked FROM users WHERE telegram_id = $1',
+      [telegramId]
+    );
+    
+    return result.rows[0]?.is_blocked || false;
   }
 };
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useUser } from '../hooks/useUser';
 import { getInitials, formatRelativeTime } from '../lib/utils';
 import { SettingsView } from './SettingsView';
+import { ProfileEditView } from './ProfileEditView';
 import { useAdmin } from './AdminContext';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 
@@ -129,6 +130,7 @@ export function ProfileTab() {
   const { isAdmin, setAdminMode } = useAdmin();
   const { leaderboard } = useLeaderboard(100);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [userRank, setUserRank] = useState<number | null>(null);
 
   // Вычисляем позицию пользователя из рейтинга
@@ -166,12 +168,22 @@ export function ProfileTab() {
             <h1 className="text-xl mb-1">{user?.first_name || 'Игрок'} {user?.last_name || ''}</h1>
             <p className="text-sm text-gray-400">Игрок • #{userRank || '—'} в рейтинге</p>
           </div>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
-          >
-            <SettingsIcon className="w-5 h-5 text-white" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsProfileEditOpen(true)}
+              className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              </svg>
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
+            >
+              <SettingsIcon className="w-5 h-5 text-white" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -351,6 +363,11 @@ export function ProfileTab() {
       {/* Settings View Modal */}
       {isSettingsOpen && (
         <SettingsView onClose={() => setIsSettingsOpen(false)} />
+      )}
+
+      {/* Profile Edit View Modal */}
+      {isProfileEditOpen && (
+        <ProfileEditView onClose={() => setIsProfileEditOpen(false)} />
       )}
     </>
   );
