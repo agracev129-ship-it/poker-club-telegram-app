@@ -107,11 +107,11 @@ function AppContent() {
     };
   }, []);
 
-  // Восстанавливаем вкладку после загрузки isAdminMode
+  // Восстанавливаем вкладку после загрузки isAdminMode (используем sessionStorage для сессии)
   useEffect(() => {
     if (!isInitialized) {
       const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
-      const saved = localStorage.getItem(key);
+      const saved = sessionStorage.getItem(key);
       if (saved) {
         setActiveTab(saved as TabType);
       }
@@ -119,11 +119,25 @@ function AppContent() {
     }
   }, [isAdminMode, isInitialized]);
 
-  // Сохраняем активную вкладку в localStorage (отдельно для админа и пользователя)
+  // Переключаем вкладку при смене режима админа
   useEffect(() => {
     if (isInitialized) {
       const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
-      localStorage.setItem(key, activeTab);
+      const saved = sessionStorage.getItem(key);
+      if (saved) {
+        setActiveTab(saved as TabType);
+      } else {
+        setActiveTab('home');
+      }
+    }
+  }, [isAdminMode, isInitialized]);
+
+  // Сохраняем активную вкладку в sessionStorage (отдельно для админа и пользователя)
+  // sessionStorage очищается при закрытии приложения, но сохраняется при обновлении
+  useEffect(() => {
+    if (isInitialized) {
+      const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
+      sessionStorage.setItem(key, activeTab);
     }
   }, [activeTab, isAdminMode, isInitialized]);
 

@@ -97,7 +97,7 @@ class ProfileRequest {
       }
       
       if (request.requested_avatar_url !== undefined) {
-        updates.push(`avatar_url = $${paramIndex++}`);
+        updates.push(`photo_url = $${paramIndex++}`);
         values.push(request.requested_avatar_url);
       }
       
