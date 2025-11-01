@@ -54,9 +54,10 @@ const UserIcon = ({ className }: { className?: string }) => (
 
 function AppContent() {
   const { isAdminMode } = useAdmin();
-  // Восстанавливаем активную вкладку из localStorage
+  // Восстанавливаем активную вкладку из localStorage (отдельно для админа и пользователя)
   const [activeTab, setActiveTab] = useState<TabType>(() => {
-    const saved = localStorage.getItem('activeTab');
+    const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
+    const saved = localStorage.getItem(key);
     return (saved as TabType) || 'home';
   });
   const [openModals, setOpenModals] = useState({
@@ -79,30 +80,60 @@ function AppContent() {
     setHasAcceptedTerms(accepted === 'true');
     setIsCheckingTerms(false);
 
-    // Отслеживание видимости клавиатуры через Telegram API
-    if (window.Telegram?.WebApp) {
-      // Слушаем изменения высоты viewport
-      const handleViewportChanged = () => {
-        const isExpanded = window.Telegram.WebApp.isExpanded;
-        const viewportHeight = window.Telegram.WebApp.viewportHeight;
-        const viewportStableHeight = window.Telegram.WebApp.viewportStableHeight;
-        
-        // Клавиатура видна если высота viewport меньше стабильной высоты
-        setIsKeyboardVisible(viewportStableHeight > viewportHeight + 50);
-      };
+    // Отслеживание видимости клавиатуры через visualViewport API
+    const handleResize = () => {
+      if (window.visualViewport) {
+        const viewportHeight = window.visualViewport.height;
+        const windowHeight = window.innerHeight;
+        // Клавиатура видна если viewport существенно меньше окна
+        setIsKeyboardVisible(windowHeight - viewportHeight > 150);
+      }
+    };
 
-      window.Telegram.WebApp.onEvent('viewportChanged', handleViewportChanged);
+    // Также отслеживаем focus на input элементах
+    const handleFocusIn = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement || 
+          e.target instanceof HTMLTextAreaElement) {
+        // Небольшая задержка чтобы клавиатура успела открыться
+        setTimeout(() => setIsKeyboardVisible(true), 300);
+      }
+    };
 
-      return () => {
-        window.Telegram.WebApp.offEvent('viewportChanged', handleViewportChanged);
-      };
+    const handleFocusOut = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement || 
+          e.target instanceof HTMLTextAreaElement) {
+        // Задержка перед скрытием
+        setTimeout(() => {
+          // Проверяем, не переключились ли на другой input
+          if (!(document.activeElement instanceof HTMLInputElement) &&
+              !(document.activeElement instanceof HTMLTextAreaElement)) {
+            setIsKeyboardVisible(false);
+          }
+        }, 100);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
     }
+    
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      }
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+    };
   }, []);
 
-  // Сохраняем активную вкладку в localStorage
+  // Сохраняем активную вкладку в localStorage (отдельно для админа и пользователя)
   useEffect(() => {
-    localStorage.setItem('activeTab', activeTab);
-  }, [activeTab]);
+    const key = isAdminMode ? 'activeTabAdmin' : 'activeTabUser';
+    localStorage.setItem(key, activeTab);
+  }, [activeTab, isAdminMode]);
 
   const handleAcceptTerms = () => {
     localStorage.setItem('termsAccepted', 'true');
