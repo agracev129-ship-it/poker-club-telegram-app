@@ -6,10 +6,14 @@ import { RatingTab } from './components/RatingTab';
 import { ProfileTab } from './components/ProfileTab';
 import { AdminHomeTab } from './components/AdminHomeTab';
 import { AdminTournamentsTab } from './components/AdminTournamentsTab';
+import { AdminRatingTab } from './components/AdminRatingTab';
 import { AdminProfileTab } from './components/AdminProfileTab';
+import { ProfileModerationView } from './components/ProfileModerationView';
 import { GameRegistrationProvider } from './components/GameRegistrationContext';
 import { TournamentsProvider } from './components/TournamentsContext';
 import { AdminProvider, useAdmin } from './components/AdminContext';
+import { ProfileModerationProvider } from './components/ProfileModerationContext';
+import { RatingSeasonsProvider } from './components/RatingSeasonsContext';
 import { TermsAndConditions } from './components/TermsAndConditions';
 import { initTelegramApp } from './lib/telegram';
 
@@ -57,6 +61,7 @@ function AppContent() {
     history: false,
     aboutClub: false,
   });
+  const [isProfileModerationOpen, setIsProfileModerationOpen] = useState(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
   const [isCheckingTerms, setIsCheckingTerms] = useState<boolean>(true);
   const [homeRefreshKey, setHomeRefreshKey] = useState<number>(0);
@@ -103,14 +108,23 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-32">
+      {/* Profile Moderation View */}
+      {isProfileModerationOpen && (
+        <ProfileModerationView onClose={() => setIsProfileModerationOpen(false)} />
+      )}
+      
       {/* Content */}
       <div className="h-full">
         {isAdminMode ? (
           <>
             {/* Admin Mode Views */}
-            {activeTab === 'home' && <AdminHomeTab />}
+            {activeTab === 'home' && (
+              <AdminHomeTab 
+                onOpenProfileModeration={() => setIsProfileModerationOpen(true)}
+              />
+            )}
             {activeTab === 'tournaments' && <AdminTournamentsTab />}
-            {activeTab === 'rating' && <RatingTab />}
+            {activeTab === 'rating' && <AdminRatingTab />}
             {activeTab === 'profile' && <AdminProfileTab />}
           </>
         ) : (
@@ -243,9 +257,13 @@ export default function App() {
   return (
     <TournamentsProvider>
       <GameRegistrationProvider>
-        <AdminProvider>
-          <AppContent />
-        </AdminProvider>
+        <RatingSeasonsProvider>
+          <ProfileModerationProvider>
+            <AdminProvider>
+              <AppContent />
+            </AdminProvider>
+          </ProfileModerationProvider>
+        </RatingSeasonsProvider>
       </GameRegistrationProvider>
     </TournamentsProvider>
   );

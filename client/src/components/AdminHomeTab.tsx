@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useGames } from '../hooks/useGames';
 import { usersAPI } from '../lib/api';
+import { useProfileModeration } from './ProfileModerationContext';
 
 // Helper function to format date
 const formatDateDisplay = (dateStr: string): string => {
@@ -62,10 +63,25 @@ const AlertCircleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export function AdminHomeTab() {
+const UserCheckIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <polyline points="16 11 18 13 22 9"/>
+  </svg>
+);
+
+interface AdminHomeTabProps {
+  onOpenProfileModeration: () => void;
+}
+
+export function AdminHomeTab({ onOpenProfileModeration }: AdminHomeTabProps) {
   const { games, loading } = useGames({ status: 'upcoming' });
+  const { getPendingRequests } = useProfileModeration();
   const [totalUsers, setTotalUsers] = useState(0);
   const [activeToday, setActiveToday] = useState(0);
+  
+  const pendingProfileRequests = getPendingRequests();
 
   useEffect(() => {
     const loadStats = async () => {
@@ -135,6 +151,34 @@ export function AdminHomeTab() {
             <div className="text-xs text-yellow-400 mt-1">В системе сейчас</div>
           </div>
         </div>
+
+        {/* Profile Moderation Button */}
+        <button
+          onClick={onOpenProfileModeration}
+          className="w-full bg-[#1a1a1a] rounded-2xl p-4 border border-gray-800 hover:bg-[#252525] transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-purple-600/20 flex items-center justify-center border border-purple-600/40">
+                <UserCheckIcon className="w-6 h-6 text-purple-500" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-sm mb-0.5">Модерация профилей</h3>
+                <p className="text-xs text-gray-500">Заявки на изменение профилей</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {pendingProfileRequests.length > 0 && (
+                <span className="text-xs px-3 py-1.5 bg-purple-600/20 border border-purple-600/40 rounded-full text-purple-400">
+                  {pendingProfileRequests.length}
+                </span>
+              )}
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </div>
+          </div>
+        </button>
 
         {/* Upcoming Tournaments */}
         <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-gray-800">
