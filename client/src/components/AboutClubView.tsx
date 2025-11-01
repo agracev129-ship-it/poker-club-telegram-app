@@ -101,7 +101,7 @@ export function AboutClubView({ onClose }: AboutClubViewProps) {
             </button>
 
             <button 
-              onClick={() => window.open('https://t.me/support', '_blank')}
+              onClick={() => window.open('https://t.me/oguseru', '_blank')}
               className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
             >
               <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center mb-2">

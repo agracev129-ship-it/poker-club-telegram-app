@@ -54,7 +54,11 @@ const UserIcon = ({ className }: { className?: string }) => (
 
 function AppContent() {
   const { isAdminMode } = useAdmin();
-  const [activeTab, setActiveTab] = useState<TabType>('home');
+  // Восстанавливаем активную вкладку из localStorage
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    const saved = localStorage.getItem('activeTab');
+    return (saved as TabType) || 'home';
+  });
   const [openModals, setOpenModals] = useState({
     seating: false,
     players: false,
@@ -65,6 +69,7 @@ function AppContent() {
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean>(false);
   const [isCheckingTerms, setIsCheckingTerms] = useState<boolean>(true);
   const [homeRefreshKey, setHomeRefreshKey] = useState<number>(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
     initTelegramApp();
@@ -73,7 +78,31 @@ function AppContent() {
     const accepted = localStorage.getItem('termsAccepted');
     setHasAcceptedTerms(accepted === 'true');
     setIsCheckingTerms(false);
+
+    // Отслеживание видимости клавиатуры через Telegram API
+    if (window.Telegram?.WebApp) {
+      // Слушаем изменения высоты viewport
+      const handleViewportChanged = () => {
+        const isExpanded = window.Telegram.WebApp.isExpanded;
+        const viewportHeight = window.Telegram.WebApp.viewportHeight;
+        const viewportStableHeight = window.Telegram.WebApp.viewportStableHeight;
+        
+        // Клавиатура видна если высота viewport меньше стабильной высоты
+        setIsKeyboardVisible(viewportStableHeight > viewportHeight + 50);
+      };
+
+      window.Telegram.WebApp.onEvent('viewportChanged', handleViewportChanged);
+
+      return () => {
+        window.Telegram.WebApp.offEvent('viewportChanged', handleViewportChanged);
+      };
+    }
   }, []);
+
+  // Сохраняем активную вкладку в localStorage
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   const handleAcceptTerms = () => {
     localStorage.setItem('termsAccepted', 'true');
@@ -154,8 +183,8 @@ function AppContent() {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 px-2 py-3 z-50">
+      {/* Bottom Navigation - скрываем при открытой клавиатуре */}
+      <div className={`fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 px-2 py-3 z-50 transition-transform duration-200 ${isKeyboardVisible ? 'translate-y-full' : 'translate-y-0'}`}>
         <div className="relative flex items-center justify-around max-w-md mx-auto">
             {/* Animated indicator */}
             <motion.div

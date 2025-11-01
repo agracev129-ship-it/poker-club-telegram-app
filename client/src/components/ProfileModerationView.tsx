@@ -54,8 +54,9 @@ export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
     setProcessing(requestId);
     try {
       await approveRequest(requestId);
+      await refreshRequests(); // Обновляем список с сервера
+      setPendingRequests(getPendingRequests()); // Обновляем локальный список
       toast.success('Заявка одобрена');
-      setPendingRequests(getPendingRequests());
     } catch (error: any) {
       console.error('Error approving request:', error);
       toast.error(error.message || 'Ошибка при одобрении заявки');
@@ -68,8 +69,9 @@ export function ProfileModerationView({ onClose }: ProfileModerationViewProps) {
     setProcessing(requestId);
     try {
       await rejectRequest(requestId);
+      await refreshRequests(); // Обновляем список с сервера
+      setPendingRequests(getPendingRequests()); // Обновляем локальный список
       toast.success('Заявка отклонена');
-      setPendingRequests(getPendingRequests());
     } catch (error: any) {
       console.error('Error rejecting request:', error);
       toast.error(error.message || 'Ошибка при отклонении заявки');
