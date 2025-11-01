@@ -8,19 +8,31 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const initData = getTelegramInitData();
   
+  console.log('=== API Request ===');
+  console.log('Endpoint:', endpoint);
+  console.log('Method:', options.method || 'GET');
+  console.log('Has initData:', !!initData);
+  
   const headers = {
     'Content-Type': 'application/json',
     'X-Telegram-Init-Data': initData,
     ...options.headers,
   };
 
+  if (options.body) {
+    console.log('Request body:', options.body);
+  }
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
   });
 
+  console.log('Response status:', response.status);
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Network error' }));
+    console.error('API Error:', error);
     
     // Если пользователь заблокирован - показываем специальное сообщение и перезагружаем
     if (response.status === 403 && error.blocked) {
@@ -32,7 +44,9 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     throw new Error(error.error || 'API request failed');
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log('Response data:', data);
+  return data;
 }
 
 // ============= USERS API =============

@@ -7,28 +7,47 @@ const router = express.Router();
 // Создать новый запрос на изменение профиля (только для авторизованных пользователей)
 router.post('/', authenticateTelegram, checkUserBlocked, async (req, res) => {
   try {
+    console.log('=== Profile Request Creation Started ===');
+    console.log('Request body:', req.body);
+    console.log('Telegram user:', req.telegramUser?.id);
+    console.log('User from middleware:', req.user?.id);
+    
     const { currentName, currentAvatarUrl, requestedName, requestedAvatarUrl } = req.body;
     
     // Получаем userId из req.user или находим пользователя по telegram_id
     let userId;
     if (req.user) {
       userId = req.user.id;
+      console.log('Using req.user.id:', userId);
     } else if (req.telegramUser) {
       // Импортируем User model вверху файла
+      console.log('Looking up user by telegram_id:', req.telegramUser.id);
       const User = (await import('../models/User.js')).User;
       const user = await User.findByTelegramId(req.telegramUser.id);
       if (!user) {
+        console.error('User not found for telegram_id:', req.telegramUser.id);
         return res.status(404).json({ error: 'User not found. Please register first.' });
       }
       userId = user.id;
+      console.log('Found user.id:', userId);
     } else {
+      console.error('No telegram user or req.user available');
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     // Проверка что есть хотя бы одно изменение
     if (!requestedName && requestedAvatarUrl === undefined) {
+      console.error('No changes provided');
       return res.status(400).json({ error: 'Необходимо указать хотя бы одно изменение' });
     }
+
+    console.log('Creating profile request with:', {
+      userId,
+      currentName,
+      currentAvatarUrl,
+      requestedName,
+      requestedAvatarUrl
+    });
 
     const request = await ProfileRequest.create(
       userId,
@@ -38,9 +57,11 @@ router.post('/', authenticateTelegram, checkUserBlocked, async (req, res) => {
       requestedAvatarUrl
     );
 
+    console.log('Profile request created successfully:', request.id);
     res.json(request);
   } catch (error) {
     console.error('Error creating profile request:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
