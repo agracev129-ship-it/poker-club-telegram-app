@@ -249,8 +249,8 @@ export function HomeTab({
   return (
     <div className="min-h-screen bg-black pb-24">
       {/* Compact Header */}
-      <div className="px-4 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
+      <div className="px-4 pt-6 pb-2">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             {user?.photo_url ? (
               <img
@@ -268,12 +268,30 @@ export function HomeTab({
               <div className="text-lg">{user?.first_name || 'Игрок'}</div>
             </div>
           </div>
-          <button className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center">
-            <MoreVerticalIcon className="w-5 h-5 text-white" />
-          </button>
+          <div className="flex items-center gap-2">
+            {firstGame && firstGame.tournament_status === 'started' ? (
+              <>
+                <div className="text-xs text-gray-400">Статус:</div>
+                <div className="bg-gradient-to-r from-green-700 to-green-800 rounded-2xl px-3 py-2 flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-green-200" />
+                  <div className="text-sm">
+                    <span className="text-white">В процессе</span>
+                  </div>
+                </div>
+              </>
+            ) : firstGame ? (
+              <>
+                <div className="text-xs text-gray-400">До игры:</div>
+                <div className="bg-[#1a1a1a] rounded-2xl px-3 py-2 flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-red-500" />
+                  <div className="text-sm">
+                    <span className="text-white">{timeLeft.hours}ч {timeLeft.minutes}м</span>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
-        <h2 className="text-2xl mb-1">Готовы к игре?</h2>
-        <p className="text-sm text-gray-400">До следующей игры {timeLeft.hours}ч {timeLeft.minutes}м</p>
       </div>
 
       {/* Main Content Grid */}
@@ -318,17 +336,23 @@ export function HomeTab({
         ))}
 
         {/* Tournament Cards Row */}
-        {!gamesLoading && apiGames.length >= 2 && (
-          <div className="grid grid-cols-2 gap-3">
-            {/* Main Tournament Card */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Main Tournament Card */}
+          {firstGame ? (
             <button 
               onClick={() => handleGameClick(firstGame)}
-              className="bg-gradient-to-br from-red-700 to-red-900 rounded-3xl p-4 relative overflow-hidden text-left hover:from-red-600 hover:to-red-800 transition-all"
+              className={`rounded-3xl p-4 relative overflow-hidden text-left transition-all ${
+                firstGame.tournament_status === 'started'
+                  ? 'bg-gradient-to-br from-green-700 to-green-900 hover:from-green-600 hover:to-green-800'
+                  : 'bg-gradient-to-br from-red-700 to-red-900 hover:from-red-600 hover:to-red-800'
+              }`}
             >
               <div className="relative z-10">
-                {/* Date Badge */}
+                {/* Date Badge / Status Badge */}
                 <div className="inline-block bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
-                  <div className="text-xs text-white/90">{formatDate(firstGame.date)}</div>
+                  <div className="text-xs text-white/90">
+                    {firstGame.tournament_status === 'started' ? 'В процессе' : formatDate(firstGame.date)}
+                  </div>
                 </div>
                 
                 <div className="mt-3">
@@ -340,29 +364,55 @@ export function HomeTab({
                 </div>
               </div>
             </button>
+          ) : (
+            <div className="rounded-3xl p-4 relative overflow-hidden bg-[#1a1a1a] border border-gray-800 flex items-center justify-center min-h-[140px]">
+              <div className="text-center px-2">
+                <CalendarIcon className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <div className="text-xs text-gray-500">Турниров нет</div>
+              </div>
+            </div>
+          )}
 
-            {/* Second Tournament */}
+          {/* Second Tournament */}
+          {secondGame ? (
             <button 
               onClick={() => handleGameClick(secondGame)}
-              className="bg-[#2d2d2d] rounded-3xl p-4 relative overflow-hidden text-left hover:bg-[#353535] transition-all"
+              className={`rounded-3xl p-4 relative overflow-hidden text-left transition-all ${
+                secondGame.tournament_status === 'started'
+                  ? 'bg-gradient-to-br from-green-800/60 to-green-900/60 hover:bg-gradient-to-br hover:from-green-800/70 hover:to-green-900/70'
+                  : 'bg-[#2d2d2d] hover:bg-[#353535]'
+              }`}
             >
               <div className="relative z-10">
-                {/* Date Badge */}
-                <div className="inline-block bg-white/5 backdrop-blur-sm px-3 py-1.5 rounded-full mb-3">
-                  <div className="text-xs text-white/90">{formatDate(secondGame.date)}</div>
+                {/* Date Badge / Status Badge */}
+                <div className={`inline-block backdrop-blur-sm px-3 py-1.5 rounded-full mb-3 ${
+                  secondGame.tournament_status === 'started' ? 'bg-white/15' : 'bg-white/5'
+                }`}>
+                  <div className="text-xs text-white/90">
+                    {secondGame.tournament_status === 'started' ? 'В процессе' : formatDate(secondGame.date)}
+                  </div>
                 </div>
                 
                 <div className="mt-3">
                   <div className="text-gray-300 mb-1.5">{secondGame.name.split(' ')[0]}</div>
                   <div className="text-2xl">{formatTime(secondGame.time)}</div>
                 </div>
-                <div className="absolute top-3 right-3 w-8 h-8 bg-white/5 rounded-full flex items-center justify-center">
+                <div className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center ${
+                  secondGame.tournament_status === 'started' ? 'bg-black/20' : 'bg-white/5'
+                }`}>
                   <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
                 </div>
               </div>
             </button>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-3xl p-4 relative overflow-hidden bg-[#1a1a1a] border border-gray-800 flex items-center justify-center min-h-[140px]">
+              <div className="text-center px-2">
+                <CalendarIcon className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <div className="text-xs text-gray-500">Турниров нет</div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Stats Card */}
         <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-3xl p-5 relative overflow-hidden border border-red-900/30">

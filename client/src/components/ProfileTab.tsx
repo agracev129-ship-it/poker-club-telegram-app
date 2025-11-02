@@ -5,6 +5,12 @@ import { SettingsView } from './SettingsView';
 import { ProfileEditView } from './ProfileEditView';
 import { useAdmin } from './AdminContext';
 import { useLeaderboard } from '../hooks/useLeaderboard';
+import { usersAPI, User } from '../lib/api';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from './ui/collapsible';
 
 // Icon components as inline SVGs
 const SettingsIcon = ({ className }: { className?: string }) => (
@@ -125,6 +131,40 @@ const ShieldCheckIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const MedalIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/>
+    <path d="M11 12 5.12 2.2"/>
+    <path d="m13 12 5.88-9.8"/>
+    <path d="M8 7h8"/>
+    <circle cx="12" cy="17" r="5"/>
+    <path d="M12 18v-2h-.5"/>
+  </svg>
+);
+
+const LockIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  </svg>
+);
+
+const UsersIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+
+const SpadeIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M5 9c-1.5 1.5-3 3.2-3 5.5A5.5 5.5 0 0 0 7.5 20c1.8 0 3-.5 4.5-2 1.5 1.5 2.7 2 4.5 2a5.5 5.5 0 0 0 5.5-5.5c0-2.3-1.5-4-3-5.5l-6-6.5-6 6.5Z"/>
+    <path d="M12 18v4"/>
+  </svg>
+);
+
 export function ProfileTab() {
   const { user } = useUser();
   const { isAdmin, setAdminMode } = useAdmin();
@@ -132,6 +172,9 @@ export function ProfileTab() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [userRank, setUserRank] = useState<number | null>(null);
+  const [friends, setFriends] = useState<User[]>([]);
+  const [isUnlockedOpen, setIsUnlockedOpen] = useState(true);
+  const [isLockedOpen, setIsLockedOpen] = useState(false);
 
   // Вычисляем позицию пользователя из рейтинга
   useEffect(() => {
@@ -142,6 +185,20 @@ export function ProfileTab() {
       setUserRank(user.current_rank);
     }
   }, [user, leaderboard]);
+
+  // Загружаем список друзей
+  useEffect(() => {
+    const loadFriends = async () => {
+      try {
+        const friendsList = await usersAPI.getFriends();
+        setFriends(friendsList);
+      } catch (error) {
+        console.error('Error loading friends:', error);
+        setFriends([]);
+      }
+    };
+    loadFriends();
+  }, []);
 
   const handleActivateAdminMode = () => {
     setAdminMode(true);
@@ -193,83 +250,187 @@ export function ProfileTab() {
           <div className="text-sm text-gray-400 mb-3">Статистика</div>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                <TrophyIcon className="w-5 h-5 text-yellow-500" />
+              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-white/10 flex items-center justify-center">
+                <TrophyIcon className="w-5 h-5 text-white" />
               </div>
               <div className="text-xl mb-0.5">{user?.games_won || 0}</div>
               <div className="text-xs text-gray-400">Побед</div>
             </div>
             <div className="text-center">
-              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-red-500/20 flex items-center justify-center">
-                <TargetIcon className="w-5 h-5 text-red-500" />
+              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-red-700/20 flex items-center justify-center">
+                <TargetIcon className="w-5 h-5 text-red-600" />
               </div>
               <div className="text-xl mb-0.5">{user?.games_played || 0}</div>
               <div className="text-xs text-gray-400">Игр</div>
             </div>
             <div className="text-center">
-              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <StarIcon className="w-5 h-5 text-purple-500" />
+              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-white/10 flex items-center justify-center">
+                <MedalIcon className="w-5 h-5 text-white" />
               </div>
-              <div className="text-xl mb-0.5">{user?.total_points || 0}</div>
-              <div className="text-xs text-gray-400">Очков</div>
+              <div className="text-xl mb-0.5">—</div>
+              <div className="text-xs text-gray-400">Место в последней игре</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Achievements */}
+      {/* Friends Section */}
+      {friends.length > 0 && (
+        <div className="mb-4">
+          <div className="px-4 flex items-center justify-between mb-2">
+            <div className="text-sm text-gray-400">Друзья</div>
+            <div className="text-xs text-gray-500">{friends.length}</div>
+          </div>
+          <div className="px-4">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl py-4 overflow-hidden">
+              <div className="flex items-center gap-3 overflow-x-auto pb-1 -mb-1 scrollbar-hide px-4">
+                {friends.map((friend) => (
+                  <div key={friend.id} className="flex flex-col items-center gap-2 min-w-[60px] flex-shrink-0">
+                    {friend.photo_url ? (
+                      <img
+                        src={friend.photo_url}
+                        alt={friend.first_name}
+                        className="w-12 h-12 rounded-full object-cover border border-red-800"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center text-lg border border-red-800">
+                        {getInitials(friend.first_name, friend.last_name)}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-300 text-center truncate w-full">
+                      {friend.first_name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Achievements Section */}
       <div className="px-4 mb-4">
         <div className="text-sm text-gray-400 mb-2">Достижения</div>
-        <div className="grid grid-cols-2 gap-3">
-          {user?.achievements && user.achievements.length > 0 ? (
-            user.achievements.slice(0, 4).map((achievement) => (
-              <div
-                key={achievement.id}
-                className={`bg-[#1a1a1a] rounded-2xl p-4 border ${getAchievementColor(achievement.color)}`}
-              >
-                <div className={`w-10 h-10 mb-3 rounded-full ${getAchievementBgColor(achievement.color)} flex items-center justify-center`}>
-                  {achievement.icon === 'trophy' && <TrophyIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
-                  {achievement.icon === 'zap' && <ZapIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
-                  {achievement.icon === 'star' && <StarIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
-                  {achievement.icon === 'trending-up' && <TrendingUpIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
+        
+        {/* Unlocked Achievements */}
+        <Collapsible open={isUnlockedOpen} onOpenChange={setIsUnlockedOpen} className="mb-2">
+          <CollapsibleTrigger className="w-full">
+            <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-2xl p-4 border border-red-900/30 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center">
+                  <AwardIcon className="w-5 h-5 text-red-600" />
                 </div>
-                <h3 className="text-sm mb-1">{achievement.name}</h3>
-                <p className="text-xs text-gray-500">{achievement.description}</p>
-              </div>
-            ))
-          ) : (
-            <>
-              <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-yellow-500/30">
-                <div className="w-10 h-10 mb-3 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                  <TrophyIcon className="w-5 h-5 text-yellow-500" />
+                <div className="text-left">
+                  <div className="text-sm">Открытые достижения</div>
+                  <div className="text-xs text-gray-400">{user?.achievements?.length || 3} из 6</div>
                 </div>
-                <h3 className="text-sm mb-1">Первая победа</h3>
-                <p className="text-xs text-gray-500">Выиграй турнир</p>
               </div>
-              <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-blue-500/30">
-                <div className="w-10 h-10 mb-3 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <ZapIcon className="w-5 h-5 text-blue-500" />
+              <ChevronDownIcon className={`w-5 h-5 text-red-600 transition-transform ${isUnlockedOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 space-y-2">
+              {user?.achievements && user.achievements.length > 0 ? (
+                user.achievements.map((achievement) => (
+                  <div key={achievement.id} className="bg-gradient-to-br from-red-900/20 to-red-950/20 rounded-xl p-3 border border-red-900/20 flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full ${getAchievementBgColor(achievement.color)} flex items-center justify-center shrink-0`}>
+                      {achievement.icon === 'trophy' && <TrophyIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
+                      {achievement.icon === 'zap' && <ZapIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
+                      {achievement.icon === 'star' && <StarIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
+                      {achievement.icon === 'trending-up' && <TrendingUpIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm">{achievement.name}</div>
+                      <div className="text-xs text-gray-500">{achievement.description}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="bg-gradient-to-br from-red-900/20 to-red-950/20 rounded-xl p-3 border border-red-900/20 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center shrink-0">
+                      <SpadeIcon className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm">Первые шаги</div>
+                      <div className="text-xs text-gray-500">Сыграл первую игру</div>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-red-900/20 to-red-950/20 rounded-xl p-3 border border-red-900/20 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center shrink-0">
+                      <ZapIcon className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm">Активист</div>
+                      <div className="text-xs text-gray-500">Сыграл 10 игр</div>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-red-900/20 to-red-950/20 rounded-xl p-3 border border-red-900/20 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center shrink-0">
+                      <TrophyIcon className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm">Первая победа</div>
+                      <div className="text-xs text-gray-500">Победил в турнире</div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Locked Achievements */}
+        <Collapsible open={isLockedOpen} onOpenChange={setIsLockedOpen}>
+          <CollapsibleTrigger className="w-full">
+            <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gray-700/20 flex items-center justify-center">
+                  <LockIcon className="w-5 h-5 text-gray-500" />
                 </div>
-                <h3 className="text-sm mb-1">Активист</h3>
-                <p className="text-xs text-gray-500">Сыграй 10 игр</p>
-              </div>
-              <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-purple-500/30">
-                <div className="w-10 h-10 mb-3 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <StarIcon className="w-5 h-5 text-purple-500" />
+                <div className="text-left">
+                  <div className="text-sm text-gray-400">Закрытые достижения</div>
+                  <div className="text-xs text-gray-600">3 достижений</div>
                 </div>
-                <h3 className="text-sm mb-1">Легенда</h3>
-                <p className="text-xs text-gray-500">Попади в топ-3</p>
               </div>
-              <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-green-500/30">
-                <div className="w-10 h-10 mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <TrendingUpIcon className="w-5 h-5 text-green-500" />
+              <ChevronDownIcon className={`w-5 h-5 text-gray-500 transition-transform ${isLockedOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 space-y-2">
+              <div className="bg-[#1a1a1a] rounded-xl p-3 border border-gray-800 flex items-center gap-3 opacity-60">
+                <div className="w-10 h-10 rounded-full bg-gray-700/20 flex items-center justify-center shrink-0">
+                  <MedalIcon className="w-5 h-5 text-gray-500" />
                 </div>
-                <h3 className="text-sm mb-1">Рост</h3>
-                <p className="text-xs text-gray-500">+5 позиций</p>
+                <div className="flex-1">
+                  <div className="text-sm text-gray-400">Чемпион</div>
+                  <div className="text-xs text-gray-600">Победи в 5 турнирах</div>
+                </div>
+                <LockIcon className="w-4 h-4 text-gray-600 shrink-0" />
               </div>
-            </>
-          )}
-        </div>
+              <div className="bg-[#1a1a1a] rounded-xl p-3 border border-gray-800 flex items-center gap-3 opacity-60">
+                <div className="w-10 h-10 rounded-full bg-gray-700/20 flex items-center justify-center shrink-0">
+                  <StarIcon className="w-5 h-5 text-gray-500" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm text-gray-400">Легенда сезона</div>
+                  <div className="text-xs text-gray-600">Попади в топ-3 сезона</div>
+                </div>
+                <LockIcon className="w-4 h-4 text-gray-600 shrink-0" />
+              </div>
+              <div className="bg-[#1a1a1a] rounded-xl p-3 border border-gray-800 flex items-center gap-3 opacity-60">
+                <div className="w-10 h-10 rounded-full bg-gray-700/20 flex items-center justify-center shrink-0">
+                  <TargetIcon className="w-5 h-5 text-gray-500" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm text-gray-400">Ветеран</div>
+                  <div className="text-xs text-gray-600">Сыграй 100 игр</div>
+                </div>
+                <LockIcon className="w-4 h-4 text-gray-600 shrink-0" />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {/* Admin Mode Activation (only for admins) */}
