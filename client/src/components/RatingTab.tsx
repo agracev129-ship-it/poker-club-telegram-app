@@ -183,6 +183,21 @@ export function RatingTab() {
                     {rank}
                   </div>
 
+                  {/* Avatar */}
+                  <div className="shrink-0">
+                    {player.photo_url ? (
+                      <img
+                        src={player.photo_url}
+                        alt={player.first_name || 'User'}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+                        <span className="text-sm">{getInitials(player.first_name || 'U', player.last_name)}</span>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Player Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
