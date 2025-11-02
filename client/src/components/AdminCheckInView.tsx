@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { gamesAPI, Game } from '../lib/api';
+import { gamesAPI, Game, usersAPI } from '../lib/api';
 import { getInitials } from '../lib/utils';
 import { toast } from 'sonner';
 import {
@@ -14,7 +14,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 
-// Иконки
+// Icons
 const XIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M18 6 6 18M6 6l12 12" />
@@ -69,21 +69,23 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
   const [filteredPlayers, setFilteredPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'registered' | 'checked_in' | 'paid' | 'no_show'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'registered' | 'paid' | 'no_show'>('all');
   const [stats, setStats] = useState<any>(null);
   
-  // Диалоги
+  // Dialogs
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isOnsiteDialogOpen, setIsOnsiteDialogOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   
-  // Форма оплаты
+  // Payment form
   const [paymentAmount, setPaymentAmount] = useState(game.buy_in?.toString() || '');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [paymentNotes, setPaymentNotes] = useState('');
   
-  // Форма регистрации на месте
-  const [onsiteUserId, setOnsiteUserId] = useState('');
+  // Onsite registration form
+  const [onsiteSearchQuery, setOnsiteSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [onsiteAmount, setOnsiteAmount] = useState(game.buy_in?.toString() || '');
   const [onsiteMethod, setOnsiteMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
 
@@ -100,14 +102,14 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       setLoading(true);
       
       // Загружаем всех игроков
-      const allPlayers = await gamesAPI.getRegisteredUsers(game.id);
+      const allPlayers = await gamesAPI.getRegistrations(game.id);
       setPlayers(allPlayers);
       
       // Загружаем статистику
       const gameStats = await gamesAPI.getTournamentStats(game.id);
       setStats(gameStats);
     } catch (error) {
-      console.error('Error loading check-in data:', error);
+      console.error('Error loading data:', error);
       toast.error('Ошибка загрузки данных');
     } finally {
       setLoading(false);
@@ -117,60 +119,25 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
   const filterPlayers = () => {
     let filtered = [...players];
     
-    // Фильтр по статусу
+    // Filter by status
     if (filterStatus !== 'all') {
       filtered = filtered.filter(p => p.status === filterStatus);
     }
     
-    // Поиск
+    // Search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p => 
         (p.first_name?.toLowerCase().includes(query)) ||
         (p.last_name?.toLowerCase().includes(query)) ||
-        (p.user_name?.toLowerCase().includes(query)) ||
-        (p.telegram_id?.toString().includes(query))
+        (p.username?.toLowerCase().includes(query))
       );
     }
     
     setFilteredPlayers(filtered);
   };
 
-  const handleCheckIn = async (player: any) => {
-    try {
-      await gamesAPI.checkInPlayer(game.id, player.user_id);
-      toast.success(`${player.first_name} отмечен как явившийся`);
-      await loadData();
-    } catch (error: any) {
-      toast.error(error.message || 'Ошибка при отметке явки');
-    }
-  };
-
-  const handleMarkNoShow = async (player: any) => {
-    if (!confirm(`Отметить ${player.first_name} как не явившегося?`)) {
-      return;
-    }
-    
-    try {
-      await gamesAPI.markNoShow(game.id, player.user_id);
-      toast.success(`${player.first_name} отмечен как не явившийся`);
-      await loadData();
-    } catch (error: any) {
-      toast.error(error.message || 'Ошибка');
-    }
-  };
-
-  const handleRestorePlayer = async (player: any) => {
-    try {
-      await gamesAPI.restorePlayer(game.id, player.user_id);
-      toast.success(`${player.first_name} восстановлен`);
-      await loadData();
-    } catch (error: any) {
-      toast.error(error.message || 'Ошибка');
-    }
-  };
-
-  const openPaymentDialog = (player: any) => {
+  const handleConfirmPayment = async (player: any) => {
     setSelectedPlayer(player);
     setPaymentAmount(game.buy_in?.toString() || '');
     setPaymentMethod('cash');
@@ -178,7 +145,7 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
     setIsPaymentDialogOpen(true);
   };
 
-  const handleConfirmPayment = async () => {
+  const handlePaymentSubmit = async () => {
     if (!selectedPlayer || !paymentAmount || parseFloat(paymentAmount) <= 0) {
       toast.error('Укажите корректную сумму');
       return;
@@ -200,30 +167,79 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
     }
   };
 
+  const handleSearchUsers = async () => {
+    if (!onsiteSearchQuery || onsiteSearchQuery.length < 2) {
+      toast.error('Введите минимум 2 символа');
+      return;
+    }
+    
+    try {
+      const results = await usersAPI.search(onsiteSearchQuery);
+      setSearchResults(results);
+    } catch (error: any) {
+      toast.error('Ошибка поиска');
+    }
+  };
+
+  const handleSelectUser = (user: any) => {
+    setSelectedUser(user);
+    setOnsiteAmount(game.buy_in?.toString() || '');
+  };
+
   const handleOnsiteRegistration = async () => {
-    if (!onsiteUserId || !onsiteAmount || parseFloat(onsiteAmount) <= 0) {
-      toast.error('Заполните все поля');
+    if (!selectedUser || !onsiteAmount || parseFloat(onsiteAmount) <= 0) {
+      toast.error('Выберите пользователя и укажите сумму');
       return;
     }
     
     try {
       await gamesAPI.onsiteRegistration(
         game.id,
-        parseInt(onsiteUserId),
+        selectedUser.id,
         parseFloat(onsiteAmount),
         onsiteMethod
       );
-      toast.success('Игрок зарегистрирован на месте');
+      toast.success(`${selectedUser.first_name} зарегистрирован и оплатил`);
       setIsOnsiteDialogOpen(false);
-      setOnsiteUserId('');
+      setSelectedUser(null);
+      setOnsiteSearchQuery('');
+      setSearchResults([]);
       await loadData();
     } catch (error: any) {
       toast.error(error.message || 'Ошибка регистрации');
     }
   };
 
+  const handleMarkNoShow = async (player: any) => {
+    if (!confirm(`Исключить ${player.first_name}?`)) return;
+    
+    try {
+      await gamesAPI.markNoShow(game.id, player.user_id);
+      toast.success(`${player.first_name} исключен`);
+      await loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Ошибка');
+    }
+  };
+
+  const handleRestorePlayer = async (player: any) => {
+    try {
+      await gamesAPI.restorePlayer(game.id, player.user_id);
+      toast.success(`${player.first_name} восстановлен`);
+      await loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Ошибка');
+    }
+  };
+
   const handleExcludeAllNoShow = async () => {
-    if (!confirm('Исключить всех неявившихся игроков?')) {
+    const unpaidCount = players.filter(p => p.status === 'registered').length;
+    if (unpaidCount === 0) {
+      toast.error('Нет неоплативших игроков');
+      return;
+    }
+    
+    if (!confirm(`Исключить всех неоплативших игроков (${unpaidCount})?`)) {
       return;
     }
     
@@ -239,222 +255,216 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'registered':
-        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-500">Ожидает</span>;
-      case 'checked_in':
-        return <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-500">Явился</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-500">Ожидает оплаты</span>;
       case 'paid':
         return <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-500">Оплатил</span>;
+      case 'playing':
+        return <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-500">Играет</span>;
       case 'no_show':
-        return <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-500">Не явился</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-500">Исключен</span>;
       default:
         return <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-500">{status}</span>;
     }
   };
 
   return (
-    <motion.div
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ type: 'tween', duration: 0.3 }}
-      className="fixed inset-0 bg-black z-50 overflow-y-auto"
-    >
-      {/* Header */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-gray-800 z-10">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-medium">Прием игроков</h2>
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors"
-            >
-              <XIcon />
-            </button>
-          </div>
-          
-          <div className="text-sm text-gray-400 mb-4">
-            {game.name} • {new Date(game.date).toLocaleDateString('ru-RU')}
-          </div>
-
-          {/* Stats */}
-          {stats && (
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              <div className="bg-gray-800/50 rounded-lg p-2 text-center">
-                <div className="text-xl font-medium">{stats.registered_count || 0}</div>
-                <div className="text-xs text-gray-400">Всего</div>
-              </div>
-              <div className="bg-blue-500/10 rounded-lg p-2 text-center">
-                <div className="text-xl font-medium text-blue-500">{stats.checked_in_count || 0}</div>
-                <div className="text-xs text-gray-400">Явились</div>
-              </div>
-              <div className="bg-green-500/10 rounded-lg p-2 text-center">
-                <div className="text-xl font-medium text-green-500">{stats.paid_count || 0}</div>
-                <div className="text-xs text-gray-400">Оплатили</div>
-              </div>
-              <div className="bg-red-500/10 rounded-lg p-2 text-center">
-                <div className="text-xl font-medium text-red-500">{stats.no_show_count || 0}</div>
-                <div className="text-xs text-gray-400">Не явились</div>
-              </div>
-            </div>
-          )}
-
-          {/* Search */}
-          <div className="relative mb-3">
-            <SearchIcon />
-            <Input
-              placeholder="Поиск по имени или ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-gray-800 border-gray-700"
-            />
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <SearchIcon />
-            </div>
-          </div>
-
-          {/* Filter buttons */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {[
-              { value: 'all', label: 'Все' },
-              { value: 'registered', label: 'Ожидают' },
-              { value: 'checked_in', label: 'Явились' },
-              { value: 'paid', label: 'Оплатили' },
-              { value: 'no_show', label: 'Не явились' },
-            ].map((filter) => (
+    <>
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'tween', duration: 0.3 }}
+        className="fixed inset-0 bg-black z-50 overflow-y-auto"
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-gray-800 z-10">
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-medium">Панель приема игроков</h2>
               <button
-                key={filter.value}
-                onClick={() => setFilterStatus(filter.value as any)}
-                className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
-                  filterStatus === filter.value
-                    ? 'bg-red-700 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
+                onClick={onClose}
+                className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors"
               >
-                {filter.label}
+                <XIcon />
               </button>
-            ))}
-          </div>
-        </div>
-      </div>
+            </div>
+            
+            <div className="text-sm text-gray-400 mb-4">
+              {game.name} • {new Date(game.date).toLocaleDateString('ru-RU')}
+            </div>
 
-      {/* Content */}
-      <div className="px-4 py-4 pb-24">
-        {/* Action buttons */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <button
-            onClick={() => setIsOnsiteDialogOpen(true)}
-            className="bg-gradient-to-br from-red-700 to-red-900 rounded-xl p-4 flex items-center justify-center gap-2 hover:from-red-600 hover:to-red-800 transition-all"
-          >
-            <UserPlusIcon />
-            <span>Добавить игрока</span>
-          </button>
-          
-          <button
-            onClick={handleExcludeAllNoShow}
-            className="bg-gray-800 rounded-xl p-4 flex items-center justify-center gap-2 hover:bg-gray-700 transition-all"
-          >
-            <XIcon />
-            <span>Исключить неявившихся</span>
-          </button>
-        </div>
-
-        {/* Players list */}
-        {loading ? (
-          <div className="text-center py-12 text-gray-400">Загрузка...</div>
-        ) : filteredPlayers.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            {searchQuery ? 'Ничего не найдено' : 'Нет игроков'}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredPlayers.map((player) => (
-              <div
-                key={player.user_id}
-                className="bg-gray-800/50 rounded-xl p-4 border border-gray-700"
-              >
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div className="shrink-0">
-                    {player.photo_url ? (
-                      <img
-                        src={player.photo_url}
-                        alt={player.first_name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
-                        <span className="text-lg">
-                          {getInitials(player.first_name, player.last_name)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium truncate">
-                        {player.first_name} {player.last_name || ''}
-                      </span>
-                      {getStatusBadge(player.status)}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      ID: {player.telegram_id}
-                    </div>
-                    {player.payment_amount && (
-                      <div className="text-xs text-green-500 mt-1">
-                        Оплачено: {player.payment_amount}₽ ({player.payment_method})
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2">
-                    {player.status === 'registered' && (
-                      <>
-                        <button
-                          onClick={() => handleCheckIn(player)}
-                          className="bg-blue-500 hover:bg-blue-600 rounded-lg p-2 transition-colors"
-                          title="Отметить явку"
-                        >
-                          <CheckIcon />
-                        </button>
-                        <button
-                          onClick={() => handleMarkNoShow(player)}
-                          className="bg-red-500 hover:bg-red-600 rounded-lg p-2 transition-colors"
-                          title="Не явился"
-                        >
-                          <XIcon />
-                        </button>
-                      </>
-                    )}
-                    
-                    {player.status === 'checked_in' && (
-                      <button
-                        onClick={() => openPaymentDialog(player)}
-                        className="bg-green-500 hover:bg-green-600 rounded-lg p-2 transition-colors"
-                        title="Подтвердить оплату"
-                      >
-                        <DollarIcon />
-                      </button>
-                    )}
-                    
-                    {player.status === 'no_show' && (
-                      <button
-                        onClick={() => handleRestorePlayer(player)}
-                        className="bg-gray-600 hover:bg-gray-500 rounded-lg p-2 transition-colors"
-                        title="Восстановить"
-                      >
-                        <RefreshIcon />
-                      </button>
-                    )}
-                  </div>
+            {/* Stats */}
+            {stats && (
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="bg-yellow-500/10 rounded-lg p-2 text-center">
+                  <div className="text-xl font-medium text-yellow-500">{stats.registered_count || 0}</div>
+                  <div className="text-xs text-gray-400">Ожидают</div>
+                </div>
+                <div className="bg-green-500/10 rounded-lg p-2 text-center">
+                  <div className="text-xl font-medium text-green-500">{stats.paid_count || 0}</div>
+                  <div className="text-xs text-gray-400">Оплатили</div>
+                </div>
+                <div className="bg-red-500/10 rounded-lg p-2 text-center">
+                  <div className="text-xl font-medium text-red-500">{stats.no_show_count || 0}</div>
+                  <div className="text-xs text-gray-400">Исключены</div>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Search */}
+            <div className="relative mb-3">
+              <Input
+                placeholder="Поиск по имени..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-800 border-gray-700"
+              />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <SearchIcon />
+              </div>
+            </div>
+
+            {/* Filter buttons */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[
+                { value: 'all', label: 'Все' },
+                { value: 'registered', label: 'Ожидают' },
+                { value: 'paid', label: 'Оплатили' },
+                { value: 'no_show', label: 'Исключены' },
+              ].map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setFilterStatus(filter.value as any)}
+                  className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
+                    filterStatus === filter.value
+                      ? 'bg-red-700 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-4 py-4 pb-24">
+          {/* Action buttons */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              onClick={() => setIsOnsiteDialogOpen(true)}
+              className="bg-gradient-to-br from-red-700 to-red-900 rounded-xl p-4 flex items-center justify-center gap-2 hover:from-red-600 hover:to-red-800 transition-all"
+            >
+              <UserPlusIcon />
+              <span>Добавить игрока</span>
+            </button>
+            
+            <button
+              onClick={handleExcludeAllNoShow}
+              className="bg-gray-800 rounded-xl p-4 flex items-center justify-center gap-2 hover:bg-gray-700 transition-all"
+            >
+              <XIcon />
+              <span>Исключить неоплативших</span>
+            </button>
+          </div>
+
+          {/* Players list */}
+          {loading ? (
+            <div className="text-center py-12 text-gray-400">Загрузка...</div>
+          ) : filteredPlayers.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              {searchQuery ? 'Ничего не найдено' : 'Нет игроков'}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredPlayers.map((player) => (
+                <div
+                  key={player.user_id}
+                  className="bg-gray-800/50 rounded-xl p-4 border border-gray-700"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className="shrink-0">
+                      {player.photo_url ? (
+                        <img
+                          src={player.photo_url}
+                          alt={player.first_name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+                          <span className="text-lg">
+                            {getInitials(player.first_name, player.last_name)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium truncate">
+                          {player.first_name} {player.last_name || ''}
+                        </span>
+                        {getStatusBadge(player.status)}
+                      </div>
+                      {player.payment_amount && (
+                        <div className="text-xs text-green-500 mt-1">
+                          Оплачено: {player.payment_amount}₽ ({player.payment_method})
+                        </div>
+                      )}
+                      {player.table_number && player.seat_number && (
+                        <div className="text-xs text-blue-400 mt-1">
+                          Стол {player.table_number}, Место {player.seat_number}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2">
+                      {player.status === 'registered' && (
+                        <>
+                          <button
+                            onClick={() => handleConfirmPayment(player)}
+                            className="bg-green-500 hover:bg-green-600 rounded-lg p-2 transition-colors"
+                            title="Подтвердить оплату"
+                          >
+                            <DollarIcon />
+                          </button>
+                          <button
+                            onClick={() => handleMarkNoShow(player)}
+                            className="bg-red-500 hover:bg-red-600 rounded-lg p-2 transition-colors"
+                            title="Исключить"
+                          >
+                            <XIcon />
+                          </button>
+                        </>
+                      )}
+                      
+                      {player.status === 'paid' && (
+                        <div className="bg-green-500/20 rounded-lg p-2 flex items-center justify-center">
+                          <CheckIcon />
+                        </div>
+                      )}
+                      
+                      {player.status === 'no_show' && (
+                        <button
+                          onClick={() => handleRestorePlayer(player)}
+                          className="bg-gray-600 hover:bg-gray-500 rounded-lg p-2 transition-colors"
+                          title="Восстановить"
+                        >
+                          <RefreshIcon />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       {/* Payment Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
@@ -515,7 +525,7 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
             
             <div className="flex gap-2">
               <Button
-                onClick={handleConfirmPayment}
+                onClick={handlePaymentSubmit}
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
                 Подтвердить
@@ -534,81 +544,156 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
 
       {/* Onsite Registration Dialog */}
       <Dialog open={isOnsiteDialogOpen} onOpenChange={setIsOnsiteDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] border-gray-800 text-white">
+        <DialogContent className="bg-[#1a1a1a] border-gray-800 text-white max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Регистрация на месте</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Добавить игрока, пришедшего без предварительной записи
+              Добавить игрока, пришедшего без записи
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
-            <div>
-              <Label htmlFor="userId">ID пользователя</Label>
-              <Input
-                id="userId"
-                type="number"
-                value={onsiteUserId}
-                onChange={(e) => setOnsiteUserId(e.target.value)}
-                placeholder="123456789"
-                className="bg-gray-800 border-gray-700"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="onsiteAmount">Сумма оплаты</Label>
-              <Input
-                id="onsiteAmount"
-                type="number"
-                value={onsiteAmount}
-                onChange={(e) => setOnsiteAmount(e.target.value)}
-                placeholder="5000"
-                className="bg-gray-800 border-gray-700"
-              />
-            </div>
-            
-            <div>
-              <Label>Способ оплаты</Label>
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                {[
-                  { value: 'cash', label: 'Наличные' },
-                  { value: 'card', label: 'Карта' },
-                  { value: 'transfer', label: 'Перевод' },
-                ].map((method) => (
-                  <button
-                    key={method.value}
-                    onClick={() => setOnsiteMethod(method.value as any)}
-                    className={`py-2 px-3 rounded-lg text-sm transition-colors ${
-                      onsiteMethod === method.value
-                        ? 'bg-red-700 text-white'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                    }`}
+            {/* Search user */}
+            {!selectedUser && (
+              <>
+                <div>
+                  <Label htmlFor="userSearch">Поиск игрока</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      id="userSearch"
+                      value={onsiteSearchQuery}
+                      onChange={(e) => setOnsiteSearchQuery(e.target.value)}
+                      placeholder="Введите имя..."
+                      className="bg-gray-800 border-gray-700"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearchUsers()}
+                    />
+                    <Button onClick={handleSearchUsers} className="bg-red-600 hover:bg-red-700">
+                      Найти
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Search results */}
+                {searchResults.length > 0 && (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {searchResults.map((user) => (
+                      <button
+                        key={user.id}
+                        onClick={() => handleSelectUser(user)}
+                        className="w-full bg-gray-800 rounded-lg p-3 flex items-center gap-3 hover:bg-gray-700 transition-colors text-left"
+                      >
+                        {user.photo_url ? (
+                          <img
+                            src={user.photo_url}
+                            alt={user.first_name}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+                            <span className="text-sm">
+                              {getInitials(user.first_name, user.last_name)}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-medium">
+                            {user.first_name} {user.last_name}
+                          </div>
+                          <div className="text-xs text-gray-400">ID: {user.id}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Selected user payment */}
+            {selectedUser && (
+              <>
+                <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
+                  <div className="flex items-center gap-3 justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedUser.photo_url ? (
+                        <img
+                          src={selectedUser.photo_url}
+                          alt={selectedUser.first_name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+                          <span className="text-sm">
+                            {getInitials(selectedUser.first_name, selectedUser.last_name)}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium">
+                          {selectedUser.first_name} {selectedUser.last_name}
+                        </div>
+                        <div className="text-xs text-gray-400">ID: {selectedUser.id}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedUser(null);
+                        setSearchResults([]);
+                      }}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <XIcon />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="onsiteAmount">Сумма оплаты</Label>
+                  <Input
+                    id="onsiteAmount"
+                    type="number"
+                    value={onsiteAmount}
+                    onChange={(e) => setOnsiteAmount(e.target.value)}
+                    placeholder="5000"
+                    className="bg-gray-800 border-gray-700"
+                  />
+                </div>
+                
+                <div>
+                  <Label>Способ оплаты</Label>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {[
+                      { value: 'cash', label: 'Наличные' },
+                      { value: 'card', label: 'Карта' },
+                      { value: 'transfer', label: 'Перевод' },
+                    ].map((method) => (
+                      <button
+                        key={method.value}
+                        onClick={() => setOnsiteMethod(method.value as any)}
+                        className={`py-2 px-3 rounded-lg text-sm transition-colors ${
+                          onsiteMethod === method.value
+                            ? 'bg-red-700 text-white'
+                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        {method.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleOnsiteRegistration}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
                   >
-                    {method.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                onClick={handleOnsiteRegistration}
-                className="flex-1 bg-red-600 hover:bg-red-700"
-              >
-                Зарегистрировать
-              </Button>
-              <Button
-                onClick={() => setIsOnsiteDialogOpen(false)}
-                variant="outline"
-                className="bg-transparent border-gray-700 hover:bg-gray-800"
-              >
-                Отмена
-              </Button>
-            </div>
+                    Зарегистрировать
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
-    </motion.div>
+    </>
   );
 }
-

@@ -262,12 +262,6 @@ export const gamesAPI = {
     });
   },
 
-  async restorePlayer(id: number, userId: number): Promise<{ message: string }> {
-    return fetchAPI(`/games/${id}/restore`, {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    });
-  },
 
   async addBonusPoints(id: number, userId: number, bonusPoints: number): Promise<{ message: string }> {
     return fetchAPI(`/games/${id}/bonus-points`, {
@@ -309,26 +303,7 @@ export const gamesAPI = {
     return fetchAPI(`/games/${id}/results`);
   },
 
-  // ============ TOURNAMENT LIFECYCLE METHODS ============
-
-  async openRegistration(id: number): Promise<{ message: string; game: Game }> {
-    return fetchAPI(`/games/${id}/open-registration`, { method: 'POST' });
-  },
-
-  async closeRegistration(id: number): Promise<{ message: string; game: Game }> {
-    return fetchAPI(`/games/${id}/close-registration`, { method: 'POST' });
-  },
-
-  async startCheckIn(id: number): Promise<{ message: string; game: Game }> {
-    return fetchAPI(`/games/${id}/start-check-in`, { method: 'POST' });
-  },
-
-  async checkInPlayer(id: number, userId: number): Promise<{ message: string; registration: GameRegistration }> {
-    return fetchAPI(`/games/${id}/check-in-player`, {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    });
-  },
+  // ============ SIMPLIFIED TOURNAMENT LIFECYCLE METHODS ============
 
   async confirmPayment(
     id: number,
@@ -375,8 +350,8 @@ export const gamesAPI = {
     userId: number,
     amount: number,
     paymentMethod: string,
-    tableNumber: number,
-    seatNumber: number,
+    tableNumber?: number,
+    seatNumber?: number,
     initialStack?: number,
     notes?: string
   ): Promise<{ message: string; registration: GameRegistration }> {
@@ -386,8 +361,8 @@ export const gamesAPI = {
         userId,
         amount,
         paymentMethod,
-        tableNumber,
-        seatNumber,
+        tableNumber: tableNumber || 0,
+        seatNumber: seatNumber || 0,
         initialStack,
         notes,
       }),
@@ -400,7 +375,6 @@ export const gamesAPI = {
 
   async getTournamentStats(id: number): Promise<{
     registered_count: string;
-    checked_in_count: string;
     paid_count: string;
     no_show_count: string;
     late_registered_count: string;

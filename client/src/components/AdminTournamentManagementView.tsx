@@ -130,30 +130,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
     }
   };
 
-  // NEW: Tournament lifecycle methods
-  const handleOpenRegistration = async () => {
-    try {
-      await gamesAPI.openRegistration(tournament.id);
-      alert('Регистрация открыта!');
-      await loadTournamentData();
-    } catch (error) {
-      console.error('Error opening registration:', error);
-      alert('Ошибка при открытии регистрации');
-    }
-  };
-
-  const handleStartCheckIn = async () => {
-    try {
-      await gamesAPI.startCheckIn(tournament.id);
-      alert('Прием игроков начат!');
-      setIsCheckInViewOpen(true);
-      await loadTournamentData();
-    } catch (error) {
-      console.error('Error starting check-in:', error);
-      alert('Ошибка при начале приема');
-    }
-  };
-
+  // NEW: Simplified tournament lifecycle methods
   const handleOpenCheckInView = () => {
     setIsCheckInViewOpen(true);
   };
@@ -398,45 +375,25 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
           <div className="mb-6 space-y-3">
             {/* Tournament Stats */}
             {tournamentStats && (
-              <div className="bg-gray-800/50 rounded-xl p-4 mb-4 grid grid-cols-3 gap-3">
+              <div className="bg-gray-800/50 rounded-xl p-4 mb-4 grid grid-cols-2 gap-3">
+                <div className="text-center">
+                  <div className="text-2xl font-medium text-yellow-500">{tournamentStats.registered_count || 0}</div>
+                  <div className="text-xs text-gray-400">Ожидают оплаты</div>
+                </div>
                 <div className="text-center">
                   <div className="text-2xl font-medium text-green-500">{tournamentStats.paid_count || 0}</div>
                   <div className="text-xs text-gray-400">Оплатили</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-medium text-blue-500">{tournamentStats.checked_in_count || 0}</div>
-                  <div className="text-xs text-gray-400">Явились</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-medium text-yellow-500">{tournamentStats.registered_count || 0}</div>
-                  <div className="text-xs text-gray-400">Всего</div>
-                </div>
               </div>
             )}
 
-            {/* Lifecycle Action Buttons */}
-            <Button
-              onClick={handleOpenRegistration}
-              variant="outline"
-              className="w-full bg-blue-700/20 border-blue-700/50 hover:bg-blue-700/30 text-blue-400 hover:text-blue-300"
-            >
-              Открыть регистрацию
-            </Button>
-
-            <Button
-              onClick={handleStartCheckIn}
-              variant="outline"
-              className="w-full bg-purple-700/20 border-purple-700/50 hover:bg-purple-700/30 text-purple-400 hover:text-purple-300"
-            >
-              Начать прием игроков
-            </Button>
-
+            {/* Simplified Action Button */}
             <Button
               onClick={handleOpenCheckInView}
               variant="outline"
-              className="w-full bg-indigo-700/20 border-indigo-700/50 hover:bg-indigo-700/30 text-indigo-400 hover:text-indigo-300"
+              className="w-full bg-purple-700/20 border-purple-700/50 hover:bg-purple-700/30 text-purple-400 hover:text-purple-300 py-4"
             >
-              Открыть панель приема
+              Панель приема и оплаты
             </Button>
 
             <Button

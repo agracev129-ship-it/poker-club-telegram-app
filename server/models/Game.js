@@ -257,25 +257,32 @@ export const Game = {
   },
 
   /**
-   * Начинает турнир и генерирует рассадку
+   * ИСПРАВЛЕНО: Начинает турнир и генерирует рассадку ТОЛЬКО для оплативших
    */
   async startTournament(gameId) {
-    // Получаем список зарегистрированных игроков
-    const registrations = await this.getRegisteredUsers(gameId);
+    // ВАЖНО: Получаем только игроков со статусом 'paid' (оплативших)
+    const paidPlayers = await query(
+      `SELECT gr.user_id, u.id, u.first_name, u.last_name, u.photo_url
+       FROM game_registrations gr
+       JOIN users u ON gr.user_id = u.id
+       WHERE gr.game_id = $1 AND gr.status = 'paid'
+       ORDER BY gr.registered_at`,
+      [gameId]
+    );
     
-    if (registrations.length === 0) {
-      throw new Error('No players registered');
+    if (paidPlayers.rows.length === 0) {
+      throw new Error('No paid players - cannot start tournament');
     }
 
     // Обновляем статус турнира
     await query(
-      `UPDATE games SET tournament_status = 'started' WHERE id = $1`,
+      `UPDATE games SET tournament_status = 'started', started_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [gameId]
     );
 
-    // Генерируем рассадку (10 игроков за столом)
-    const playersPerTable = 10;
-    const shuffledPlayers = [...registrations].sort(() => Math.random() - 0.5);
+    // Генерируем рассадку (9 игроков за столом)
+    const playersPerTable = 9;
+    const shuffledPlayers = [...paidPlayers.rows].sort(() => Math.random() - 0.5);
 
     // Удаляем старые назначения если есть
     await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);
@@ -290,16 +297,33 @@ export const Game = {
       await query(
         `INSERT INTO table_assignments (game_id, user_id, table_number, seat_number)
          VALUES ($1, $2, $3, $4)`,
-        [gameId, player.id, tableNumber, seatNumber]
+        [gameId, player.user_id, tableNumber, seatNumber]
+      );
+
+      // Обновляем статус регистрации на 'playing'
+      await query(
+        `UPDATE game_registrations 
+         SET status = 'playing', table_number = $1, seat_number = $2
+         WHERE game_id = $3 AND user_id = $4`,
+        [tableNumber, seatNumber, gameId, player.user_id]
       );
 
       assignments.push({
-        userId: player.id,
+        userId: player.user_id,
         userName: `${player.first_name} ${player.last_name || ''}`.trim(),
         tableNumber,
         seatNumber,
       });
     }
+
+    // Логируем
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: 1, // system
+      action_type: 'start_tournament',
+      details: { players_count: shuffledPlayers.length, tables_count: Math.ceil(shuffledPlayers.length / playersPerTable) }
+    });
 
     return assignments;
   },
@@ -564,115 +588,16 @@ export const Game = {
   },
 
   // ============================================================================
-  // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ЖИЗНЕННЫМ ЦИКЛОМ ТУРНИРА
+  // УПРОЩЕННЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ТУРНИРОМ
   // ============================================================================
 
   /**
-   * Открыть регистрацию на турнир
-   */
-  async openRegistration(gameId, adminId) {
-    const result = await query(
-      `UPDATE games 
-       SET tournament_status = 'registration_open'
-       WHERE id = $1
-       RETURNING *`,
-      [gameId]
-    );
-
-    // Логируем действие
-    const { TournamentAction } = await import('./TournamentAction.js');
-    await TournamentAction.log({
-      game_id: gameId,
-      admin_id: adminId,
-      action_type: 'open_registration',
-      details: { timestamp: new Date() }
-    });
-
-    return result.rows[0];
-  },
-
-  /**
-   * Закрыть регистрацию
-   */
-  async closeRegistration(gameId, adminId) {
-    const result = await query(
-      `UPDATE games 
-       SET tournament_status = 'finalizing',
-           registration_closes_at = CURRENT_TIMESTAMP
-       WHERE id = $1
-       RETURNING *`,
-      [gameId]
-    );
-
-    const { TournamentAction } = await import('./TournamentAction.js');
-    await TournamentAction.log({
-      game_id: gameId,
-      admin_id: adminId,
-      action_type: 'close_registration'
-    });
-
-    return result.rows[0];
-  },
-
-  /**
-   * Начать прием игроков (check-in)
-   */
-  async startCheckIn(gameId, adminId) {
-    const result = await query(
-      `UPDATE games 
-       SET tournament_status = 'check_in',
-           check_in_opens_at = CURRENT_TIMESTAMP
-       WHERE id = $1
-       RETURNING *`,
-      [gameId]
-    );
-
-    const { TournamentAction } = await import('./TournamentAction.js');
-    await TournamentAction.log({
-      game_id: gameId,
-      admin_id: adminId,
-      action_type: 'start_check_in'
-    });
-
-    return result.rows[0];
-  },
-
-  /**
-   * Отметить явку игрока
-   */
-  async checkInPlayer(gameId, userId, adminId) {
-    const result = await query(
-      `UPDATE game_registrations
-       SET status = 'checked_in',
-           checked_in_at = CURRENT_TIMESTAMP,
-           checked_in_by = $1
-       WHERE game_id = $2 AND user_id = $3
-       RETURNING *`,
-      [adminId, gameId, userId]
-    );
-
-    if (result.rows.length === 0) {
-      throw new Error('Registration not found');
-    }
-
-    const { TournamentAction } = await import('./TournamentAction.js');
-    await TournamentAction.log({
-      game_id: gameId,
-      admin_id: adminId,
-      action_type: 'check_in_player',
-      target_user_id: userId
-    });
-
-    return result.rows[0];
-  },
-
-  /**
-   * Подтвердить оплату игрока
+   * УПРОЩЕНО: Подтвердить оплату игрока (переводит из registered в paid)
    */
   async confirmPayment(gameId, userId, adminId, paymentData) {
     const { amount, payment_method, notes } = paymentData;
 
-    // Обновляем регистрацию
+    // Обновляем регистрацию - теперь игрок оплатил
     const regResult = await query(
       `UPDATE game_registrations
        SET status = 'paid',
@@ -704,7 +629,7 @@ export const Game = {
       confirmed_by: adminId
     });
 
-    // Логируем действие
+    // Логируем
     const { TournamentAction } = await import('./TournamentAction.js');
     await TournamentAction.log({
       game_id: gameId,
@@ -714,7 +639,56 @@ export const Game = {
       details: { amount, payment_method }
     });
 
+    // НОВОЕ: Сразу генерируем рассадку для этого игрока, если турнир уже начался
+    const game = await this.getById(gameId);
+    if (game.tournament_status === 'started') {
+      await this.assignSeatToPlayer(gameId, userId);
+    }
+
     return registration;
+  },
+
+  /**
+   * НОВОЕ: Автоматически назначить место игроку
+   */
+  async assignSeatToPlayer(gameId, userId) {
+    // Получаем текущую рассадку
+    const seating = await query(
+      `SELECT table_number, seat_number FROM table_assignments WHERE game_id = $1`,
+      [gameId]
+    );
+
+    // Находим свободное место
+    const occupiedSeats = new Set(seating.rows.map(s => `${s.table_number}-${s.seat_number}`));
+    const playersPerTable = 9;
+    
+    let freeTable = 1;
+    let freeSeat = 1;
+    let found = false;
+
+    // Ищем свободное место
+    for (let table = 1; table <= 20; table++) {
+      for (let seat = 1; seat <= playersPerTable; seat++) {
+        if (!occupiedSeats.has(`${table}-${seat}`)) {
+          freeTable = table;
+          freeSeat = seat;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    // Добавляем игрока в рассадку
+    await query(
+      `INSERT INTO table_assignments (game_id, user_id, table_number, seat_number)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (game_id, user_id) DO UPDATE 
+       SET table_number = $3, seat_number = $4`,
+      [gameId, userId, freeTable, freeSeat]
+    );
+
+    return { table_number: freeTable, seat_number: freeSeat };
   },
 
   /**
@@ -775,7 +749,7 @@ export const Game = {
   },
 
   /**
-   * Регистрация игрока на месте (до старта турнира)
+   * УПРОЩЕНО: Регистрация игрока на месте (сразу как оплаченный)
    */
   async onsiteRegistration(gameId, userId, adminId, paymentData) {
     const { amount, payment_method, notes } = paymentData;
@@ -798,9 +772,7 @@ export const Game = {
              payment_method = $2,
              payment_confirmed_by = $3,
              paid_at = CURRENT_TIMESTAMP,
-             registration_type = 'onsite',
-             checked_in_at = CURRENT_TIMESTAMP,
-             checked_in_by = $3
+             registration_type = 'onsite'
          WHERE game_id = $4 AND user_id = $5
          RETURNING *`,
         [amount, payment_method, adminId, gameId, userId]
@@ -811,8 +783,8 @@ export const Game = {
       const result = await query(
         `INSERT INTO game_registrations 
          (game_id, user_id, status, payment_status, payment_amount, payment_method, 
-          payment_confirmed_by, paid_at, registration_type, checked_in_at, checked_in_by)
-         VALUES ($1, $2, 'paid', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'onsite', CURRENT_TIMESTAMP, $5)
+          payment_confirmed_by, paid_at, registration_type)
+         VALUES ($1, $2, 'paid', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'onsite')
          RETURNING *`,
         [gameId, userId, amount, payment_method, adminId]
       );
@@ -831,7 +803,7 @@ export const Game = {
       confirmed_by: adminId
     });
 
-    // Логируем действие
+    // Логируем
     const { TournamentAction } = await import('./TournamentAction.js');
     await TournamentAction.log({
       game_id: gameId,
@@ -845,43 +817,42 @@ export const Game = {
   },
 
   /**
-   * Поздняя регистрация (после старта турнира)
+   * УПРОЩЕНО: Поздняя регистрация (автоматический поиск места)
    */
-  async lateRegistration(gameId, userId, adminId, paymentData, seatingData) {
+  async lateRegistration(gameId, userId, adminId, paymentData) {
     const { amount, payment_method, notes } = paymentData;
-    const { table_number, seat_number, initial_stack } = seatingData;
 
     // Проверяем статус турнира
     const game = await this.getById(gameId);
-    if (!game.allow_late_registration) {
-      throw new Error('Late registration is not allowed for this tournament');
-    }
-
-    if (!['started', 'late_registration'].includes(game.tournament_status)) {
+    if (!['started', 'in_progress'].includes(game.tournament_status)) {
       throw new Error('Late registration is only available during the tournament');
     }
+
+    // Автоматически находим свободное место
+    const seat = await this.assignSeatToPlayer(gameId, userId);
 
     // Создаем регистрацию
     const result = await query(
       `INSERT INTO game_registrations 
        (game_id, user_id, status, payment_status, payment_amount, payment_method, 
         payment_confirmed_by, paid_at, registration_type, is_late_entry,
-        table_number, seat_number, initial_stack, checked_in_at, checked_in_by)
-       VALUES ($1, $2, 'late_registered', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 
-               'late', true, $6, $7, $8, CURRENT_TIMESTAMP, $5)
+        table_number, seat_number)
+       VALUES ($1, $2, 'paid', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'late', true, $6, $7)
+       ON CONFLICT (game_id, user_id) DO UPDATE
+       SET status = 'paid',
+           payment_status = 'paid',
+           payment_amount = $3,
+           payment_method = $4,
+           payment_confirmed_by = $5,
+           paid_at = CURRENT_TIMESTAMP,
+           is_late_entry = true,
+           table_number = $6,
+           seat_number = $7
        RETURNING *`,
-      [gameId, userId, amount, payment_method, adminId, table_number, seat_number, initial_stack]
+      [gameId, userId, amount, payment_method, adminId, seat.table_number, seat.seat_number]
     );
 
     const registration = result.rows[0];
-
-    // Добавляем в рассадку
-    await query(
-      `INSERT INTO table_assignments 
-       (game_id, user_id, table_number, seat_number)
-       VALUES ($1, $2, $3, $4)`,
-      [gameId, userId, table_number, seat_number]
-    );
 
     // Создаем запись о платеже
     const { TournamentPayment } = await import('./TournamentPayment.js');
@@ -895,23 +866,15 @@ export const Game = {
       confirmed_by: adminId
     });
 
-    // Логируем действие
+    // Логируем
     const { TournamentAction } = await import('./TournamentAction.js');
     await TournamentAction.log({
       game_id: gameId,
       admin_id: adminId,
       action_type: 'late_registration',
       target_user_id: userId,
-      details: { amount, payment_method, table_number, seat_number }
+      details: { amount, payment_method, table: seat.table_number, seat: seat.seat_number }
     });
-
-    // Обновляем статус турнира на late_registration если нужно
-    if (game.tournament_status === 'started') {
-      await query(
-        `UPDATE games SET tournament_status = 'late_registration' WHERE id = $1`,
-        [gameId]
-      );
-    }
 
     return registration;
   },

@@ -8,16 +8,23 @@ const __dirname = path.dirname(__filename);
 
 export async function initTournamentLifecycle() {
   try {
-    console.log('🎰 Initializing Tournament Lifecycle System...');
+    console.log('🎰 Initializing Simplified Tournament System...');
     
-    const schemaPath = path.join(__dirname, 'schema-tournament-lifecycle.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf8');
+    // Сначала применяем полную схему (если еще не применена)
+    const fullSchemaPath = path.join(__dirname, 'schema-tournament-lifecycle.sql');
+    if (fs.existsSync(fullSchemaPath)) {
+      const fullSchema = fs.readFileSync(fullSchemaPath, 'utf8');
+      await query(fullSchema);
+    }
     
-    await query(schema);
+    // Затем применяем упрощения
+    const simplifiedSchemaPath = path.join(__dirname, 'schema-tournament-simplified.sql');
+    const simplifiedSchema = fs.readFileSync(simplifiedSchemaPath, 'utf8');
+    await query(simplifiedSchema);
     
-    console.log('✅ Tournament Lifecycle System initialized successfully!');
+    console.log('✅ Simplified Tournament System initialized successfully!');
   } catch (error) {
-    console.error('❌ Error initializing tournament lifecycle:', error);
+    console.error('❌ Error initializing tournament system:', error);
     throw error;
   }
 }

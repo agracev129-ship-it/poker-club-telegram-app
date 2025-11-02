@@ -1,5 +1,6 @@
-import { useGameRegistration } from './GameRegistrationContext';
-import { games } from './gamesData';
+import { useState, useEffect } from 'react';
+import { gamesAPI } from '../lib/api';
+import { useUser } from '../hooks/useUser';
 
 const XIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -29,17 +30,55 @@ interface SeatingViewProps {
 }
 
 export function SeatingView({ onClose }: SeatingViewProps) {
-  const { registeredGames } = useGameRegistration();
-  
-  // Get first registered game for demo
-  const registeredGameIds = Array.from(registeredGames);
-  const firstRegisteredGame = registeredGameIds.length > 0 
-    ? games.find(g => g.id === registeredGameIds[0])
-    : null;
+  const { user } = useUser();
+  const [loading, setLoading] = useState(true);
+  const [registeredGames, setRegisteredGames] = useState<any[]>([]);
+  const [mySeating, setMySeating] = useState<any>(null);
+  const [currentGame, setCurrentGame] = useState<any>(null);
 
-  // Generate random table and seat for demo
-  const tableNumber = firstRegisteredGame ? Math.floor(Math.random() * 8) + 1 : 0;
-  const seatNumber = firstRegisteredGame ? Math.floor(Math.random() * 10) + 1 : 0; // 1-10 for player seats
+  useEffect(() => {
+    loadSeatingData();
+  }, [user]);
+
+  const loadSeatingData = async () => {
+    try {
+      setLoading(true);
+      
+      if (!user) return;
+
+      // Загружаем игры пользователя (только started/in_progress турниры)
+      const myGames = await gamesAPI.getUserGames('started');
+      
+      if (myGames.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Берем первую игру
+      const game = myGames[0];
+      setCurrentGame(game);
+
+      // Загружаем регистрации для этой игры
+      const registrations = await gamesAPI.getRegistrations(game.id);
+      const myRegistration = registrations.find((r: any) => r.user_id === user.id);
+
+      if (myRegistration && myRegistration.status === 'paid' && myRegistration.table_number) {
+        setMySeating({
+          table_number: myRegistration.table_number,
+          seat_number: myRegistration.seat_number,
+        });
+      }
+
+      setRegisteredGames(myGames);
+    } catch (error) {
+      console.error('Error loading seating:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const tableNumber = mySeating?.table_number || 0;
+  const seatNumber = mySeating?.seat_number || 0;
 
   // Calculate positions for 11 seats around an oval table
   const seats = Array.from({ length: 11 }, (_, i) => {
@@ -75,7 +114,7 @@ export function SeatingView({ onClose }: SeatingViewProps) {
           <div>
             <h2 className="text-2xl mb-1">Посадка</h2>
             <p className="text-sm text-gray-400">
-              {firstRegisteredGame ? 'Ваше место за столом' : 'Информация о посадке'}
+              {mySeating ? 'Ваше место за столом' : 'Информация о посадке'}
             </p>
           </div>
           <button
@@ -86,8 +125,13 @@ export function SeatingView({ onClose }: SeatingViewProps) {
           </button>
         </div>
 
-        {/* Show empty state if no registered games */}
-        {!firstRegisteredGame ? (
+        {loading ? (
+          <div className="px-4 flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="text-gray-400">Загрузка...</div>
+            </div>
+          </div>
+        ) : !currentGame || !mySeating ? (
           <div className="px-4 flex items-center justify-center min-h-[60vh]">
             <div className="text-center max-w-md">
               <div className="w-20 h-20 bg-[#1a1a1a] rounded-full flex items-center justify-center mx-auto mb-6">
@@ -97,9 +141,9 @@ export function SeatingView({ onClose }: SeatingViewProps) {
                   <path d="M9 21V9"/>
                 </svg>
               </div>
-              <h3 className="text-xl mb-3">Нет активных регистраций</h3>
+              <h3 className="text-xl mb-3">Посадка недоступна</h3>
               <p className="text-gray-400 leading-relaxed">
-                Информация здесь появится за 15 минут до начала турнира, на который вы зарегистрированы.
+                Информация о посадке появится после подтверждения оплаты администратором и начала турнира.
               </p>
             </div>
           </div>
@@ -107,15 +151,15 @@ export function SeatingView({ onClose }: SeatingViewProps) {
           <div className="px-4 pb-24 space-y-6">
             {/* Game Info */}
             <div className="bg-gradient-to-br from-red-700/30 to-red-900/30 rounded-3xl p-5 border border-red-700/50">
-              <h3 className="text-lg mb-3">{firstRegisteredGame.name}</h3>
+              <h3 className="text-lg mb-3">{currentGame.name}</h3>
               <div className="flex items-center gap-6 text-sm text-gray-300">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="w-4 h-4 text-red-400" />
-                  <span>{firstRegisteredGame.date}</span>
+                  <span>{new Date(currentGame.date).toLocaleDateString('ru-RU')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ClockIcon className="w-4 h-4 text-red-400" />
-                  <span>{firstRegisteredGame.time}</span>
+                  <span>{currentGame.time}</span>
                 </div>
               </div>
             </div>

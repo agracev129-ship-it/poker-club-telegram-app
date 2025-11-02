@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
-import { gamesAPI, Game } from '../lib/api';
+import { gamesAPI, Game, usersAPI } from '../lib/api';
 import { getInitials } from '../lib/utils';
 import { toast } from 'sonner';
 import { Input } from './ui/input';
@@ -27,368 +27,69 @@ interface AdminLateRegistrationViewProps {
 }
 
 export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrationViewProps) {
-  const [step, setStep] = useState<'search' | 'seating' | 'payment'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [foundUser, setFoundUser] = useState<any>(null);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  
-  // Seating data
-  const [seating, setSeating] = useState<any[]>([]);
-  const [selectedTable, setSelectedTable] = useState<number | null>(null);
-  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   
   // Payment data
   const [paymentAmount, setPaymentAmount] = useState(game.buy_in?.toString() || '');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [paymentNotes, setPaymentNotes] = useState('');
-  const [initialStack, setInitialStack] = useState('10000');
 
-  useEffect(() => {
-    loadSeating();
-    checkLateRegistrationStatus();
-  }, [game.id]);
-
-  const checkLateRegistrationStatus = async () => {
-    try {
-      const status = await gamesAPI.getLateRegistrationStatus(game.id);
-      if (!status.available) {
-        toast.error('Поздняя регистрация недоступна для этого турнира');
-      }
-    } catch (error) {
-      console.error('Error checking late registration status:', error);
-    }
-  };
-
-  const loadSeating = async () => {
-    try {
-      const seatingData = await gamesAPI.getSeating(game.id);
-      setSeating(seatingData);
-    } catch (error) {
-      console.error('Error loading seating:', error);
-    }
-  };
-
-  const handleSearchUser = async () => {
-    if (!searchQuery) {
-      toast.error('Введите ID пользователя');
+  const handleSearchUsers = async () => {
+    if (!searchQuery || searchQuery.length < 2) {
+      toast.error('Введите минимум 2 символа');
       return;
     }
     
     setLoading(true);
     try {
-      // Ищем пользователя через API (нужно добавить этот endpoint или использовать существующий)
-      // Пока используем временное решение
-      setFoundUser({
-        id: parseInt(searchQuery),
-        first_name: 'Пользователь',
-        last_name: searchQuery,
-        photo_url: null,
-      });
-      setStep('seating');
-      toast.success('Пользователь найден');
+      const results = await usersAPI.search(searchQuery);
+      setSearchResults(results);
+      
+      if (results.length === 0) {
+        toast.error('Пользователи не найдены');
+      }
     } catch (error: any) {
-      toast.error(error.message || 'Пользователь не найден');
+      toast.error('Ошибка поиска');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectSeat = (tableNumber: number, seatNumber: number) => {
-    setSelectedTable(tableNumber);
-    setSelectedSeat(seatNumber);
-  };
-
-  const handleContinueToPayment = () => {
-    if (!selectedTable || !selectedSeat) {
-      toast.error('Выберите место за столом');
-      return;
-    }
-    setStep('payment');
+  const handleSelectUser = (user: any) => {
+    setSelectedUser(user);
+    setPaymentAmount(game.buy_in?.toString() || '');
   };
 
   const handleConfirmRegistration = async () => {
-    if (!foundUser || !selectedTable || !selectedSeat || !paymentAmount) {
+    if (!selectedUser || !paymentAmount || parseFloat(paymentAmount) <= 0) {
       toast.error('Заполните все поля');
       return;
     }
     
     try {
+      setLoading(true);
       await gamesAPI.lateRegistration(
         game.id,
-        foundUser.id,
+        selectedUser.id,
         parseFloat(paymentAmount),
         paymentMethod,
-        selectedTable,
-        selectedSeat,
-        parseInt(initialStack),
+        0, // tableNumber - будет назначено автоматически
+        0, // seatNumber - будет назначено автоматически
+        undefined, // initialStack
         paymentNotes
       );
       
-      toast.success(`${foundUser.first_name} успешно добавлен в турнир!`);
+      toast.success(`${selectedUser.first_name} успешно добавлен в турнир!`);
       onClose();
     } catch (error: any) {
       toast.error(error.message || 'Ошибка при регистрации');
+    } finally {
+      setLoading(false);
     }
   };
-
-  const getOccupiedSeats = (tableNumber: number) => {
-    return seating
-      .filter(s => s.table_number === tableNumber)
-      .map(s => s.seat_number);
-  };
-
-  const getTablesCount = () => {
-    const tables = new Set(seating.map(s => s.table_number));
-    return Math.max(...Array.from(tables), 0);
-  };
-
-  const renderSearchStep = () => (
-    <div className="space-y-6">
-      <div>
-        <Label htmlFor="search">ID пользователя Telegram</Label>
-        <div className="relative mt-2">
-          <Input
-            id="search"
-            type="number"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="123456789"
-            className="bg-gray-800 border-gray-700 pl-10"
-            onKeyPress={(e) => e.key === 'Enter' && handleSearchUser()}
-          />
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <SearchIcon />
-          </div>
-        </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Введите Telegram ID игрока, который хочет присоединиться к турниру
-        </p>
-      </div>
-
-      <Button
-        onClick={handleSearchUser}
-        disabled={loading || !searchQuery}
-        className="w-full bg-red-600 hover:bg-red-700"
-      >
-        {loading ? 'Поиск...' : 'Найти игрока'}
-      </Button>
-    </div>
-  );
-
-  const renderSeatingStep = () => (
-    <div className="space-y-6">
-      {/* User info */}
-      {foundUser && (
-        <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-          <div className="flex items-center gap-3">
-            {foundUser.photo_url ? (
-              <img
-                src={foundUser.photo_url}
-                alt={foundUser.first_name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
-                <span className="text-lg">
-                  {getInitials(foundUser.first_name, foundUser.last_name)}
-                </span>
-              </div>
-            )}
-            <div>
-              <div className="font-medium">
-                {foundUser.first_name} {foundUser.last_name}
-              </div>
-              <div className="text-xs text-gray-400">ID: {foundUser.id}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Seating selection */}
-      <div>
-        <Label>Выберите место за столом</Label>
-        <p className="text-xs text-gray-500 mb-3">
-          Зеленым отмечены свободные места
-        </p>
-
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          {Array.from({ length: getTablesCount() }, (_, i) => i + 1).map((tableNum) => {
-            const occupiedSeats = getOccupiedSeats(tableNum);
-            const totalSeats = 9; // По умолчанию 9 мест за столом
-            
-            return (
-              <div key={tableNum} className="bg-gray-800/30 rounded-lg p-3">
-                <div className="text-sm font-medium mb-2">Стол {tableNum}</div>
-                <div className="grid grid-cols-5 gap-2">
-                  {Array.from({ length: totalSeats }, (_, i) => i + 1).map((seatNum) => {
-                    const isOccupied = occupiedSeats.includes(seatNum);
-                    const isSelected = selectedTable === tableNum && selectedSeat === seatNum;
-                    
-                    return (
-                      <button
-                        key={seatNum}
-                        disabled={isOccupied}
-                        onClick={() => handleSelectSeat(tableNum, seatNum)}
-                        className={`aspect-square rounded-lg text-sm font-medium transition-all ${
-                          isSelected
-                            ? 'bg-red-600 text-white'
-                            : isOccupied
-                            ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                            : 'bg-green-600/20 text-green-500 hover:bg-green-600/30'
-                        }`}
-                      >
-                        {seatNum}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <Button
-          onClick={() => setStep('search')}
-          variant="outline"
-          className="flex-1 bg-transparent border-gray-700 hover:bg-gray-800"
-        >
-          Назад
-        </Button>
-        <Button
-          onClick={handleContinueToPayment}
-          disabled={!selectedTable || !selectedSeat}
-          className="flex-1 bg-red-600 hover:bg-red-700"
-        >
-          Продолжить
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderPaymentStep = () => (
-    <div className="space-y-6">
-      {/* Summary */}
-      {foundUser && selectedTable && selectedSeat && (
-        <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 space-y-3">
-          <div className="flex items-center gap-3 pb-3 border-b border-gray-700">
-            {foundUser.photo_url ? (
-              <img
-                src={foundUser.photo_url}
-                alt={foundUser.first_name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
-                <span className="text-lg">
-                  {getInitials(foundUser.first_name, foundUser.last_name)}
-                </span>
-              </div>
-            )}
-            <div>
-              <div className="font-medium">
-                {foundUser.first_name} {foundUser.last_name}
-              </div>
-              <div className="text-xs text-gray-400">ID: {foundUser.id}</div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <div className="text-gray-400">Стол</div>
-              <div className="font-medium">{selectedTable}</div>
-            </div>
-            <div>
-              <div className="text-gray-400">Место</div>
-              <div className="font-medium">{selectedSeat}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment form */}
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="amount">Сумма оплаты</Label>
-          <Input
-            id="amount"
-            type="number"
-            value={paymentAmount}
-            onChange={(e) => setPaymentAmount(e.target.value)}
-            placeholder="5000"
-            className="bg-gray-800 border-gray-700"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="stack">Начальный стек</Label>
-          <Input
-            id="stack"
-            type="number"
-            value={initialStack}
-            onChange={(e) => setInitialStack(e.target.value)}
-            placeholder="10000"
-            className="bg-gray-800 border-gray-700"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Обычно меньше стандартного из-за опоздания
-          </p>
-        </div>
-
-        <div>
-          <Label>Способ оплаты</Label>
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            {[
-              { value: 'cash', label: 'Наличные' },
-              { value: 'card', label: 'Карта' },
-              { value: 'transfer', label: 'Перевод' },
-            ].map((method) => (
-              <button
-                key={method.value}
-                onClick={() => setPaymentMethod(method.value as any)}
-                className={`py-2 px-3 rounded-lg text-sm transition-colors ${
-                  paymentMethod === method.value
-                    ? 'bg-red-700 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {method.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="notes">Заметки (опционально)</Label>
-          <Input
-            id="notes"
-            value={paymentNotes}
-            onChange={(e) => setPaymentNotes(e.target.value)}
-            placeholder="Комментарий..."
-            className="bg-gray-800 border-gray-700"
-          />
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <Button
-          onClick={() => setStep('seating')}
-          variant="outline"
-          className="flex-1 bg-transparent border-gray-700 hover:bg-gray-800"
-        >
-          Назад
-        </Button>
-        <Button
-          onClick={handleConfirmRegistration}
-          disabled={!paymentAmount || parseFloat(paymentAmount) <= 0}
-          className="flex-1 bg-green-600 hover:bg-green-700"
-        >
-          Подтвердить регистрацию
-        </Button>
-      </div>
-    </div>
-  );
 
   return (
     <motion.div
@@ -404,7 +105,9 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-xl font-medium">Поздняя регистрация</h2>
-              <p className="text-sm text-gray-400 mt-1">{game.name}</p>
+              <p className="text-sm text-gray-400 mt-1">
+                {game.name} • {new Date(game.date).toLocaleDateString('ru-RU')}
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -414,45 +117,183 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
             </button>
           </div>
 
-          {/* Steps indicator */}
-          <div className="flex items-center gap-2">
-            {['Поиск', 'Место', 'Оплата'].map((label, index) => {
-              const stepIndex = ['search', 'seating', 'payment'].indexOf(step);
-              const isActive = index === stepIndex;
-              const isCompleted = index < stepIndex;
-              
-              return (
-                <div key={label} className="flex items-center flex-1">
-                  <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-red-600 text-white'
-                        : isCompleted
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-800 text-gray-400'
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-                  <div className="ml-2 text-sm">
-                    <div className={isActive ? 'text-white' : 'text-gray-400'}>
-                      {label}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+            <p className="text-sm text-blue-400">
+              💡 Место за столом будет назначено автоматически
+            </p>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="px-4 py-6 pb-24">
-        {step === 'search' && renderSearchStep()}
-        {step === 'seating' && renderSeatingStep()}
-        {step === 'payment' && renderPaymentStep()}
+        {!selectedUser ? (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="search">Поиск игрока</Label>
+              <div className="flex gap-2 mt-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Введите имя..."
+                    className="bg-gray-800 border-gray-700 pl-10"
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearchUsers()}
+                  />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <SearchIcon />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleSearchUsers}
+                  disabled={loading}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {loading ? 'Поиск...' : 'Найти'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Search results */}
+            {searchResults.length > 0 && (
+              <div className="space-y-2">
+                <Label>Результаты поиска</Label>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {searchResults.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="w-full bg-gray-800 rounded-lg p-4 flex items-center gap-3 hover:bg-gray-700 transition-colors text-left border border-gray-700 hover:border-red-700"
+                    >
+                      {user.photo_url ? (
+                        <img
+                          src={user.photo_url}
+                          alt={user.first_name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+                          <span className="text-lg">
+                            {getInitials(user.first_name, user.last_name)}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium">
+                          {user.first_name} {user.last_name}
+                        </div>
+                        <div className="text-xs text-gray-400">@{user.username || `id${user.id}`}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Selected user */}
+            <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+              <div className="flex items-center gap-3 justify-between mb-4 pb-4 border-b border-gray-700">
+                <div className="flex items-center gap-3">
+                  {selectedUser.photo_url ? (
+                    <img
+                      src={selectedUser.photo_url}
+                      alt={selectedUser.first_name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
+                      <span className="text-lg">
+                        {getInitials(selectedUser.first_name, selectedUser.last_name)}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-medium">
+                      {selectedUser.first_name} {selectedUser.last_name}
+                    </div>
+                    <div className="text-xs text-gray-400">ID: {selectedUser.id}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setSearchResults([]);
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <XIcon />
+                </button>
+              </div>
+
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                <p className="text-sm text-green-400">
+                  ✓ Место будет назначено автоматически
+                </p>
+              </div>
+            </div>
+
+            {/* Payment form */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="amount">Сумма оплаты</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="5000"
+                  className="bg-gray-800 border-gray-700"
+                />
+              </div>
+
+              <div>
+                <Label>Способ оплаты</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {[
+                    { value: 'cash', label: 'Наличные' },
+                    { value: 'card', label: 'Карта' },
+                    { value: 'transfer', label: 'Перевод' },
+                  ].map((method) => (
+                    <button
+                      key={method.value}
+                      onClick={() => setPaymentMethod(method.value as any)}
+                      className={`py-2 px-3 rounded-lg text-sm transition-colors ${
+                        paymentMethod === method.value
+                          ? 'bg-red-700 text-white'
+                          : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      {method.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Заметки (опционально)</Label>
+                <Input
+                  id="notes"
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                  placeholder="Комментарий..."
+                  className="bg-gray-800 border-gray-700"
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={handleConfirmRegistration}
+              disabled={!paymentAmount || parseFloat(paymentAmount) <= 0 || loading}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              {loading ? 'Добавление...' : 'Подтвердить регистрацию'}
+            </Button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
 }
-
