@@ -1,6 +1,14 @@
+import { useState } from 'react';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useUser } from '../hooks/useUser';
 import { getInitials } from '../lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 // Icon components as inline SVGs
 const TrophyIcon = ({ className }: { className?: string }) => (
@@ -32,54 +40,119 @@ const MedalIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+type TournamentType = 'all' | 'current_season';
+
 export function RatingTab() {
   const { user } = useUser();
   const { leaderboard, loading } = useLeaderboard(50);
+  const [selectedTournament, setSelectedTournament] = useState<TournamentType>('all');
 
   // Находим позицию текущего пользователя в рейтинге
   const userRank = user ? leaderboard.findIndex(p => p.id === user.id) + 1 : 0;
   const displayRank = userRank > 0 ? userRank : (user?.current_rank || null);
 
+  // Top 3 players
+  const topPlayers = leaderboard.slice(0, 3);
+  const topTenthPlayer = leaderboard[9];
+
   return (
     <div className="min-h-screen bg-black pb-24">
-      {/* Header */}
+      {/* Compact Header */}
       <div className="px-4 pt-6 pb-4">
         <h2 className="text-2xl mb-1">Рейтинг</h2>
         <p className="text-sm text-gray-400">Топ игроков клуба</p>
       </div>
 
+      {/* Tournament Selector */}
+      <div className="px-4 mb-4">
+        <Select
+          onValueChange={(value) => setSelectedTournament(value as TournamentType)}
+          value={selectedTournament}
+        >
+          <SelectTrigger className="w-full bg-[#1a1a1a] border-gray-800 rounded-2xl h-12 text-white hover:bg-[#252525] transition-colors">
+            <SelectValue>
+              {selectedTournament === 'all' ? 'Общий рейтинг' : 'Текущий сезон'}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent className="bg-[#1a1a1a] border-gray-800 text-white">
+            <SelectItem value="all" className="focus:bg-red-700/20 focus:text-white cursor-pointer">
+              Общий рейтинг
+            </SelectItem>
+            <SelectItem value="current_season" className="focus:bg-red-700/20 focus:text-white cursor-pointer">
+              Текущий сезон
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Your Position Card */}
-      <div className="px-4 mb-6">
+      <div className="px-4 mb-4">
         <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-2xl p-4 border border-red-900/30">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {user?.photo_url ? (
-                <img
-                  src={user.photo_url}
-                  alt={user.first_name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-red-700"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center border-2 border-red-700">
-                  <span className="text-lg">{getInitials(user?.first_name || 'И', user?.last_name)}</span>
-                </div>
-              )}
-              <div>
-                <div className="text-sm text-gray-400">Ваша позиция</div>
-                <div className="text-2xl">#{displayRank || '—'}</div>
-              </div>
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Ваша позиция</div>
+              <div className="text-2xl">#{displayRank || '—'}</div>
             </div>
             <div className="text-right">
-              <div className="text-sm text-gray-400">Очки</div>
-              <div className="text-2xl text-yellow-500">{user?.total_points || 0}</div>
+              <div className="text-xs text-gray-400 mb-1">Рейтинг</div>
+              <div className="text-xl text-yellow-500">{user?.total_points || 0}</div>
+            </div>
+            <div className="w-12 h-12 bg-red-700/20 rounded-full flex items-center justify-center">
+              <TrophyIcon className="w-6 h-6 text-red-600" />
             </div>
           </div>
+          {displayRank && displayRank > 10 && topTenthPlayer && (
+            <div className="text-xs text-gray-400 mt-3">
+              До топ-10: <span className="text-white">{(topTenthPlayer.total_points || 0) - (user?.total_points || 0)} очков</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Leaderboard */}
+      {/* Top 3 */}
+      {!loading && topPlayers.length >= 3 && (
+        <div className="px-4 mb-4">
+          <div className="text-sm text-gray-400 mb-2">Топ-3</div>
+          <div className="grid grid-cols-3 gap-2">
+            {/* 2nd Place */}
+            <div className="flex flex-col items-center pt-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center mb-2 text-sm font-medium">
+                2
+              </div>
+              <div className="bg-[#1a1a1a] rounded-xl p-2.5 w-full text-center border border-gray-800">
+                <div className="text-xs mb-1 truncate">{topPlayers[1]?.first_name || 'Игрок'}</div>
+                <div className="text-xs text-gray-500">{topPlayers[1]?.total_points || 0}</div>
+              </div>
+            </div>
+
+            {/* 1st Place */}
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center mb-2">
+                <TrophyIcon className="w-7 h-7 text-white" />
+              </div>
+              <div className="bg-gradient-to-br from-red-700 to-red-900 rounded-xl p-2.5 w-full text-center">
+                <div className="text-xs mb-1 truncate">{topPlayers[0]?.first_name || 'Игрок'}</div>
+                <div className="text-xs">{topPlayers[0]?.total_points || 0}</div>
+              </div>
+            </div>
+
+            {/* 3rd Place */}
+            <div className="flex flex-col items-center pt-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center mb-2 text-sm font-medium">
+                3
+              </div>
+              <div className="bg-[#1a1a1a] rounded-xl p-2.5 w-full text-center border border-gray-800">
+                <div className="text-xs mb-1 truncate">{topPlayers[2]?.first_name || 'Игрок'}</div>
+                <div className="text-xs text-gray-500">{topPlayers[2]?.total_points || 0}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Leaderboard */}
       <div className="px-4">
-        <div className="text-sm text-gray-400 mb-3">Общий рейтинг</div>
+        <div className="text-sm text-gray-400 mb-2">Общий рейтинг</div>
         
         {loading ? (
           <div className="text-center text-gray-400 py-8">Загрузка...</div>
@@ -88,69 +161,47 @@ export function RatingTab() {
         ) : (
           <div className="space-y-2">
             {leaderboard.map((player, index) => {
-              const isCurrentUser = player.id === user?.id;
               const rank = index + 1;
               
               return (
                 <div
                   key={player.id}
-                  className={`rounded-2xl p-4 flex items-center gap-3 transition-all ${
-                    isCurrentUser
-                      ? 'bg-gradient-to-br from-red-700/30 to-red-900/30 border border-red-700/50'
-                      : 'bg-[#1a1a1a] border border-gray-800'
-                  }`}
+                  className="bg-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 border border-gray-800"
                 >
                   {/* Rank Badge */}
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium shrink-0 ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${
                       rank === 1
-                        ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white'
+                        ? 'bg-gradient-to-br from-yellow-500 to-orange-500'
                         : rank === 2
-                        ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white'
+                        ? 'bg-gradient-to-br from-gray-400 to-gray-500'
                         : rank === 3
-                        ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white'
-                        : isCurrentUser
-                        ? 'bg-red-700/30 text-white'
-                        : 'bg-gray-800 text-gray-400'
+                        ? 'bg-gradient-to-br from-orange-500 to-orange-600'
+                        : 'bg-gray-800'
                     }`}
                   >
-                    {rank === 1 ? <TrophyIcon className="w-5 h-5" /> : rank}
-                  </div>
-
-                  {/* Avatar */}
-                  <div className="shrink-0">
-                    {player.photo_url ? (
-                      <img
-                        src={player.photo_url}
-                        alt={player.first_name || 'User'}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center">
-                        <span className="text-sm">{getInitials(player.first_name || 'U', player.last_name)}</span>
-                      </div>
-                    )}
+                    {rank}
                   </div>
 
                   {/* Player Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-base truncate ${isCurrentUser ? 'text-white' : ''}`}>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm truncate">
                         {player.first_name || player.username || 'Игрок'} {player.last_name || ''}
                       </span>
-                      {rank <= 3 && (
-                        <MedalIcon className="w-4 h-4 text-yellow-500 shrink-0" />
+                      {rank <= 3 && player.games_won && player.games_won > 0 && (
+                        <TrendingUpIcon className="w-3 h-3 text-green-500 shrink-0" />
                       )}
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-gray-500">
                       {player.games_played || 0} игр • {player.games_won || 0} побед
                     </div>
                   </div>
 
                   {/* Points */}
                   <div className="text-right shrink-0">
-                    <div className="text-lg text-yellow-500 font-medium">{player.total_points || 0}</div>
-                    <div className="text-xs text-gray-500">очков</div>
+                    <div className="text-sm text-yellow-500">{player.total_points || 0}</div>
+                    <div className="text-xs text-gray-500">pts</div>
                   </div>
                 </div>
               );
