@@ -12,6 +12,7 @@ import tournamentsRouter from './routes/tournaments.js';
 import profileRequestsRouter from './routes/profile-requests.js';
 import { initSeating } from './database/init-seating.js';
 import { initProfileModeration } from './database/init-profile-moderation.js';
+import { initTournamentLifecycle } from './database/init-tournament-lifecycle.js';
 
 dotenv.config();
 
@@ -104,6 +105,21 @@ app.listen(PORT, async () => {
     await initProfileModeration();
   } catch (error) {
     console.error('⚠️ Failed to initialize profile moderation tables (may already exist):', error.message);
+  }
+  
+  // Initialize tournament lifecycle system on startup
+  try {
+    await initTournamentLifecycle();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize tournament lifecycle system (may already exist):', error.message);
+  }
+  
+  // Initialize automated tournament jobs
+  try {
+    await import('./jobs/tournament-automation.js');
+    console.log('✅ Tournament automation jobs initialized');
+  } catch (error) {
+    console.error('⚠️ Failed to initialize automation jobs:', error.message);
   }
 });
 

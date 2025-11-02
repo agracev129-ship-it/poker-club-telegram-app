@@ -308,6 +308,203 @@ export const gamesAPI = {
   }> {
     return fetchAPI(`/games/${id}/results`);
   },
+
+  // ============ TOURNAMENT LIFECYCLE METHODS ============
+
+  async openRegistration(id: number): Promise<{ message: string; game: Game }> {
+    return fetchAPI(`/games/${id}/open-registration`, { method: 'POST' });
+  },
+
+  async closeRegistration(id: number): Promise<{ message: string; game: Game }> {
+    return fetchAPI(`/games/${id}/close-registration`, { method: 'POST' });
+  },
+
+  async startCheckIn(id: number): Promise<{ message: string; game: Game }> {
+    return fetchAPI(`/games/${id}/start-check-in`, { method: 'POST' });
+  },
+
+  async checkInPlayer(id: number, userId: number): Promise<{ message: string; registration: GameRegistration }> {
+    return fetchAPI(`/games/${id}/check-in-player`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  async confirmPayment(
+    id: number,
+    userId: number,
+    amount: number,
+    paymentMethod: string,
+    notes?: string
+  ): Promise<{ message: string; registration: GameRegistration }> {
+    return fetchAPI(`/games/${id}/confirm-payment`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, amount, paymentMethod, notes }),
+    });
+  },
+
+  async markNoShow(id: number, userId: number, reason?: string): Promise<{ message: string; registration: GameRegistration }> {
+    return fetchAPI(`/games/${id}/mark-no-show`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, reason }),
+    });
+  },
+
+  async restorePlayer(id: number, userId: number): Promise<{ message: string; registration: GameRegistration }> {
+    return fetchAPI(`/games/${id}/restore-player`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  async onsiteRegistration(
+    id: number,
+    userId: number,
+    amount: number,
+    paymentMethod: string,
+    notes?: string
+  ): Promise<{ message: string; registration: GameRegistration }> {
+    return fetchAPI(`/games/${id}/onsite-registration`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, amount, paymentMethod, notes }),
+    });
+  },
+
+  async lateRegistration(
+    id: number,
+    userId: number,
+    amount: number,
+    paymentMethod: string,
+    tableNumber: number,
+    seatNumber: number,
+    initialStack?: number,
+    notes?: string
+  ): Promise<{ message: string; registration: GameRegistration }> {
+    return fetchAPI(`/games/${id}/late-registration`, {
+      method: 'POST',
+      body: JSON.stringify({
+        userId,
+        amount,
+        paymentMethod,
+        tableNumber,
+        seatNumber,
+        initialStack,
+        notes,
+      }),
+    });
+  },
+
+  async excludeNoShow(id: number): Promise<{ message: string; count: number; excluded: GameRegistration[] }> {
+    return fetchAPI(`/games/${id}/exclude-no-show`, { method: 'POST' });
+  },
+
+  async getTournamentStats(id: number): Promise<{
+    registered_count: string;
+    checked_in_count: string;
+    paid_count: string;
+    no_show_count: string;
+    late_registered_count: string;
+    playing_count: string;
+    eliminated_count: string;
+    total_prize_pool: string;
+  }> {
+    return fetchAPI(`/games/${id}/stats`);
+  },
+
+  async getPlayersByStatus(id: number, status: string): Promise<Array<GameRegistration & {
+    user_name: string;
+    first_name: string;
+    last_name?: string;
+    photo_url?: string;
+    telegram_id: number;
+  }>> {
+    return fetchAPI(`/games/${id}/players?status=${status}`);
+  },
+
+  async getLateRegistrationStatus(id: number): Promise<{
+    available: boolean;
+    endsAt?: string;
+    levelsRemaining?: number;
+    tournamentStatus: string;
+  }> {
+    return fetchAPI(`/games/${id}/late-registration/status`);
+  },
+
+  async finalizeResults(
+    id: number,
+    options?: {
+      autoCalculatePoints?: boolean;
+      manualAdjustments?: Array<{ userId: number; bonusPoints: number; reason: string }>;
+    }
+  ): Promise<{ message: string; results: any }> {
+    return fetchAPI(`/games/${id}/finalize-results`, {
+      method: 'POST',
+      body: JSON.stringify(options || {}),
+    });
+  },
+
+  async getActions(id: number, limit?: number): Promise<Array<{
+    id: number;
+    game_id: number;
+    admin_id: number;
+    action_type: string;
+    target_user_id?: number;
+    details: any;
+    created_at: string;
+    admin_name: string;
+    admin_photo?: string;
+    target_user_name?: string;
+    target_user_photo?: string;
+  }>> {
+    const params = limit ? `?limit=${limit}` : '';
+    return fetchAPI(`/games/${id}/actions${params}`);
+  },
+
+  async getPayments(id: number): Promise<Array<{
+    id: number;
+    game_id: number;
+    user_id: number;
+    registration_id?: number;
+    amount: string;
+    payment_method: string;
+    status: string;
+    confirmed_by?: number;
+    confirmed_at?: string;
+    notes?: string;
+    created_at: string;
+    user_name: string;
+    user_photo?: string;
+    confirmed_by_name?: string;
+  }>> {
+    return fetchAPI(`/games/${id}/payments`);
+  },
+
+  async getPointStructure(id: number): Promise<Array<{
+    id: number;
+    game_id: number;
+    place_from: number;
+    place_to: number;
+    points: number;
+    prize_percentage?: string;
+    created_at: string;
+  }>> {
+    return fetchAPI(`/games/${id}/point-structure`);
+  },
+
+  async updatePointStructure(
+    id: number,
+    structure: Array<{
+      place_from: number;
+      place_to: number;
+      points: number;
+      prize_percentage?: number;
+    }>
+  ): Promise<{ message: string; structure: any[] }> {
+    return fetchAPI(`/games/${id}/point-structure`, {
+      method: 'POST',
+      body: JSON.stringify({ structure }),
+    });
+  },
 };
 
 // ============= TOURNAMENTS API =============

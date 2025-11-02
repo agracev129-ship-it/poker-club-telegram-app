@@ -561,6 +561,514 @@ export const Game = {
         participated: p.registration_status === 'participated',
       })),
     };
+  },
+
+  // ============================================================================
+  // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ЖИЗНЕННЫМ ЦИКЛОМ ТУРНИРА
+  // ============================================================================
+
+  /**
+   * Открыть регистрацию на турнир
+   */
+  async openRegistration(gameId, adminId) {
+    const result = await query(
+      `UPDATE games 
+       SET tournament_status = 'registration_open'
+       WHERE id = $1
+       RETURNING *`,
+      [gameId]
+    );
+
+    // Логируем действие
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'open_registration',
+      details: { timestamp: new Date() }
+    });
+
+    return result.rows[0];
+  },
+
+  /**
+   * Закрыть регистрацию
+   */
+  async closeRegistration(gameId, adminId) {
+    const result = await query(
+      `UPDATE games 
+       SET tournament_status = 'finalizing',
+           registration_closes_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [gameId]
+    );
+
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'close_registration'
+    });
+
+    return result.rows[0];
+  },
+
+  /**
+   * Начать прием игроков (check-in)
+   */
+  async startCheckIn(gameId, adminId) {
+    const result = await query(
+      `UPDATE games 
+       SET tournament_status = 'check_in',
+           check_in_opens_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [gameId]
+    );
+
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'start_check_in'
+    });
+
+    return result.rows[0];
+  },
+
+  /**
+   * Отметить явку игрока
+   */
+  async checkInPlayer(gameId, userId, adminId) {
+    const result = await query(
+      `UPDATE game_registrations
+       SET status = 'checked_in',
+           checked_in_at = CURRENT_TIMESTAMP,
+           checked_in_by = $1
+       WHERE game_id = $2 AND user_id = $3
+       RETURNING *`,
+      [adminId, gameId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Registration not found');
+    }
+
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'check_in_player',
+      target_user_id: userId
+    });
+
+    return result.rows[0];
+  },
+
+  /**
+   * Подтвердить оплату игрока
+   */
+  async confirmPayment(gameId, userId, adminId, paymentData) {
+    const { amount, payment_method, notes } = paymentData;
+
+    // Обновляем регистрацию
+    const regResult = await query(
+      `UPDATE game_registrations
+       SET status = 'paid',
+           payment_status = 'paid',
+           payment_amount = $1,
+           payment_method = $2,
+           payment_confirmed_by = $3,
+           paid_at = CURRENT_TIMESTAMP
+       WHERE game_id = $4 AND user_id = $5
+       RETURNING *`,
+      [amount, payment_method, adminId, gameId, userId]
+    );
+
+    if (regResult.rows.length === 0) {
+      throw new Error('Registration not found');
+    }
+
+    const registration = regResult.rows[0];
+
+    // Создаем запись о платеже
+    const { TournamentPayment } = await import('./TournamentPayment.js');
+    await TournamentPayment.create({
+      game_id: gameId,
+      user_id: userId,
+      registration_id: registration.id,
+      amount,
+      payment_method,
+      notes,
+      confirmed_by: adminId
+    });
+
+    // Логируем действие
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'confirm_payment',
+      target_user_id: userId,
+      details: { amount, payment_method }
+    });
+
+    return registration;
+  },
+
+  /**
+   * Отметить игрока как не явившегося
+   */
+  async markNoShow(gameId, userId, adminId, reason = null) {
+    const result = await query(
+      `UPDATE game_registrations
+       SET status = 'no_show',
+           notes = $1
+       WHERE game_id = $2 AND user_id = $3
+       RETURNING *`,
+      [reason, gameId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Registration not found');
+    }
+
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'mark_no_show',
+      target_user_id: userId,
+      details: { reason }
+    });
+
+    return result.rows[0];
+  },
+
+  /**
+   * Восстановить игрока (отменить no_show)
+   */
+  async restorePlayer(gameId, userId, adminId) {
+    const result = await query(
+      `UPDATE game_registrations
+       SET status = 'registered',
+           notes = NULL
+       WHERE game_id = $1 AND user_id = $2
+       RETURNING *`,
+      [gameId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Registration not found');
+    }
+
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'restore_player',
+      target_user_id: userId
+    });
+
+    return result.rows[0];
+  },
+
+  /**
+   * Регистрация игрока на месте (до старта турнира)
+   */
+  async onsiteRegistration(gameId, userId, adminId, paymentData) {
+    const { amount, payment_method, notes } = paymentData;
+
+    // Проверяем не зарегистрирован ли уже
+    const existing = await query(
+      'SELECT * FROM game_registrations WHERE game_id = $1 AND user_id = $2',
+      [gameId, userId]
+    );
+
+    let registration;
+
+    if (existing.rows.length > 0) {
+      // Обновляем существующую регистрацию
+      const result = await query(
+        `UPDATE game_registrations
+         SET status = 'paid',
+             payment_status = 'paid',
+             payment_amount = $1,
+             payment_method = $2,
+             payment_confirmed_by = $3,
+             paid_at = CURRENT_TIMESTAMP,
+             registration_type = 'onsite',
+             checked_in_at = CURRENT_TIMESTAMP,
+             checked_in_by = $3
+         WHERE game_id = $4 AND user_id = $5
+         RETURNING *`,
+        [amount, payment_method, adminId, gameId, userId]
+      );
+      registration = result.rows[0];
+    } else {
+      // Создаем новую регистрацию
+      const result = await query(
+        `INSERT INTO game_registrations 
+         (game_id, user_id, status, payment_status, payment_amount, payment_method, 
+          payment_confirmed_by, paid_at, registration_type, checked_in_at, checked_in_by)
+         VALUES ($1, $2, 'paid', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'onsite', CURRENT_TIMESTAMP, $5)
+         RETURNING *`,
+        [gameId, userId, amount, payment_method, adminId]
+      );
+      registration = result.rows[0];
+    }
+
+    // Создаем запись о платеже
+    const { TournamentPayment } = await import('./TournamentPayment.js');
+    await TournamentPayment.create({
+      game_id: gameId,
+      user_id: userId,
+      registration_id: registration.id,
+      amount,
+      payment_method,
+      notes,
+      confirmed_by: adminId
+    });
+
+    // Логируем действие
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'onsite_registration',
+      target_user_id: userId,
+      details: { amount, payment_method }
+    });
+
+    return registration;
+  },
+
+  /**
+   * Поздняя регистрация (после старта турнира)
+   */
+  async lateRegistration(gameId, userId, adminId, paymentData, seatingData) {
+    const { amount, payment_method, notes } = paymentData;
+    const { table_number, seat_number, initial_stack } = seatingData;
+
+    // Проверяем статус турнира
+    const game = await this.getById(gameId);
+    if (!game.allow_late_registration) {
+      throw new Error('Late registration is not allowed for this tournament');
+    }
+
+    if (!['started', 'late_registration'].includes(game.tournament_status)) {
+      throw new Error('Late registration is only available during the tournament');
+    }
+
+    // Создаем регистрацию
+    const result = await query(
+      `INSERT INTO game_registrations 
+       (game_id, user_id, status, payment_status, payment_amount, payment_method, 
+        payment_confirmed_by, paid_at, registration_type, is_late_entry,
+        table_number, seat_number, initial_stack, checked_in_at, checked_in_by)
+       VALUES ($1, $2, 'late_registered', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 
+               'late', true, $6, $7, $8, CURRENT_TIMESTAMP, $5)
+       RETURNING *`,
+      [gameId, userId, amount, payment_method, adminId, table_number, seat_number, initial_stack]
+    );
+
+    const registration = result.rows[0];
+
+    // Добавляем в рассадку
+    await query(
+      `INSERT INTO table_assignments 
+       (game_id, user_id, table_number, seat_number)
+       VALUES ($1, $2, $3, $4)`,
+      [gameId, userId, table_number, seat_number]
+    );
+
+    // Создаем запись о платеже
+    const { TournamentPayment } = await import('./TournamentPayment.js');
+    await TournamentPayment.create({
+      game_id: gameId,
+      user_id: userId,
+      registration_id: registration.id,
+      amount,
+      payment_method,
+      notes,
+      confirmed_by: adminId
+    });
+
+    // Логируем действие
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'late_registration',
+      target_user_id: userId,
+      details: { amount, payment_method, table_number, seat_number }
+    });
+
+    // Обновляем статус турнира на late_registration если нужно
+    if (game.tournament_status === 'started') {
+      await query(
+        `UPDATE games SET tournament_status = 'late_registration' WHERE id = $1`,
+        [gameId]
+      );
+    }
+
+    return registration;
+  },
+
+  /**
+   * Исключить всех неявившихся игроков
+   */
+  async excludeAllNoShow(gameId, adminId) {
+    const result = await query(
+      `UPDATE game_registrations
+       SET status = 'no_show'
+       WHERE game_id = $1 
+         AND status = 'registered'
+       RETURNING *`,
+      [gameId]
+    );
+
+    // Логируем для каждого игрока
+    const { TournamentAction } = await import('./TournamentAction.js');
+    for (const reg of result.rows) {
+      await TournamentAction.log({
+        game_id: gameId,
+        admin_id: adminId,
+        action_type: 'mark_no_show',
+        target_user_id: reg.user_id,
+        details: { auto_excluded: true }
+      });
+    }
+
+    return result.rows;
+  },
+
+  /**
+   * Получить статистику турнира
+   */
+  async getTournamentStats(gameId) {
+    const result = await query(
+      'SELECT * FROM get_tournament_stats($1)',
+      [gameId]
+    );
+
+    return result.rows[0];
+  },
+
+  /**
+   * Получить игроков по статусу
+   */
+  async getPlayersByStatus(gameId, status) {
+    const result = await query(
+      `SELECT gr.*, 
+              u.name as user_name,
+              u.first_name,
+              u.last_name,
+              u.photo_url,
+              u.telegram_id
+       FROM game_registrations gr
+       JOIN users u ON gr.user_id = u.id
+       WHERE gr.game_id = $1 AND gr.status = $2
+       ORDER BY gr.registered_at ASC`,
+      [gameId, status]
+    );
+
+    return result.rows;
+  },
+
+  /**
+   * Финализировать результаты турнира с автоматическим начислением очков
+   */
+  async finalizeResults(gameId, adminId, options = {}) {
+    const { autoCalculatePoints = true, manualAdjustments = [] } = options;
+
+    // Получаем структуру очков
+    const { TournamentPointStructure } = await import('./TournamentPointStructure.js');
+    const pointStructure = await TournamentPointStructure.getByGameId(gameId);
+
+    if (autoCalculatePoints && pointStructure.length > 0) {
+      // Получаем всех игроков с результатами
+      const players = await query(
+        `SELECT user_id, finish_position
+         FROM game_registrations
+         WHERE game_id = $1 
+           AND finish_position IS NOT NULL
+           AND status = 'eliminated'`,
+        [gameId]
+      );
+
+      // Рассчитываем и начисляем очки
+      for (const player of players.rows) {
+        const pointsData = await TournamentPointStructure.getPointsForPlace(
+          gameId, 
+          player.finish_position
+        );
+
+        await query(
+          `UPDATE game_registrations
+           SET points_earned = $1
+           WHERE game_id = $2 AND user_id = $3`,
+          [pointsData.points, gameId, player.user_id]
+        );
+
+        // Обновляем статистику пользователя
+        await query(
+          `INSERT INTO user_stats (user_id, games_played, games_won, total_points)
+           VALUES ($1, 1, $2, $3)
+           ON CONFLICT (user_id) 
+           DO UPDATE SET 
+             games_played = user_stats.games_played + 1,
+             games_won = user_stats.games_won + $2,
+             total_points = user_stats.total_points + $3`,
+          [player.user_id, player.finish_position === 1 ? 1 : 0, pointsData.points]
+        );
+      }
+    }
+
+    // Применяем ручные корректировки
+    for (const adjustment of manualAdjustments) {
+      const { userId, bonusPoints, reason } = adjustment;
+      
+      await query(
+        `UPDATE game_registrations
+         SET points_earned = COALESCE(points_earned, 0) + $1,
+             notes = COALESCE(notes, '') || ' Бонус: ' || $2
+         WHERE game_id = $3 AND user_id = $4`,
+        [bonusPoints, reason, gameId, userId]
+      );
+
+      await query(
+        `UPDATE user_stats
+         SET total_points = total_points + $1
+         WHERE user_id = $2`,
+        [bonusPoints, userId]
+      );
+    }
+
+    // Обновляем статус игры
+    await query(
+      `UPDATE games 
+       SET tournament_status = 'completed',
+           finished_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [gameId]
+    );
+
+    // Обновляем рейтинги
+    const { default: User } = await import('./User.js');
+    await User.updateRankings();
+
+    // Логируем
+    const { TournamentAction } = await import('./TournamentAction.js');
+    await TournamentAction.log({
+      game_id: gameId,
+      admin_id: adminId,
+      action_type: 'finish_tournament',
+      details: { autoCalculatePoints, manualAdjustments }
+    });
+
+    return await this.getTournamentResults(gameId);
   }
 };
 

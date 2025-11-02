@@ -12,20 +12,25 @@
     "start": "node server/index.js",
     "init-db": "node server/init-db.js"
   },
-  "keywords": ["telegram", "mini-app", "poker", "club"],
+  "keywords": [
+    "telegram",
+    "mini-app",
+    "poker",
+    "club"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
-    "pg": "^8.11.3",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
-    "compression": "^1.7.4"
+    "node-cron": "^4.2.1",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }
 }
-

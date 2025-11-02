@@ -358,5 +358,369 @@ router.get('/:id/results', authenticateTelegram, async (req, res) => {
   }
 });
 
+// ============================================================================
+// НОВЫЕ ENDPOINTS ДЛЯ УПРАВЛЕНИЯ ЖИЗНЕННЫМ ЦИКЛОМ ТУРНИРА
+// ============================================================================
+
+/**
+ * POST /api/games/:id/open-registration - Открыть регистрацию
+ */
+router.post('/:id/open-registration', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const user = await User.findByTelegramId(req.telegramUser.id);
+    
+    const game = await Game.openRegistration(gameId, user.id);
+    res.json({ message: 'Registration opened', game });
+  } catch (error) {
+    console.error('Error opening registration:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/close-registration - Закрыть регистрацию
+ */
+router.post('/:id/close-registration', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const user = await User.findByTelegramId(req.telegramUser.id);
+    
+    const game = await Game.closeRegistration(gameId, user.id);
+    res.json({ message: 'Registration closed', game });
+  } catch (error) {
+    console.error('Error closing registration:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/start-check-in - Начать прием игроков
+ */
+router.post('/:id/start-check-in', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const user = await User.findByTelegramId(req.telegramUser.id);
+    
+    const game = await Game.startCheckIn(gameId, user.id);
+    res.json({ message: 'Check-in started', game });
+  } catch (error) {
+    console.error('Error starting check-in:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/check-in-player - Отметить явку игрока
+ */
+router.post('/:id/check-in-player', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId } = req.body;
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    const registration = await Game.checkInPlayer(gameId, userId, admin.id);
+    res.json({ message: 'Player checked in', registration });
+  } catch (error) {
+    console.error('Error checking in player:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/confirm-payment - Подтвердить оплату
+ */
+router.post('/:id/confirm-payment', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId, amount, paymentMethod, notes } = req.body;
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    
+    if (!paymentMethod) {
+      return res.status(400).json({ error: 'Payment method is required' });
+    }
+    
+    const registration = await Game.confirmPayment(
+      gameId, 
+      userId, 
+      admin.id, 
+      { amount, payment_method: paymentMethod, notes }
+    );
+    
+    res.json({ message: 'Payment confirmed', registration });
+  } catch (error) {
+    console.error('Error confirming payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/mark-no-show - Отметить как не явившегося
+ */
+router.post('/:id/mark-no-show', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId, reason } = req.body;
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    const registration = await Game.markNoShow(gameId, userId, admin.id, reason);
+    res.json({ message: 'Player marked as no-show', registration });
+  } catch (error) {
+    console.error('Error marking no-show:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/restore-player - Восстановить игрока
+ */
+router.post('/:id/restore-player', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId } = req.body;
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    const registration = await Game.restorePlayer(gameId, userId, admin.id);
+    res.json({ message: 'Player restored', registration });
+  } catch (error) {
+    console.error('Error restoring player:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/onsite-registration - Регистрация на месте
+ */
+router.post('/:id/onsite-registration', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId, amount, paymentMethod, notes } = req.body;
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    
+    const registration = await Game.onsiteRegistration(
+      gameId,
+      userId,
+      admin.id,
+      { amount, payment_method: paymentMethod, notes }
+    );
+    
+    res.json({ message: 'Player registered onsite', registration });
+  } catch (error) {
+    console.error('Error onsite registration:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/late-registration - Поздняя регистрация
+ */
+router.post('/:id/late-registration', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { userId, amount, paymentMethod, notes, tableNumber, seatNumber, initialStack } = req.body;
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    if (!userId || !amount || !tableNumber || !seatNumber) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const registration = await Game.lateRegistration(
+      gameId,
+      userId,
+      admin.id,
+      { amount, payment_method: paymentMethod, notes },
+      { table_number: tableNumber, seat_number: seatNumber, initial_stack: initialStack }
+    );
+    
+    res.json({ message: 'Late registration successful', registration });
+  } catch (error) {
+    console.error('Error late registration:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/exclude-no-show - Исключить всех неявившихся
+ */
+router.post('/:id/exclude-no-show', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    const excluded = await Game.excludeAllNoShow(gameId, admin.id);
+    res.json({ message: 'No-shows excluded', count: excluded.length, excluded });
+  } catch (error) {
+    console.error('Error excluding no-shows:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/games/:id/stats - Получить статистику турнира
+ */
+router.get('/:id/stats', authenticateTelegram, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const stats = await Game.getTournamentStats(gameId);
+    res.json(stats);
+  } catch (error) {
+    console.error('Error getting tournament stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/games/:id/players - Получить игроков по статусу
+ */
+router.get('/:id/players', authenticateTelegram, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { status } = req.query;
+    
+    if (!status) {
+      // Если статус не указан, возвращаем всех
+      const registrations = await Game.getRegisteredUsers(gameId);
+      return res.json(registrations);
+    }
+    
+    const players = await Game.getPlayersByStatus(gameId, status);
+    res.json(players);
+  } catch (error) {
+    console.error('Error getting players:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/games/:id/late-registration/status - Проверить доступность поздней регистрации
+ */
+router.get('/:id/late-registration/status', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const game = await Game.getById(gameId);
+    
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    
+    const available = game.allow_late_registration && 
+                     ['started', 'late_registration'].includes(game.tournament_status);
+    
+    res.json({
+      available,
+      endsAt: game.late_registration_ends_at,
+      levelsRemaining: game.late_registration_levels,
+      tournamentStatus: game.tournament_status
+    });
+  } catch (error) {
+    console.error('Error checking late registration status:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/finalize-results - Финализировать результаты
+ */
+router.post('/:id/finalize-results', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { autoCalculatePoints, manualAdjustments } = req.body;
+    const admin = await User.findByTelegramId(req.telegramUser.id);
+    
+    const results = await Game.finalizeResults(gameId, admin.id, {
+      autoCalculatePoints: autoCalculatePoints !== false,
+      manualAdjustments: manualAdjustments || []
+    });
+    
+    res.json({ message: 'Results finalized', results });
+  } catch (error) {
+    console.error('Error finalizing results:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/games/:id/actions - Получить историю действий
+ */
+router.get('/:id/actions', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { TournamentAction } = await import('../models/TournamentAction.js');
+    
+    const limit = parseInt(req.query.limit) || 100;
+    const actions = await TournamentAction.getByGameId(gameId, limit);
+    
+    res.json(actions);
+  } catch (error) {
+    console.error('Error getting actions:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/games/:id/payments - Получить историю платежей
+ */
+router.get('/:id/payments', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { TournamentPayment } = await import('../models/TournamentPayment.js');
+    
+    const payments = await TournamentPayment.getByGameId(gameId);
+    res.json(payments);
+  } catch (error) {
+    console.error('Error getting payments:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/games/:id/point-structure - Получить структуру очков
+ */
+router.get('/:id/point-structure', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { TournamentPointStructure } = await import('../models/TournamentPointStructure.js');
+    
+    const structure = await TournamentPointStructure.getByGameId(gameId);
+    res.json(structure);
+  } catch (error) {
+    console.error('Error getting point structure:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/games/:id/point-structure - Создать/обновить структуру очков
+ */
+router.post('/:id/point-structure', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const { structure } = req.body;
+    const { TournamentPointStructure } = await import('../models/TournamentPointStructure.js');
+    
+    if (!structure || !Array.isArray(structure)) {
+      return res.status(400).json({ error: 'Invalid structure format' });
+    }
+    
+    const created = await TournamentPointStructure.create(gameId, structure);
+    res.json({ message: 'Point structure updated', structure: created });
+  } catch (error) {
+    console.error('Error updating point structure:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
 

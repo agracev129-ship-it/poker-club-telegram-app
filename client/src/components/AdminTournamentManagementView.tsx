@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Button } from './ui/button';
 import { Game, gamesAPI, User } from '../lib/api';
+import { AdminCheckInView } from './AdminCheckInView';
+import { AdminLateRegistrationView } from './AdminLateRegistrationView';
 
 // Types
 interface PlayerSeating {
@@ -91,6 +93,11 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
   const [bonusPointsAmount, setBonusPointsAmount] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // NEW: Tournament lifecycle states
+  const [isCheckInViewOpen, setIsCheckInViewOpen] = useState(false);
+  const [isLateRegistrationViewOpen, setIsLateRegistrationViewOpen] = useState(false);
+  const [tournamentStats, setTournamentStats] = useState<any>(null);
 
   // Load seating and registrations
   useEffect(() => {
@@ -108,11 +115,51 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
       // Всегда пытаемся загрузить рассадку (API вернет пустой массив если рассадки нет)
       const seatingData = await gamesAPI.getSeating(tournament.id);
       setSeating(seatingData);
+      
+      // NEW: Загружаем статистику турнира
+      try {
+        const stats = await gamesAPI.getTournamentStats(tournament.id);
+        setTournamentStats(stats);
+      } catch (error) {
+        console.error('Error loading tournament stats:', error);
+      }
     } catch (error) {
       console.error('Error loading tournament data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // NEW: Tournament lifecycle methods
+  const handleOpenRegistration = async () => {
+    try {
+      await gamesAPI.openRegistration(tournament.id);
+      alert('Регистрация открыта!');
+      await loadTournamentData();
+    } catch (error) {
+      console.error('Error opening registration:', error);
+      alert('Ошибка при открытии регистрации');
+    }
+  };
+
+  const handleStartCheckIn = async () => {
+    try {
+      await gamesAPI.startCheckIn(tournament.id);
+      alert('Прием игроков начат!');
+      setIsCheckInViewOpen(true);
+      await loadTournamentData();
+    } catch (error) {
+      console.error('Error starting check-in:', error);
+      alert('Ошибка при начале приема');
+    }
+  };
+
+  const handleOpenCheckInView = () => {
+    setIsCheckInViewOpen(true);
+  };
+
+  const handleOpenLateRegistration = () => {
+    setIsLateRegistrationViewOpen(true);
   };
 
   // Rebalance tables to consolidate players
@@ -346,10 +393,54 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
           </button>
         </div>
 
-        {/* Start Tournament Button */}
+        {/* NEW: Tournament Lifecycle Management */}
         {tournamentStatus === 'upcoming' && (tournament.registered_count || 0) > 0 && (
-          <div className="mb-6">
+          <div className="mb-6 space-y-3">
+            {/* Tournament Stats */}
+            {tournamentStats && (
+              <div className="bg-gray-800/50 rounded-xl p-4 mb-4 grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <div className="text-2xl font-medium text-green-500">{tournamentStats.paid_count || 0}</div>
+                  <div className="text-xs text-gray-400">Оплатили</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-medium text-blue-500">{tournamentStats.checked_in_count || 0}</div>
+                  <div className="text-xs text-gray-400">Явились</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-medium text-yellow-500">{tournamentStats.registered_count || 0}</div>
+                  <div className="text-xs text-gray-400">Всего</div>
+                </div>
+              </div>
+            )}
+
+            {/* Lifecycle Action Buttons */}
             <Button
+              onClick={handleOpenRegistration}
+              variant="outline"
+              className="w-full bg-blue-700/20 border-blue-700/50 hover:bg-blue-700/30 text-blue-400 hover:text-blue-300"
+            >
+              Открыть регистрацию
+            </Button>
+
+            <Button
+              onClick={handleStartCheckIn}
+              variant="outline"
+              className="w-full bg-purple-700/20 border-purple-700/50 hover:bg-purple-700/30 text-purple-400 hover:text-purple-300"
+            >
+              Начать прием игроков
+            </Button>
+
+            <Button
+              onClick={handleOpenCheckInView}
+              variant="outline"
+              className="w-full bg-indigo-700/20 border-indigo-700/50 hover:bg-indigo-700/30 text-indigo-400 hover:text-indigo-300"
+            >
+              Открыть панель приема
+            </Button>
+
+            <Button
+              disabled={loading}
               onClick={handleStartTournament}
               className="w-full bg-gradient-to-br from-green-600 to-green-800 hover:from-green-500 hover:to-green-700 border-0 py-6"
             >
@@ -368,6 +459,16 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
         {/* Tournament Control Buttons */}
         {tournamentStatus === 'started' && (
           <div className="mb-4 space-y-3">
+            {/* NEW: Late Registration Button */}
+            <Button
+              onClick={handleOpenLateRegistration}
+              variant="outline"
+              className="w-full bg-cyan-700/20 border-cyan-700/50 hover:bg-cyan-700/30 text-cyan-400 hover:text-cyan-300"
+            >
+              <PlusCircleIcon className="w-4 h-4 mr-2" />
+              Поздняя регистрация
+            </Button>
+
             {activePlayers.length > 0 && (
               <Button
                 onClick={handleRebalanceTables}
@@ -655,6 +756,28 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* NEW: Check-in View */}
+      {isCheckInViewOpen && (
+        <AdminCheckInView
+          game={tournament}
+          onClose={() => {
+            setIsCheckInViewOpen(false);
+            loadTournamentData();
+          }}
+        />
+      )}
+
+      {/* NEW: Late Registration View */}
+      {isLateRegistrationViewOpen && (
+        <AdminLateRegistrationView
+          game={tournament}
+          onClose={() => {
+            setIsLateRegistrationViewOpen(false);
+            loadTournamentData();
+          }}
+        />
       )}
     </motion.div>
   );
