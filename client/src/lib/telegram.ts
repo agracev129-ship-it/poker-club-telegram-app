@@ -68,6 +68,7 @@ declare global {
         onEvent: (eventType: string, eventHandler: () => void) => void;
         offEvent: (eventType: string, eventHandler: () => void) => void;
         sendData: (data: string) => void;
+        requestFullscreen: () => void;
         openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
         openTelegramLink: (url: string) => void;
         showPopup: (params: {
@@ -94,12 +95,19 @@ export const tg = window.Telegram?.WebApp;
 export function initTelegramApp() {
   if (tg) {
     tg.ready();
-    tg.expand();
+    tg.expand(); // Разворачивает приложение
+    
+    // Запрашиваем полноэкранный режим
+    if (tg.requestFullscreen) {
+      tg.requestFullscreen();
+    }
+    
     tg.setHeaderColor('#000000');
     tg.setBackgroundColor('#000000');
     console.log('Telegram Web App initialized');
     console.log('User:', tg.initDataUnsafe.user);
     console.log('Platform:', tg.platform);
+    console.log('IsExpanded:', tg.isExpanded);
   } else {
     console.warn('Telegram Web App is not available. Using mock data for development.');
   }
