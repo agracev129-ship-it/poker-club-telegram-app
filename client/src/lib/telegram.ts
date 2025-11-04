@@ -97,9 +97,11 @@ export function initTelegramApp() {
     tg.ready();
     tg.expand(); // Разворачивает приложение
     
-    // Запрашиваем полноэкранный режим
-    if (tg.requestFullscreen) {
+    // Запрашиваем полноэкранный режим только для мобильных устройств
+    const isMobile = ['android', 'ios', 'android_x'].includes(tg.platform);
+    if (isMobile && tg.requestFullscreen) {
       tg.requestFullscreen();
+      console.log('Fullscreen mode enabled for mobile');
     }
     
     tg.setHeaderColor('#000000');
@@ -107,6 +109,7 @@ export function initTelegramApp() {
     console.log('Telegram Web App initialized');
     console.log('User:', tg.initDataUnsafe.user);
     console.log('Platform:', tg.platform);
+    console.log('Is Mobile:', isMobile);
     console.log('IsExpanded:', tg.isExpanded);
   } else {
     console.warn('Telegram Web App is not available. Using mock data for development.');
