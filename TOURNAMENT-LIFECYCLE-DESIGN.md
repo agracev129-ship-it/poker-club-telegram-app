@@ -705,3 +705,4 @@ async function applyPointsToRating(gameId, pointsMap) {
 
 Хотите, чтобы я начал реализовывать эту систему? С чего начнем?
 
+

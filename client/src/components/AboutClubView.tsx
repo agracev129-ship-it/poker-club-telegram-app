@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import cardsBg from '../assets/cards-bg.png';
 
 // Icon components
 const XIcon = ({ className }: { className?: string }) => (
@@ -88,26 +89,32 @@ export function AboutClubView({ onClose }: AboutClubViewProps) {
 
         {/* Content */}
         <div className="px-4 py-6 pb-24 space-y-4">
-          {/* Q&A and Help Buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Q&A and Help Buttons with Cards Background */}
+          <div 
+            className="grid grid-cols-2 gap-3 rounded-3xl overflow-hidden p-3 bg-cover bg-center bg-no-repeat relative"
+            style={{ backgroundImage: `url(${cardsBg})` }}
+          >
+            {/* Dark overlay for better readability */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+            
             <button 
               onClick={() => setIsOfferDialogOpen(true)}
-              className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
+              className="relative bg-black/40 backdrop-blur-sm rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-black/60 transition-all border border-red-900/30"
             >
-              <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center mb-2">
-                <FileTextIcon className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 bg-red-700/30 rounded-full flex items-center justify-center mb-2">
+                <FileTextIcon className="w-5 h-5 text-red-500" />
               </div>
-              <div className="text-xs text-center text-gray-300">Q&A</div>
+              <div className="text-xs text-center text-white font-medium">Q&A</div>
             </button>
 
             <button 
               onClick={() => window.open('https://t.me/oguseru', '_blank')}
-              className="bg-[#1a1a1a] rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-[#252525] transition-all"
+              className="relative bg-black/40 backdrop-blur-sm rounded-2xl p-4 aspect-square flex flex-col items-center justify-center hover:bg-black/60 transition-all border border-red-900/30"
             >
-              <div className="w-10 h-10 bg-red-700/20 rounded-full flex items-center justify-center mb-2">
-                <HelpCircleIcon className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 bg-red-700/30 rounded-full flex items-center justify-center mb-2">
+                <HelpCircleIcon className="w-5 h-5 text-red-500" />
               </div>
-              <div className="text-xs text-center text-gray-300">Помощь</div>
+              <div className="text-xs text-center text-white font-medium">Помощь</div>
             </button>
           </div>
 

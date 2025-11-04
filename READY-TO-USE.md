@@ -433,3 +433,4 @@ WHERE gr.game_id = [ID] AND gr.status IN ('paid', 'playing');
 
 ♠️♥️♣️♦️ Удачных турниров! ♠️♥️♣️♦️
 
+
