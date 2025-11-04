@@ -88,18 +88,17 @@ export function AboutClubView({ onClose }: AboutClubViewProps) {
 
         {/* Content */}
         <div className="px-4 py-6 pb-24 space-y-4">
-          {/* Q&A and Help Buttons with Cards Pattern Background */}
-          <div className="grid grid-cols-2 gap-3 rounded-3xl overflow-hidden p-3 relative bg-gradient-to-br from-red-950/40 via-black to-gray-900">
-            {/* Pattern overlay */}
+          {/* Q&A and Help Buttons with Cards Background */}
+          <div className="grid grid-cols-2 gap-3 rounded-3xl overflow-hidden p-3 relative">
+            {/* Cards Background Image */}
             <div 
-              className="absolute inset-0 opacity-20"
+              className="absolute inset-0 bg-cover bg-center"
               style={{
-                backgroundImage: `
-                  repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(239, 68, 68, 0.1) 10px, rgba(239, 68, 68, 0.1) 20px),
-                  repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(239, 68, 68, 0.1) 10px, rgba(239, 68, 68, 0.1) 20px)
-                `
+                backgroundImage: `url('https://images.unsplash.com/photo-1596838132731-3301c3fd4317?w=600&auto=format&fit=crop&q=80')`,
               }}
             ></div>
+            {/* Dark overlay for readability */}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-red-950/70"></div>
             
             <button 
               onClick={() => setIsOfferDialogOpen(true)}
