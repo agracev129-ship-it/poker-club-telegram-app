@@ -525,17 +525,27 @@ export function HomeTab({
           </button>
         </div>
 
-        {/* Club Info Card */}
+        {/* Club Info Card with Cards Background */}
         <button 
           onClick={handleAboutClubClick}
-          className="bg-[#1a1a1a] rounded-3xl p-5 relative overflow-hidden w-full text-left hover:bg-[#252525] transition-all"
+          className="rounded-3xl p-5 relative overflow-hidden w-full text-left transition-all"
         >
+          {/* Background Image with Cards */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url('https://images.unsplash.com/photo-1596838132731-3301c3fd4317?w=800&auto=format&fit=crop&q=80')`,
+            }}
+          ></div>
+          {/* Dark overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/70 to-red-950/75 hover:from-black/70 hover:via-black/65 hover:to-red-950/70 transition-all"></div>
+          
           <div className="relative z-10">
-            <h3 className="text-lg mb-2">О клубе</h3>
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <h3 className="text-lg mb-2 text-white font-medium">О клубе</h3>
+            <p className="text-sm text-gray-300 leading-relaxed">
               Премиальный покер-клуб для настоящих ценителей игры
             </p>
-            <div className="mt-3 text-sm text-red-600 flex items-center gap-1">
+            <div className="mt-3 text-sm text-red-500 flex items-center gap-1 font-medium">
               Подробнее
               <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
             </div>
