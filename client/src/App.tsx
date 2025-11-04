@@ -180,7 +180,7 @@ function AppContent() {
       )}
       
       {/* Content */}
-      <div className="h-full">
+      <div className="h-full pt-20">
         {isAdminMode ? (
           <>
             {/* Admin Mode Views */}

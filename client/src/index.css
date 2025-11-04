@@ -83,3 +83,8 @@ body {
   transition-duration: 150ms;
 }
 
+/* Безопасная зона для Telegram Mini App */
+.safe-area-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
+}
+
