@@ -369,16 +369,36 @@ router.post('/:id/confirm-payment', authenticateTelegram, requireAdmin, async (r
   try {
     const gameId = parseInt(req.params.id);
     const { userId, amount, paymentMethod, notes } = req.body;
+    
+    console.log('Confirm payment request:', {
+      gameId,
+      userId,
+      amount,
+      paymentMethod,
+      notes,
+      telegramUser: req.telegramUser?.id
+    });
+    
     const admin = await User.findByTelegramId(req.telegramUser.id);
     
+    if (!admin) {
+      console.error('Admin not found for telegram ID:', req.telegramUser.id);
+      return res.status(403).json({ error: 'Admin not found' });
+    }
+    
+    console.log('Admin found:', admin.id);
+    
     if (!amount || amount <= 0) {
+      console.error('Invalid amount:', amount);
       return res.status(400).json({ error: 'Invalid amount' });
     }
     
     if (!paymentMethod) {
+      console.error('Payment method not provided');
       return res.status(400).json({ error: 'Payment method is required' });
     }
     
+    console.log('Calling Game.confirmPayment...');
     const registration = await Game.confirmPayment(
       gameId, 
       userId, 
@@ -386,9 +406,11 @@ router.post('/:id/confirm-payment', authenticateTelegram, requireAdmin, async (r
       { amount, payment_method: paymentMethod, notes }
     );
     
+    console.log('Payment confirmed successfully:', registration);
     res.json({ message: 'Payment confirmed', registration });
   } catch (error) {
     console.error('Error confirming payment:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
@@ -400,12 +422,24 @@ router.post('/:id/mark-no-show', authenticateTelegram, requireAdmin, async (req,
   try {
     const gameId = parseInt(req.params.id);
     const { userId, reason } = req.body;
+    
+    console.log('Mark no-show request:', { gameId, userId, reason });
+    
     const admin = await User.findByTelegramId(req.telegramUser.id);
     
+    if (!admin) {
+      console.error('Admin not found');
+      return res.status(403).json({ error: 'Admin not found' });
+    }
+    
+    console.log('Calling Game.markNoShow...');
     const registration = await Game.markNoShow(gameId, userId, admin.id, reason);
+    console.log('Marked no-show successfully:', registration);
+    
     res.json({ message: 'Player marked as no-show', registration });
   } catch (error) {
     console.error('Error marking no-show:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
@@ -417,12 +451,24 @@ router.post('/:id/restore-player', authenticateTelegram, requireAdmin, async (re
   try {
     const gameId = parseInt(req.params.id);
     const { userId } = req.body;
+    
+    console.log('Restore player request:', { gameId, userId });
+    
     const admin = await User.findByTelegramId(req.telegramUser.id);
     
+    if (!admin) {
+      console.error('Admin not found');
+      return res.status(403).json({ error: 'Admin not found' });
+    }
+    
+    console.log('Calling Game.restorePlayer...');
     const registration = await Game.restorePlayer(gameId, userId, admin.id);
+    console.log('Player restored successfully:', registration);
+    
     res.json({ message: 'Player restored', registration });
   } catch (error) {
     console.error('Error restoring player:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });

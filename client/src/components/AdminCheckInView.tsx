@@ -152,17 +152,28 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
     }
     
     try {
-      await gamesAPI.confirmPayment(
+      console.log('Confirming payment:', {
+        gameId: game.id,
+        userId: selectedPlayer.user_id,
+        amount: parseFloat(paymentAmount),
+        paymentMethod,
+        notes: paymentNotes
+      });
+      
+      const result = await gamesAPI.confirmPayment(
         game.id,
         selectedPlayer.user_id,
         parseFloat(paymentAmount),
         paymentMethod,
         paymentNotes
       );
+      
+      console.log('Payment confirmed:', result);
       toast.success(`Оплата подтверждена для ${selectedPlayer.first_name}`);
       setIsPaymentDialogOpen(false);
       await loadData();
     } catch (error: any) {
+      console.error('Payment confirmation error:', error);
       toast.error(error.message || 'Ошибка подтверждения оплаты');
     }
   };
@@ -214,20 +225,26 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
     if (!confirm(`Исключить ${player.first_name}?`)) return;
     
     try {
-      await gamesAPI.markNoShow(game.id, player.user_id);
+      console.log('Marking no-show:', { gameId: game.id, userId: player.user_id });
+      const result = await gamesAPI.markNoShow(game.id, player.user_id);
+      console.log('Marked no-show:', result);
       toast.success(`${player.first_name} исключен`);
       await loadData();
     } catch (error: any) {
+      console.error('Mark no-show error:', error);
       toast.error(error.message || 'Ошибка');
     }
   };
 
   const handleRestorePlayer = async (player: any) => {
     try {
-      await gamesAPI.restorePlayer(game.id, player.user_id);
+      console.log('Restoring player:', { gameId: game.id, userId: player.user_id });
+      const result = await gamesAPI.restorePlayer(game.id, player.user_id);
+      console.log('Player restored:', result);
       toast.success(`${player.first_name} восстановлен`);
       await loadData();
     } catch (error: any) {
+      console.error('Restore player error:', error);
       toast.error(error.message || 'Ошибка');
     }
   };
