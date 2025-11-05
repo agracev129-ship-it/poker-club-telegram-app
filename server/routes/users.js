@@ -305,6 +305,41 @@ router.post('/decline-friend', authenticateTelegram, async (req, res) => {
 });
 
 /**
+ * DELETE /api/users/cancel-friend-request - Отменить исходящий запрос в друзья
+ */
+router.delete('/cancel-friend-request', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { userId: friendId } = req.body;
+
+    if (!friendId) {
+      return res.status(400).json({ error: 'Friend user ID is required' });
+    }
+
+    // Delete outgoing friend request (user_id = current user, friend_id = target user, status = pending)
+    const result = await db.query(
+      'DELETE FROM friendships WHERE user_id = $1 AND friend_id = $2 AND status = $3 RETURNING *',
+      [user.id, friendId, 'pending']
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Friend request not found' });
+    }
+
+    res.json({ message: 'Friend request cancelled successfully' });
+  } catch (error) {
+    console.error('Error cancelling friend request:', error);
+    res.status(500).json({ error: 'Failed to cancel friend request' });
+  }
+});
+
+/**
  * DELETE /api/users/remove-friend - Удалить из друзей
  */
 router.delete('/remove-friend', authenticateTelegram, async (req, res) => {

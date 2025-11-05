@@ -156,6 +156,15 @@ export function PlayersView({ onClose }: PlayersViewProps) {
     }
   };
 
+  const handleCancelRequest = async (playerId: number) => {
+    try {
+      await usersAPI.cancelFriendRequest(playerId);
+      setSentRequests(sentRequests.filter(id => id !== playerId));
+    } catch (error) {
+      console.error('Error cancelling friend request:', error);
+    }
+  };
+
   // Filter players
   const filteredAllPlayers = allPlayers.filter(player =>
     player.first_name.toLowerCase().includes(searchAll.toLowerCase()) ||
@@ -312,14 +321,21 @@ export function PlayersView({ onClose }: PlayersViewProps) {
                             ) : null}
                           </div>
                         </div>
-                        {!playerIsFriend && !playerRequestSent && !playerRequestReceived && (
+                        {playerRequestSent ? (
+                          <button
+                            onClick={() => handleCancelRequest(player.id)}
+                            className="px-3 py-1.5 rounded-full bg-yellow-700/20 border border-yellow-700/50 hover:bg-yellow-700/30 transition-colors text-xs text-yellow-500"
+                          >
+                            Отменить
+                          </button>
+                        ) : !playerIsFriend && !playerRequestReceived ? (
                           <button
                             onClick={() => handleAddFriend(player)}
                             className="w-8 h-8 rounded-full bg-red-700 hover:bg-red-800 transition-colors flex items-center justify-center"
                           >
                             <UserPlusIcon className="w-4 h-4" />
                           </button>
-                        )}
+                        ) : null}
                       </div>
                     );
                   })}

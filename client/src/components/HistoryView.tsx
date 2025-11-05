@@ -323,9 +323,9 @@ export function HistoryView({ onClose }: HistoryViewProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col pt-16">
-      {/* Sticky Header */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 px-4 pt-6 pb-4 border-b border-gray-800">
+    <div className="fixed inset-0 bg-black z-50 overflow-y-auto pt-16">
+      <div className="px-4 pt-6 pb-32">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl">История</h2>
           <button
@@ -383,7 +383,7 @@ export function HistoryView({ onClose }: HistoryViewProps) {
         {/* Calendar Filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <button className="w-full bg-[#1a1a1a] rounded-2xl px-4 py-3 flex items-center justify-between hover:bg-[#252525] transition-colors">
+            <button className="w-full bg-[#1a1a1a] rounded-2xl px-4 py-3 flex items-center justify-between hover:bg-[#252525] transition-colors mb-4">
               <div className="flex items-center gap-3">
                 <CalendarIcon className="w-5 h-5 text-gray-400" />
                 <span className="text-gray-300">
@@ -413,10 +413,8 @@ export function HistoryView({ onClose }: HistoryViewProps) {
             />
           </PopoverContent>
         </Popover>
-      </div>
 
-      {/* Games List */}
-      <div className="flex-1 overflow-y-auto px-4 pb-32">
+        {/* Games List */}
         {gamesLoading || loading ? (
           <div className="text-center py-12 text-gray-400">Загрузка...</div>
         ) : (

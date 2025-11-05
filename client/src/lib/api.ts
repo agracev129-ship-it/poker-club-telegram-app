@@ -138,6 +138,13 @@ export const usersAPI = {
     });
   },
 
+  async cancelFriendRequest(userId: number): Promise<{ message: string }> {
+    return fetchAPI('/users/cancel-friend-request', {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
   async removeFriend(userId: number): Promise<{ message: string }> {
     return fetchAPI('/users/remove-friend', {
       method: 'DELETE',
