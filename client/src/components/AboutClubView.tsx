@@ -73,9 +73,9 @@ export function AboutClubView({ onClose }: AboutClubViewProps) {
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         className="fixed inset-0 bg-black z-50 overflow-y-auto pt-16"
       >
-        {/* Header */}
-        <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 px-4 py-4 border-b border-gray-800">
-          <div className="flex items-center justify-between">
+        <div className="px-4 py-6 pb-24 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl">О клубе</h2>
             <button
               onClick={onClose}
@@ -84,10 +84,8 @@ export function AboutClubView({ onClose }: AboutClubViewProps) {
               <XIcon className="w-5 h-5 text-white" />
             </button>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="px-4 py-6 pb-24 space-y-4">
+          {/* Content */}
           {/* Q&A and Help Buttons with Cards Background */}
           <div className="grid grid-cols-2 gap-3 rounded-3xl overflow-hidden p-3 relative">
             {/* Cards Background Image */}
