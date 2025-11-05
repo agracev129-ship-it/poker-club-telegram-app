@@ -219,7 +219,7 @@ export function HistoryView({ onClose }: HistoryViewProps) {
     const userParticipant = tournamentResults.participants.find(p => p.user_id === user?.id);
 
     return (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      <div className="fixed inset-0 bg-black z-50 flex flex-col pt-16">
         {/* Header */}
         <div className="px-4 pt-6 pb-4">
           <div className="flex items-center justify-between mb-6">
@@ -323,7 +323,7 @@ export function HistoryView({ onClose }: HistoryViewProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col pt-16">
       {/* Header */}
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-6">

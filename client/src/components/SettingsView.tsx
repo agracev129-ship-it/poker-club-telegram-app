@@ -100,7 +100,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-black z-50 overflow-y-auto pt-16">
       {/* Header */}
       <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-gray-800 px-4 py-4 z-10">
         <div className="flex items-center gap-3">

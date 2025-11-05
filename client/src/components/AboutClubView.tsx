@@ -71,7 +71,7 @@ export function AboutClubView({ onClose }: AboutClubViewProps) {
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed inset-0 bg-black z-50 overflow-y-auto"
+        className="fixed inset-0 bg-black z-50 overflow-y-auto pt-16"
       >
         {/* Header */}
         <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 px-4 py-4 border-b border-gray-800">

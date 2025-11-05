@@ -66,7 +66,7 @@ export function GameParticipantsView({ onClose, gameName, gameDate, participants
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col pt-16">
       {/* Header */}
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-6">

@@ -97,7 +97,7 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'tween', duration: 0.3 }}
-      className="fixed inset-0 bg-black z-50 overflow-y-auto"
+      className="fixed inset-0 bg-black z-50 overflow-y-auto pt-16"
     >
       {/* Header */}
       <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-gray-800 z-10">

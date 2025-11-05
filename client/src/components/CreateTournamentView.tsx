@@ -154,7 +154,7 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/95 z-50 overflow-y-auto"
+      className="fixed inset-0 bg-black/95 z-50 overflow-y-auto pt-16"
     >
       <div className="min-h-screen px-4 py-6 pb-24">
         {/* Header */}

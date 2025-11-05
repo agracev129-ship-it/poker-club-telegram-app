@@ -107,7 +107,7 @@ export function SeatingView({ onClose }: SeatingViewProps) {
   });
 
   return (
-    <div className="fixed inset-0 bg-black z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-black z-50 overflow-y-auto pt-16">
       <div className="min-h-screen pb-8">
         {/* Header with Close Button */}
         <div className="px-4 pt-6 pb-4 flex items-center justify-between">
