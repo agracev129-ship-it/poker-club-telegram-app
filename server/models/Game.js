@@ -601,7 +601,6 @@ export const Game = {
     const regResult = await query(
       `UPDATE game_registrations
        SET status = 'paid',
-           payment_status = 'paid',
            payment_amount = $1,
            payment_method = $2,
            payment_confirmed_by = $3,
@@ -767,7 +766,6 @@ export const Game = {
       const result = await query(
         `UPDATE game_registrations
          SET status = 'paid',
-             payment_status = 'paid',
              payment_amount = $1,
              payment_method = $2,
              payment_confirmed_by = $3,
@@ -782,9 +780,9 @@ export const Game = {
       // Создаем новую регистрацию
       const result = await query(
         `INSERT INTO game_registrations 
-         (game_id, user_id, status, payment_status, payment_amount, payment_method, 
+         (game_id, user_id, status, payment_amount, payment_method, 
           payment_confirmed_by, paid_at, registration_type)
-         VALUES ($1, $2, 'paid', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'onsite')
+         VALUES ($1, $2, 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'onsite')
          RETURNING *`,
         [gameId, userId, amount, payment_method, adminId]
       );
@@ -834,13 +832,12 @@ export const Game = {
     // Создаем регистрацию
     const result = await query(
       `INSERT INTO game_registrations 
-       (game_id, user_id, status, payment_status, payment_amount, payment_method, 
+       (game_id, user_id, status, payment_amount, payment_method, 
         payment_confirmed_by, paid_at, registration_type, is_late_entry,
         table_number, seat_number)
-       VALUES ($1, $2, 'paid', 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'late', true, $6, $7)
+       VALUES ($1, $2, 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'late', true, $6, $7)
        ON CONFLICT (game_id, user_id) DO UPDATE
        SET status = 'paid',
-           payment_status = 'paid',
            payment_amount = $3,
            payment_method = $4,
            payment_confirmed_by = $5,
