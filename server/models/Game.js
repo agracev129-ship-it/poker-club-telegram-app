@@ -159,11 +159,12 @@ export const Game = {
    * Получает список зарегистрированных пользователей
    */
   async getRegisteredUsers(gameId) {
+    console.log('getRegisteredUsers called with gameId:', gameId);
+    
     // Возвращаем все регистрации для турнира (все статусы)
-    // Для админ-панели нужны все статусы: registered, paid, no_show и т.д.
+    // Сначала получаем базовые данные
     const result = await query(
       `SELECT gr.id,
-              gr.id as registration_id,
               gr.user_id,
               gr.status,
               gr.registered_at,
@@ -175,25 +176,7 @@ export const Game = {
               u.username, 
               u.first_name, 
               u.last_name,
-              u.photo_url,
-              (SELECT tp.amount 
-               FROM tournament_payments tp 
-               WHERE tp.game_id = gr.game_id 
-                 AND tp.user_id = gr.user_id 
-               ORDER BY tp.created_at DESC 
-               LIMIT 1) as payment_amount,
-              (SELECT tp.payment_method 
-               FROM tournament_payments tp 
-               WHERE tp.game_id = gr.game_id 
-                 AND tp.user_id = gr.user_id 
-               ORDER BY tp.created_at DESC 
-               LIMIT 1) as payment_method,
-              (SELECT tp.created_at 
-               FROM tournament_payments tp 
-               WHERE tp.game_id = gr.game_id 
-                 AND tp.user_id = gr.user_id 
-               ORDER BY tp.created_at DESC 
-               LIMIT 1) as paid_at
+              u.photo_url
        FROM game_registrations gr
        JOIN users u ON u.id = gr.user_id
        WHERE gr.game_id = $1
@@ -201,6 +184,61 @@ export const Game = {
       [gameId]
     );
     
+    console.log('Base query returned', result.rows.length, 'registrations');
+    
+    // Добавляем поля для платежей (NULL по умолчанию)
+    result.rows.forEach(row => {
+      row.payment_amount = null;
+      row.payment_method = null;
+      row.paid_at = null;
+    });
+    
+    // Теперь для каждой регистрации получаем данные о платеже
+    if (result.rows.length > 0) {
+      const userIds = result.rows.map(r => r.user_id);
+      console.log('Loading payments for', userIds.length, 'users');
+      
+      // Получаем платежи только если есть пользователи
+      if (userIds.length > 0) {
+        try {
+          const paymentsResult = await query(
+            `SELECT DISTINCT ON (user_id) 
+                    user_id, amount, payment_method, created_at
+             FROM tournament_payments
+             WHERE game_id = $1 AND user_id = ANY($2::int[])
+             ORDER BY user_id, created_at DESC`,
+            [gameId, userIds]
+          );
+          
+          console.log('Found', paymentsResult.rows.length, 'payments');
+          
+          // Создаем мапу для быстрого поиска платежей
+          const paymentsMap = new Map();
+          paymentsResult.rows.forEach(p => {
+            paymentsMap.set(p.user_id, {
+              payment_amount: p.amount,
+              payment_method: p.payment_method,
+              paid_at: p.created_at
+            });
+          });
+          
+          // Добавляем данные о платежах к регистрациям
+          result.rows.forEach(row => {
+            const payment = paymentsMap.get(row.user_id);
+            if (payment) {
+              row.payment_amount = payment.payment_amount;
+              row.payment_method = payment.payment_method;
+              row.paid_at = payment.paid_at;
+            }
+          });
+        } catch (paymentError) {
+          // Если ошибка при получении платежей - игнорируем, просто не показываем данные о платежах
+          console.warn('Error loading payments (non-critical):', paymentError.message);
+        }
+      }
+    }
+    
+    console.log('Returning', result.rows.length, 'registrations');
     return result.rows;
   },
 
