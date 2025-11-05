@@ -303,15 +303,13 @@ export function PlayersView({ onClose }: PlayersViewProps) {
                             {player.username && (
                               <div className="text-xs text-gray-500">@{player.username}</div>
                             )}
-                            {playerIsFriend && (
+                            {playerIsFriend ? (
                               <div className="text-xs text-green-500">Ваш друг</div>
-                            )}
-                            {playerRequestSent && (
-                              <div className="text-xs text-yellow-500">Запрос отправлен</div>
-                            )}
-                            {playerRequestReceived && (
+                            ) : playerRequestReceived ? (
                               <div className="text-xs text-blue-500">Хочет добавить вас</div>
-                            )}
+                            ) : playerRequestSent ? (
+                              <div className="text-xs text-yellow-500">Запрос отправлен</div>
+                            ) : null}
                           </div>
                         </div>
                         {!playerIsFriend && !playerRequestSent && !playerRequestReceived && (

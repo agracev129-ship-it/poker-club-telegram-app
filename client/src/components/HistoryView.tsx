@@ -324,8 +324,8 @@ export function HistoryView({ onClose }: HistoryViewProps) {
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col pt-16">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-4">
+      {/* Sticky Header */}
+      <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 px-4 pt-6 pb-4 border-b border-gray-800">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl">История</h2>
           <button
