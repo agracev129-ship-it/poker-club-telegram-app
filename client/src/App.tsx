@@ -9,6 +9,7 @@ import { AdminTournamentsTab } from './components/AdminTournamentsTab';
 import { AdminRatingTab } from './components/AdminRatingTab';
 import { AdminProfileTab } from './components/AdminProfileTab';
 import { ProfileModerationView } from './components/ProfileModerationView';
+import { LoadingAnimation } from './components/LoadingAnimation';
 import { GameRegistrationProvider } from './components/GameRegistrationContext';
 import { TournamentsProvider } from './components/TournamentsContext';
 import { AdminProvider, useAdmin } from './components/AdminContext';
@@ -54,6 +55,7 @@ const UserIcon = ({ className }: { className?: string }) => (
 
 function AppContent() {
   const { isAdminMode } = useAdmin();
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [openModals, setOpenModals] = useState({
     seating: false,
@@ -67,6 +69,15 @@ function AppContent() {
   const [homeRefreshKey, setHomeRefreshKey] = useState<number>(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Hide loading animation after 2.5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     initTelegramApp();
@@ -145,6 +156,11 @@ function AppContent() {
     localStorage.setItem('termsAccepted', 'true');
     setHasAcceptedTerms(true);
   };
+
+  // Show loading animation
+  if (isLoading) {
+    return <LoadingAnimation />;
+  }
 
   // Show loading while checking
   if (isCheckingTerms) {
