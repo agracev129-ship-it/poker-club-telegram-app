@@ -139,42 +139,79 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
 
   const handleConfirmPayment = async (player: any) => {
     setSelectedPlayer(player);
-    setPaymentAmount(game.buy_in?.toString() || '');
+    // Устанавливаем сумму из buy_in, если она есть, иначе пустая строка
+    const buyInAmount = game.buy_in && game.buy_in > 0 ? game.buy_in.toString() : '';
+    setPaymentAmount(buyInAmount);
     setPaymentMethod('cash');
     setPaymentNotes('');
     setIsPaymentDialogOpen(true);
   };
 
   const handlePaymentSubmit = async () => {
-    if (!selectedPlayer || !paymentAmount || parseFloat(paymentAmount) <= 0) {
-      toast.error('Укажите корректную сумму');
+    // Проверяем выбранного игрока
+    if (!selectedPlayer) {
+      toast.error('Игрок не выбран');
+      return;
+    }
+    
+    // Получаем user_id (может быть user_id или id)
+    const userId = selectedPlayer.user_id || selectedPlayer.id;
+    if (!userId) {
+      console.error('Selected player data:', selectedPlayer);
+      toast.error('Не удалось определить ID игрока');
+      return;
+    }
+    
+    // Проверяем сумму
+    const amountStr = paymentAmount?.trim() || '';
+    if (!amountStr) {
+      toast.error('Укажите сумму оплаты');
+      return;
+    }
+    
+    // Преобразуем сумму, учитывая возможные запятые/точки
+    const amountValue = parseFloat(amountStr.replace(',', '.'));
+    
+    if (isNaN(amountValue) || amountValue <= 0) {
+      toast.error('Сумма должна быть больше 0');
+      return;
+    }
+    
+    // Проверяем способ оплаты
+    if (!paymentMethod) {
+      toast.error('Выберите способ оплаты');
       return;
     }
     
     try {
       console.log('Confirming payment:', {
         gameId: game.id,
-        userId: selectedPlayer.user_id,
-        amount: parseFloat(paymentAmount),
+        userId: userId,
+        amount: amountValue,
         paymentMethod,
-        notes: paymentNotes
+        notes: paymentNotes,
+        playerData: selectedPlayer
       });
       
       const result = await gamesAPI.confirmPayment(
         game.id,
-        selectedPlayer.user_id,
-        parseFloat(paymentAmount),
+        userId,
+        amountValue,
         paymentMethod,
-        paymentNotes
+        paymentNotes || undefined
       );
       
       console.log('Payment confirmed:', result);
-      toast.success(`Оплата подтверждена для ${selectedPlayer.first_name}`);
+      toast.success(`Оплата подтверждена для ${selectedPlayer.first_name || 'игрока'}`);
       setIsPaymentDialogOpen(false);
+      setSelectedPlayer(null);
+      setPaymentAmount('');
+      setPaymentNotes('');
       await loadData();
     } catch (error: any) {
       console.error('Payment confirmation error:', error);
-      toast.error(error.message || 'Ошибка подтверждения оплаты');
+      const errorMessage = error.message || error.error || 'Ошибка подтверждения оплаты';
+      toast.error(errorMessage);
     }
   };
 
@@ -222,30 +259,74 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
   };
 
   const handleMarkNoShow = async (player: any) => {
-    if (!confirm(`Исключить ${player.first_name}?`)) return;
+    // Проверяем данные игрока
+    if (!player) {
+      toast.error('Игрок не выбран');
+      return;
+    }
+    
+    // Получаем user_id (может быть user_id или id)
+    const userId = player.user_id || player.id;
+    if (!userId) {
+      console.error('Player data:', player);
+      toast.error('Не удалось определить ID игрока');
+      return;
+    }
+    
+    // Подтверждение действия
+    const confirmed = window.confirm(`Исключить ${player.first_name || 'игрока'}?`);
+    if (!confirmed) {
+      return;
+    }
     
     try {
-      console.log('Marking no-show:', { gameId: game.id, userId: player.user_id });
-      const result = await gamesAPI.markNoShow(game.id, player.user_id);
+      console.log('Marking no-show:', { 
+        gameId: game.id, 
+        userId: userId,
+        playerName: player.first_name,
+        playerData: player
+      });
+      
+      const result = await gamesAPI.markNoShow(game.id, userId);
+      
       console.log('Marked no-show:', result);
-      toast.success(`${player.first_name} исключен`);
+      toast.success(`${player.first_name || 'Игрок'} исключен`);
       await loadData();
     } catch (error: any) {
       console.error('Mark no-show error:', error);
-      toast.error(error.message || 'Ошибка');
+      const errorMessage = error.message || error.error || 'Ошибка при исключении игрока';
+      toast.error(errorMessage);
     }
   };
 
   const handleRestorePlayer = async (player: any) => {
+    if (!player) {
+      toast.error('Игрок не выбран');
+      return;
+    }
+    
+    // Получаем user_id (может быть user_id или id)
+    const userId = player.user_id || player.id;
+    if (!userId) {
+      console.error('Player data:', player);
+      toast.error('Не удалось определить ID игрока');
+      return;
+    }
+    
     try {
-      console.log('Restoring player:', { gameId: game.id, userId: player.user_id });
-      const result = await gamesAPI.restorePlayer(game.id, player.user_id);
+      console.log('Restoring player:', { 
+        gameId: game.id, 
+        userId: userId,
+        playerData: player
+      });
+      const result = await gamesAPI.restorePlayer(game.id, userId);
       console.log('Player restored:', result);
-      toast.success(`${player.first_name} восстановлен`);
+      toast.success(`${player.first_name || 'Игрок'} восстановлен`);
       await loadData();
     } catch (error: any) {
       console.error('Restore player error:', error);
-      toast.error(error.message || 'Ошибка');
+      const errorMessage = error.message || error.error || 'Ошибка при восстановлении игрока';
+      toast.error(errorMessage);
     }
   };
 
@@ -397,7 +478,7 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
             <div className="space-y-3">
               {filteredPlayers.map((player) => (
                 <div
-                  key={player.user_id}
+                  key={player.user_id || player.id || `player-${player.first_name}-${player.last_name}`}
                   className="bg-gray-800/50 rounded-xl p-4 border border-gray-700"
                 >
                   <div className="flex items-start gap-3">
@@ -499,10 +580,25 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
               <Input
                 id="amount"
                 type="number"
+                step="0.01"
+                min="0"
                 value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="5000"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Разрешаем пустую строку или валидное число
+                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                    setPaymentAmount(value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handlePaymentSubmit();
+                  }
+                }}
+                placeholder={game.buy_in && game.buy_in > 0 ? game.buy_in.toString() : "5000"}
                 className="bg-gray-800 border-gray-700"
+                autoFocus
               />
             </div>
             
@@ -542,13 +638,25 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
             
             <div className="flex gap-2">
               <Button
-                onClick={handlePaymentSubmit}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePaymentSubmit();
+                }}
+                type="button"
                 className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={!paymentAmount || parseFloat(paymentAmount?.replace(',', '.') || '0') <= 0}
               >
                 Подтвердить
               </Button>
               <Button
-                onClick={() => setIsPaymentDialogOpen(false)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsPaymentDialogOpen(false);
+                  setSelectedPlayer(null);
+                  setPaymentAmount('');
+                  setPaymentNotes('');
+                }}
+                type="button"
                 variant="outline"
                 className="bg-transparent border-gray-700 hover:bg-gray-800"
               >
