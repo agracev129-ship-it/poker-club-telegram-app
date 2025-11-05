@@ -159,8 +159,11 @@ export const Game = {
    * Получает список зарегистрированных пользователей
    */
   async getRegisteredUsers(gameId) {
+    // Возвращаем все регистрации для турнира (все статусы)
+    // Для админ-панели нужны все статусы: registered, paid, no_show и т.д.
     const result = await query(
-      `SELECT gr.id as registration_id,
+      `SELECT gr.id,
+              gr.id as registration_id,
               gr.user_id,
               gr.status,
               gr.registered_at,
@@ -173,18 +176,26 @@ export const Game = {
               u.first_name, 
               u.last_name,
               u.photo_url,
-              tp.amount as payment_amount,
-              tp.payment_method,
-              tp.created_at as paid_at
+              (SELECT tp.amount 
+               FROM tournament_payments tp 
+               WHERE tp.game_id = gr.game_id 
+                 AND tp.user_id = gr.user_id 
+               ORDER BY tp.created_at DESC 
+               LIMIT 1) as payment_amount,
+              (SELECT tp.payment_method 
+               FROM tournament_payments tp 
+               WHERE tp.game_id = gr.game_id 
+                 AND tp.user_id = gr.user_id 
+               ORDER BY tp.created_at DESC 
+               LIMIT 1) as payment_method,
+              (SELECT tp.created_at 
+               FROM tournament_payments tp 
+               WHERE tp.game_id = gr.game_id 
+                 AND tp.user_id = gr.user_id 
+               ORDER BY tp.created_at DESC 
+               LIMIT 1) as paid_at
        FROM game_registrations gr
        JOIN users u ON u.id = gr.user_id
-       LEFT JOIN (
-         SELECT DISTINCT ON (game_id, user_id) 
-                game_id, user_id, amount, payment_method, created_at
-         FROM tournament_payments
-         WHERE game_id = $1
-         ORDER BY game_id, user_id, created_at DESC
-       ) tp ON tp.game_id = gr.game_id AND tp.user_id = gr.user_id
        WHERE gr.game_id = $1
        ORDER BY gr.registered_at`,
       [gameId]
