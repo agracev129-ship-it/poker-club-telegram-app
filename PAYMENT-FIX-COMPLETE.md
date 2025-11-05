@@ -13,32 +13,74 @@ column "payment_status" of relation "game_registrations" does not exist
 column "notes" of relation "game_registrations" does not exist
 ```
 
+### Ошибка 3: payment_amount
+```
+column "payment_amount" of relation "game_registrations" does not exist
+```
+
 ## 🔍 Причина
-Код пытался обновить несуществующие колонки `payment_status` и `notes` в таблице `game_registrations`.
+Код пытался обновить несуществующие колонки в таблице `game_registrations`:
+- `payment_status` - не существует
+- `notes` - не существует  
+- `payment_amount` - не существует
+- `payment_method` - не существует
+- `payment_confirmed_by` - не существует
+- `paid_at` - не существует
+
+**Все данные о платежах должны храниться в отдельной таблице `tournament_payments`!**
 
 ## ✅ Решение
-Удалено поле `payment_status` из всех SQL-запросов в модели `Game.js`:
+
+### 1. Удалены несуществующие поля из UPDATE/INSERT запросов
+
+Все поля, связанные с платежами, удалены из запросов к `game_registrations`:
+- ❌ `payment_status` - удалено
+- ❌ `payment_amount` - удалено
+- ❌ `payment_method` - удалено
+- ❌ `payment_confirmed_by` - удалено
+- ❌ `paid_at` - удалено
+- ❌ `notes` - удалено
+
+**Теперь в `game_registrations` только:**
+- ✅ `status` - статус регистрации (registered/paid/playing/no_show)
+- ✅ `registration_type` - тип регистрации (regular/onsite/late)
+- ✅ `table_number`, `seat_number` - рассадка
+
+**Все данные о платежах хранятся в `tournament_payments`!**
+
+### 2. Обновлены SELECT запросы для получения данных о платежах
+
+Добавлены JOIN с `tournament_payments` в методы:
+- ✅ `getRegisteredUsers()` - получение всех регистраций
+- ✅ `getPlayersByStatus()` - получение игроков по статусу
+
+Теперь эти методы возвращают `payment_amount`, `payment_method`, `paid_at` из таблицы `tournament_payments`.
 
 ### Исправленные методы:
 
 #### 1. `confirmPayment()` - Подтверждение оплаты
-**Удалено:** `payment_status`
+**Удалено:** `payment_status`, `payment_amount`, `payment_method`, `payment_confirmed_by`, `paid_at`
+
 **Было:**
 ```sql
 UPDATE game_registrations
 SET status = 'paid',
     payment_status = 'paid',  ❌
-    payment_amount = $1,
-    ...
+    payment_amount = $1,      ❌
+    payment_method = $2,      ❌
+    payment_confirmed_by = $3, ❌
+    paid_at = CURRENT_TIMESTAMP  ❌
+WHERE game_id = $4 AND user_id = $5
 ```
 
 **Стало:**
 ```sql
 UPDATE game_registrations
-SET status = 'paid',
-    payment_amount = $1,
-    ...
+SET status = 'paid'
+WHERE game_id = $1 AND user_id = $2
 ```
+
+**Данные о платеже сохраняются в `tournament_payments` через `TournamentPayment.create()`**
 
 #### 2. `onsiteRegistration()` - Регистрация на месте
 **UPDATE часть:**

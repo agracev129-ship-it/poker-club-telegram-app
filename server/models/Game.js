@@ -160,11 +160,32 @@ export const Game = {
    */
   async getRegisteredUsers(gameId) {
     const result = await query(
-      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name,
-              u.photo_url, gr.registered_at, gr.status
+      `SELECT gr.id as registration_id,
+              gr.user_id,
+              gr.status,
+              gr.registered_at,
+              gr.table_number,
+              gr.seat_number,
+              gr.registration_type,
+              u.id, 
+              u.telegram_id, 
+              u.username, 
+              u.first_name, 
+              u.last_name,
+              u.photo_url,
+              tp.amount as payment_amount,
+              tp.payment_method,
+              tp.created_at as paid_at
        FROM game_registrations gr
        JOIN users u ON u.id = gr.user_id
-       WHERE gr.game_id = $1 AND gr.status = 'registered'
+       LEFT JOIN (
+         SELECT DISTINCT ON (game_id, user_id) 
+                game_id, user_id, amount, payment_method, created_at
+         FROM tournament_payments
+         WHERE game_id = $1
+         ORDER BY game_id, user_id, created_at DESC
+       ) tp ON tp.game_id = gr.game_id AND tp.user_id = gr.user_id
+       WHERE gr.game_id = $1
        ORDER BY gr.registered_at`,
       [gameId]
     );
@@ -598,16 +619,13 @@ export const Game = {
     const { amount, payment_method, notes } = paymentData;
 
     // Обновляем регистрацию - теперь игрок оплатил
+    // Все данные о платеже хранятся в таблице tournament_payments
     const regResult = await query(
       `UPDATE game_registrations
-       SET status = 'paid',
-           payment_amount = $1,
-           payment_method = $2,
-           payment_confirmed_by = $3,
-           paid_at = CURRENT_TIMESTAMP
-       WHERE game_id = $4 AND user_id = $5
+       SET status = 'paid'
+       WHERE game_id = $1 AND user_id = $2
        RETURNING *`,
-      [amount, payment_method, adminId, gameId, userId]
+      [gameId, userId]
     );
 
     if (regResult.rows.length === 0) {
@@ -761,28 +779,25 @@ export const Game = {
 
     if (existing.rows.length > 0) {
       // Обновляем существующую регистрацию
+      // Все данные о платеже хранятся в таблице tournament_payments
       const result = await query(
         `UPDATE game_registrations
          SET status = 'paid',
-             payment_amount = $1,
-             payment_method = $2,
-             payment_confirmed_by = $3,
-             paid_at = CURRENT_TIMESTAMP,
              registration_type = 'onsite'
-         WHERE game_id = $4 AND user_id = $5
+         WHERE game_id = $1 AND user_id = $2
          RETURNING *`,
-        [amount, payment_method, adminId, gameId, userId]
+        [gameId, userId]
       );
       registration = result.rows[0];
     } else {
       // Создаем новую регистрацию
+      // Все данные о платеже хранятся в таблице tournament_payments
       const result = await query(
         `INSERT INTO game_registrations 
-         (game_id, user_id, status, payment_amount, payment_method, 
-          payment_confirmed_by, paid_at, registration_type)
-         VALUES ($1, $2, 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'onsite')
+         (game_id, user_id, status, registration_type)
+         VALUES ($1, $2, 'paid', 'onsite')
          RETURNING *`,
-        [gameId, userId, amount, payment_method, adminId]
+        [gameId, userId]
       );
       registration = result.rows[0];
     }
@@ -828,23 +843,19 @@ export const Game = {
     const seat = await this.assignSeatToPlayer(gameId, userId);
 
     // Создаем регистрацию
+    // Все данные о платеже хранятся в таблице tournament_payments
     const result = await query(
       `INSERT INTO game_registrations 
-       (game_id, user_id, status, payment_amount, payment_method, 
-        payment_confirmed_by, paid_at, registration_type, is_late_entry,
+       (game_id, user_id, status, registration_type, is_late_entry,
         table_number, seat_number)
-       VALUES ($1, $2, 'paid', $3, $4, $5, CURRENT_TIMESTAMP, 'late', true, $6, $7)
+       VALUES ($1, $2, 'paid', 'late', true, $3, $4)
        ON CONFLICT (game_id, user_id) DO UPDATE
        SET status = 'paid',
-           payment_amount = $3,
-           payment_method = $4,
-           payment_confirmed_by = $5,
-           paid_at = CURRENT_TIMESTAMP,
            is_late_entry = true,
-           table_number = $6,
-           seat_number = $7
+           table_number = $3,
+           seat_number = $4
        RETURNING *`,
-      [gameId, userId, amount, payment_method, adminId, seat.table_number, seat.seat_number]
+      [gameId, userId, seat.table_number, seat.seat_number]
     );
 
     const registration = result.rows[0];
@@ -924,9 +935,19 @@ export const Game = {
               u.first_name,
               u.last_name,
               u.photo_url,
-              u.telegram_id
+              u.telegram_id,
+              tp.amount as payment_amount,
+              tp.payment_method,
+              tp.created_at as paid_at
        FROM game_registrations gr
        JOIN users u ON gr.user_id = u.id
+       LEFT JOIN (
+         SELECT DISTINCT ON (game_id, user_id) 
+                game_id, user_id, amount, payment_method, created_at
+         FROM tournament_payments
+         WHERE game_id = $1
+         ORDER BY game_id, user_id, created_at DESC
+       ) tp ON tp.game_id = gr.game_id AND tp.user_id = gr.user_id
        WHERE gr.game_id = $1 AND gr.status = $2
        ORDER BY gr.registered_at ASC`,
       [gameId, status]
