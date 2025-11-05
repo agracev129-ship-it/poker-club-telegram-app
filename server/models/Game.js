@@ -159,86 +159,16 @@ export const Game = {
    * Получает список зарегистрированных пользователей
    */
   async getRegisteredUsers(gameId) {
-    console.log('getRegisteredUsers called with gameId:', gameId);
-    
-    // Возвращаем все регистрации для турнира (все статусы)
-    // Сначала получаем базовые данные
     const result = await query(
-      `SELECT gr.id,
-              gr.user_id,
-              gr.status,
-              gr.registered_at,
-              gr.table_number,
-              gr.seat_number,
-              gr.registration_type,
-              u.id, 
-              u.telegram_id, 
-              u.username, 
-              u.first_name, 
-              u.last_name,
-              u.photo_url
+      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name,
+              u.photo_url, gr.registered_at, gr.status
        FROM game_registrations gr
        JOIN users u ON u.id = gr.user_id
-       WHERE gr.game_id = $1
+       WHERE gr.game_id = $1 AND gr.status = 'registered'
        ORDER BY gr.registered_at`,
       [gameId]
     );
     
-    console.log('Base query returned', result.rows.length, 'registrations');
-    
-    // Добавляем поля для платежей (NULL по умолчанию)
-    result.rows.forEach(row => {
-      row.payment_amount = null;
-      row.payment_method = null;
-      row.paid_at = null;
-    });
-    
-    // Теперь для каждой регистрации получаем данные о платеже
-    if (result.rows.length > 0) {
-      const userIds = result.rows.map(r => r.user_id);
-      console.log('Loading payments for', userIds.length, 'users');
-      
-      // Получаем платежи только если есть пользователи
-      if (userIds.length > 0) {
-        try {
-          const paymentsResult = await query(
-            `SELECT DISTINCT ON (user_id) 
-                    user_id, amount, payment_method, created_at
-             FROM tournament_payments
-             WHERE game_id = $1 AND user_id = ANY($2::int[])
-             ORDER BY user_id, created_at DESC`,
-            [gameId, userIds]
-          );
-          
-          console.log('Found', paymentsResult.rows.length, 'payments');
-          
-          // Создаем мапу для быстрого поиска платежей
-          const paymentsMap = new Map();
-          paymentsResult.rows.forEach(p => {
-            paymentsMap.set(p.user_id, {
-              payment_amount: p.amount,
-              payment_method: p.payment_method,
-              paid_at: p.created_at
-            });
-          });
-          
-          // Добавляем данные о платежах к регистрациям
-          result.rows.forEach(row => {
-            const payment = paymentsMap.get(row.user_id);
-            if (payment) {
-              row.payment_amount = payment.payment_amount;
-              row.payment_method = payment.payment_method;
-              row.paid_at = payment.paid_at;
-            }
-          });
-        } catch (paymentError) {
-          // Если ошибка при получении платежей - игнорируем, просто не показываем данные о платежах
-          console.warn('Error loading payments (non-critical):', paymentError.message);
-        }
-      }
-    }
-    
-    console.log('Returning', result.rows.length, 'registrations');
     return result.rows;
   },
 
@@ -984,23 +914,48 @@ export const Game = {
               u.first_name,
               u.last_name,
               u.photo_url,
-              u.telegram_id,
-              tp.amount as payment_amount,
-              tp.payment_method,
-              tp.created_at as paid_at
+              u.telegram_id
        FROM game_registrations gr
        JOIN users u ON gr.user_id = u.id
-       LEFT JOIN (
-         SELECT DISTINCT ON (game_id, user_id) 
-                game_id, user_id, amount, payment_method, created_at
-         FROM tournament_payments
-         WHERE game_id = $1
-         ORDER BY game_id, user_id, created_at DESC
-       ) tp ON tp.game_id = gr.game_id AND tp.user_id = gr.user_id
        WHERE gr.game_id = $1 AND gr.status = $2
        ORDER BY gr.registered_at ASC`,
       [gameId, status]
     );
+
+    // Добавляем данные о платежах отдельным запросом
+    if (result.rows.length > 0) {
+      const userIds = result.rows.map(r => r.user_id);
+      try {
+        const paymentsResult = await query(
+          `SELECT DISTINCT ON (user_id) 
+                  user_id, amount, payment_method, created_at
+           FROM tournament_payments
+           WHERE game_id = $1 AND user_id = ANY($2::int[])
+           ORDER BY user_id, created_at DESC`,
+          [gameId, userIds]
+        );
+        
+        const paymentsMap = new Map();
+        paymentsResult.rows.forEach(p => {
+          paymentsMap.set(p.user_id, {
+            payment_amount: p.amount,
+            payment_method: p.payment_method,
+            paid_at: p.created_at
+          });
+        });
+        
+        result.rows.forEach(row => {
+          const payment = paymentsMap.get(row.user_id);
+          if (payment) {
+            row.payment_amount = payment.payment_amount;
+            row.payment_method = payment.payment_method;
+            row.paid_at = payment.paid_at;
+          }
+        });
+      } catch (paymentError) {
+        console.warn('Error loading payments (non-critical):', paymentError.message);
+      }
+    }
 
     return result.rows;
   },

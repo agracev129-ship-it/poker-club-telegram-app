@@ -155,20 +155,10 @@ router.delete('/:id/register', authenticateTelegram, checkUserBlocked, async (re
 router.get('/:id/registrations', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
-    console.log('Getting registrations for game:', gameId);
     const users = await Game.getRegisteredUsers(gameId);
-    console.log('Found registrations:', users.length);
-    if (users.length > 0) {
-      console.log('First registration:', {
-        user_id: users[0].user_id,
-        first_name: users[0].first_name,
-        status: users[0].status
-      });
-    }
     res.json(users);
   } catch (error) {
     console.error('Error getting registrations:', error);
-    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
