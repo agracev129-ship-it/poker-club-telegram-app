@@ -13,6 +13,7 @@ import {
 } from './ui/alert-dialog';
 import { usersAPI, User } from '../lib/api';
 import { getInitials } from '../lib/utils';
+import { useUser } from '../hooks/useUser';
 
 // Icon components
 const XIcon = ({ className }: { className?: string }) => (
@@ -51,6 +52,7 @@ interface PlayersViewProps {
 }
 
 export function PlayersView({ onClose }: PlayersViewProps) {
+  const { user: currentUser } = useUser();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [searchAll, setSearchAll] = useState('');
   const [searchFriends, setSearchFriends] = useState('');
@@ -165,11 +167,13 @@ export function PlayersView({ onClose }: PlayersViewProps) {
     }
   };
 
-  // Filter players
-  const filteredAllPlayers = allPlayers.filter(player =>
-    player.first_name.toLowerCase().includes(searchAll.toLowerCase()) ||
-    player.username?.toLowerCase().includes(searchAll.toLowerCase())
-  );
+  // Filter players (exclude current user from all players list)
+  const filteredAllPlayers = allPlayers
+    .filter(player => player.id !== currentUser?.id) // Exclude current user
+    .filter(player =>
+      player.first_name.toLowerCase().includes(searchAll.toLowerCase()) ||
+      player.username?.toLowerCase().includes(searchAll.toLowerCase())
+    );
 
   const filteredFriends = friends.filter(player =>
     player.first_name.toLowerCase().includes(searchFriends.toLowerCase()) ||
@@ -321,14 +325,14 @@ export function PlayersView({ onClose }: PlayersViewProps) {
                             ) : null}
                           </div>
                         </div>
-                        {playerRequestSent ? (
+                        {!playerIsFriend && !playerRequestReceived && playerRequestSent ? (
                           <button
                             onClick={() => handleCancelRequest(player.id)}
                             className="px-3 py-1.5 rounded-full bg-yellow-700/20 border border-yellow-700/50 hover:bg-yellow-700/30 transition-colors text-xs text-yellow-500"
                           >
                             Отменить
                           </button>
-                        ) : !playerIsFriend && !playerRequestReceived ? (
+                        ) : !playerIsFriend && !playerRequestReceived && !playerRequestSent ? (
                           <button
                             onClick={() => handleAddFriend(player)}
                             className="w-8 h-8 rounded-full bg-red-700 hover:bg-red-800 transition-colors flex items-center justify-center"

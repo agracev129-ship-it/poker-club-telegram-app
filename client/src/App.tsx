@@ -170,6 +170,9 @@ function AppContent() {
       setHomeRefreshKey(prev => prev + 1); // Force refresh HomeTab
     }
     setActiveTab(tab);
+    
+    // Scroll to top when changing tabs
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   return (
