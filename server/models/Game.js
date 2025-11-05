@@ -696,11 +696,10 @@ export const Game = {
   async markNoShow(gameId, userId, adminId, reason = null) {
     const result = await query(
       `UPDATE game_registrations
-       SET status = 'no_show',
-           notes = $1
-       WHERE game_id = $2 AND user_id = $3
+       SET status = 'no_show'
+       WHERE game_id = $1 AND user_id = $2
        RETURNING *`,
-      [reason, gameId, userId]
+      [gameId, userId]
     );
 
     if (result.rows.length === 0) {
@@ -725,8 +724,7 @@ export const Game = {
   async restorePlayer(gameId, userId, adminId) {
     const result = await query(
       `UPDATE game_registrations
-       SET status = 'registered',
-           notes = NULL
+       SET status = 'registered'
        WHERE game_id = $1 AND user_id = $2
        RETURNING *`,
       [gameId, userId]
@@ -992,10 +990,9 @@ export const Game = {
       
       await query(
         `UPDATE game_registrations
-         SET points_earned = COALESCE(points_earned, 0) + $1,
-             notes = COALESCE(notes, '') || ' Бонус: ' || $2
-         WHERE game_id = $3 AND user_id = $4`,
-        [bonusPoints, reason, gameId, userId]
+         SET points_earned = COALESCE(points_earned, 0) + $1
+         WHERE game_id = $2 AND user_id = $3`,
+        [bonusPoints, gameId, userId]
       );
 
       await query(

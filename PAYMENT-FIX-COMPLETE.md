@@ -1,13 +1,20 @@
 # ✅ Исправление подтверждения платежей - ГОТОВО!
 
-## 🐛 Проблема
-При подтверждении оплаты игрока возникала ошибка:
+## 🐛 Проблемы
+При работе с турнирными платежами возникали ошибки:
+
+### Ошибка 1: payment_status
 ```
 column "payment_status" of relation "game_registrations" does not exist
 ```
 
+### Ошибка 2: notes
+```
+column "notes" of relation "game_registrations" does not exist
+```
+
 ## 🔍 Причина
-Код пытался обновить несуществующую колонку `payment_status` в таблице `game_registrations`.
+Код пытался обновить несуществующие колонки `payment_status` и `notes` в таблице `game_registrations`.
 
 ## ✅ Решение
 Удалено поле `payment_status` из всех SQL-запросов в модели `Game.js`:
@@ -15,6 +22,7 @@ column "payment_status" of relation "game_registrations" does not exist
 ### Исправленные методы:
 
 #### 1. `confirmPayment()` - Подтверждение оплаты
+**Удалено:** `payment_status`
 **Было:**
 ```sql
 UPDATE game_registrations
@@ -101,12 +109,69 @@ if (registration.status === 'registered') {
 
 ### Файл: `server/models/Game.js`
 
-**Методы, в которых удалено `payment_status`:**
-1. ✅ `confirmPayment()` - строка 604 (было)
-2. ✅ `onsiteRegistration()` - строки 769, 784-785 (было)
-3. ✅ `lateRegistration()` - строки 835, 841 (было)
+**Методы, в которых удалены несуществующие поля:**
+1. ✅ `confirmPayment()` - удалено `payment_status`
+2. ✅ `onsiteRegistration()` - удалено `payment_status` (UPDATE и INSERT)
+3. ✅ `lateRegistration()` - удалено `payment_status` (INSERT и ON CONFLICT)
+4. ✅ `markNoShow()` - удалено `notes`
+5. ✅ `restorePlayer()` - удалено `notes`
+6. ✅ `finalizeResults()` - удалено `notes` из бонусных корректировок
 
-**Всего исправлений:** 5 мест
+#### 4. `markNoShow()` - Исключение игрока
+**Удалено:** `notes`
+
+**Было:**
+```sql
+UPDATE game_registrations
+SET status = 'no_show',
+    notes = $1  ❌
+WHERE game_id = $2 AND user_id = $3
+```
+
+**Стало:**
+```sql
+UPDATE game_registrations
+SET status = 'no_show'
+WHERE game_id = $1 AND user_id = $2
+```
+
+#### 5. `restorePlayer()` - Восстановление игрока
+**Удалено:** `notes`
+
+**Было:**
+```sql
+UPDATE game_registrations
+SET status = 'registered',
+    notes = NULL  ❌
+WHERE game_id = $1 AND user_id = $2
+```
+
+**Стало:**
+```sql
+UPDATE game_registrations
+SET status = 'registered'
+WHERE game_id = $1 AND user_id = $2
+```
+
+#### 6. `finalizeResults()` - Финализация результатов (бонусные очки)
+**Удалено:** `notes`
+
+**Было:**
+```sql
+UPDATE game_registrations
+SET points_earned = COALESCE(points_earned, 0) + $1,
+    notes = COALESCE(notes, '') || ' Бонус: ' || $2  ❌
+WHERE game_id = $3 AND user_id = $4
+```
+
+**Стало:**
+```sql
+UPDATE game_registrations
+SET points_earned = COALESCE(points_earned, 0) + $1
+WHERE game_id = $2 AND user_id = $3
+```
+
+**Всего исправлений:** 8 мест
 
 ---
 
