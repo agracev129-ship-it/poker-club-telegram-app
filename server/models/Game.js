@@ -162,18 +162,38 @@ export const Game = {
 
   /**
    * Получает список зарегистрированных пользователей
+   * Для начатого турнира возвращает игроков со статусом 'paid' или 'playing'
+   * Для ожидающего турнира возвращает игроков со статусом 'registered'
    */
   async getRegisteredUsers(gameId) {
-    const result = await query(
-      `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name,
-              u.photo_url, gr.registered_at, gr.status
-       FROM game_registrations gr
-       JOIN users u ON u.id = gr.user_id
-       WHERE gr.game_id = $1 AND gr.status = 'registered'
-       ORDER BY gr.registered_at`,
-      [gameId]
-    );
+    // Сначала проверяем статус турнира
+    const game = await this.getById(gameId);
+    const isStarted = game.tournament_status === 'started';
     
+    // Для начатого турнира показываем игроков, которые участвуют (paid/playing)
+    // Для ожидающего турнира показываем зарегистрированных (registered)
+    let sql;
+    let params;
+    
+    if (isStarted) {
+      sql = `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name,
+                    u.photo_url, gr.registered_at, gr.status
+             FROM game_registrations gr
+             JOIN users u ON u.id = gr.user_id
+             WHERE gr.game_id = $1 AND gr.status IN ('paid', 'playing')
+             ORDER BY gr.registered_at`;
+      params = [gameId];
+    } else {
+      sql = `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name,
+                    u.photo_url, gr.registered_at, gr.status
+             FROM game_registrations gr
+             JOIN users u ON u.id = gr.user_id
+             WHERE gr.game_id = $1 AND gr.status = 'registered'
+             ORDER BY gr.registered_at`;
+      params = [gameId];
+    }
+    
+    const result = await query(sql, params);
     return result.rows;
   },
 
@@ -192,6 +212,7 @@ export const Game = {
 
   /**
    * Получает игры пользователя
+   * status может быть: 'registered', 'paid', 'playing', 'started' (статус турнира)
    */
   async getUserGames(userId, status = null) {
     let sql = `
@@ -205,8 +226,15 @@ export const Game = {
     const params = [userId];
     
     if (status) {
-      sql += ' AND gr.status = $2';
-      params.push(status);
+      // Если статус 'started', фильтруем по tournament_status
+      // Иначе фильтруем по статусу регистрации
+      if (status === 'started') {
+        sql += ' AND g.tournament_status = $2';
+        params.push('started');
+      } else {
+        sql += ' AND gr.status = $2';
+        params.push(status);
+      }
     }
     
     sql += ' ORDER BY g.date DESC, g.time DESC';

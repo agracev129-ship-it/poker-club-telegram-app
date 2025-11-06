@@ -58,14 +58,14 @@ export function SeatingView({ onClose }: SeatingViewProps) {
       const game = myGames[0];
       setCurrentGame(game);
 
-      // Загружаем регистрации для этой игры
-      const registrations = await gamesAPI.getRegistrations(game.id);
-      const myRegistration = registrations.find((r: any) => r.user_id === user.id);
+      // Загружаем рассадку для этой игры из table_assignments
+      const seating = await gamesAPI.getSeating(game.id);
+      const mySeat = seating.find((s: any) => s.user_id === user.id);
 
-      if (myRegistration && myRegistration.status === 'paid' && myRegistration.table_number) {
+      if (mySeat) {
         setMySeating({
-          table_number: myRegistration.table_number,
-          seat_number: myRegistration.seat_number,
+          table_number: mySeat.table_number,
+          seat_number: mySeat.seat_number,
         });
       }
 
