@@ -275,8 +275,9 @@ export const Game = {
     }
 
     // Обновляем статус турнира
+    // ВАЖНО: Обновляем только tournament_status, так как started_at может не существовать
     await query(
-      `UPDATE games SET tournament_status = 'started', started_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      `UPDATE games SET tournament_status = 'started' WHERE id = $1`,
       [gameId]
     );
 
@@ -1080,10 +1081,10 @@ export const Game = {
     }
 
     // Обновляем статус игры
+    // ВАЖНО: Обновляем только tournament_status, так как finished_at может не существовать
     await query(
       `UPDATE games 
-       SET tournament_status = 'completed',
-           finished_at = CURRENT_TIMESTAMP
+       SET tournament_status = 'completed'
        WHERE id = $1`,
       [gameId]
     );
