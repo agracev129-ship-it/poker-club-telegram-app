@@ -508,85 +508,86 @@ export const Game = {
         let participated = false;
 
         if (playerInSeating) {
-        // Игрок был в рассадке
-        if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
-          totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
-          finishPlace = playerInSeating.finish_place;
-          participated = true;
-        } else if (playerInSeating.is_eliminated === false) {
-          // Игрок активен на момент завершения - начисляем 0 очков но засчитываем участие
-          totalPoints = (playerInSeating.bonus_points || 0);
-          participated = true;
+          // Игрок был в рассадке
+          if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
+            totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
+            finishPlace = playerInSeating.finish_place;
+            participated = true;
+          } else if (playerInSeating.is_eliminated === false) {
+            // Игрок активен на момент завершения - начисляем 0 очков но засчитываем участие
+            totalPoints = (playerInSeating.bonus_points || 0);
+            participated = true;
+          }
+        } else {
+          // Игрок зарегистрирован но не был в рассадке (турнир завершен до старта или игрок не явился)
+          participated = false;
         }
-      } else {
-        // Игрок зарегистрирован но не был в рассадке (турнир завершен до старта или игрок не явился)
-        participated = false;
-      }
 
-      if (participated) {
-        try {
-          // Обновляем статистику пользователя (создаем если нет)
-          // ВАЖНО: Обернуто в try-catch, так как таблица может не существовать
+        if (participated) {
+          try {
+            // Обновляем статистику пользователя (создаем если нет)
+            // ВАЖНО: Обернуто в try-catch, так как таблица может не существовать
+            try {
+              await query(
+                `INSERT INTO user_stats (user_id, games_played, games_won, total_points)
+                 VALUES ($1, 1, $2, $3)
+                 ON CONFLICT (user_id) 
+                 DO UPDATE SET 
+                   games_played = user_stats.games_played + 1,
+                   games_won = user_stats.games_won + $2,
+                   total_points = user_stats.total_points + $3`,
+                [registration.user_id, finishPlace === 1 ? 1 : 0, totalPoints]
+              );
+            } catch (statsError) {
+              console.warn('Error updating user_stats (non-critical):', statsError.message);
+            }
+
+            // Обновляем регистрацию
+            // ВАЖНО: position может не существовать, используем только status
+            await query(
+              `UPDATE game_registrations 
+               SET status = 'participated'
+               WHERE game_id = $1 AND user_id = $2`,
+              [gameId, registration.user_id]
+            );
+
+            // Добавляем активность (опционально, может не существовать)
+            try {
+              const description = finishPlace === 1 
+                ? 'Победа в турнире'
+                : finishPlace 
+                ? `${finishPlace}-е место в турнире`
+                : 'Участие в турнире';
+                
+              await query(
+                `INSERT INTO user_activities (user_id, activity_type, description, related_id)
+                 VALUES ($1, $2, $3, $4)`,
+                [
+                  registration.user_id,
+                  finishPlace === 1 ? 'game_won' : 'game_participated',
+                  description,
+                  gameId
+                ]
+              );
+            } catch (activityError) {
+              console.warn('Error inserting user_activities (non-critical):', activityError.message);
+            }
+          } catch (error) {
+            console.error(`Error processing player ${registration.user_id}:`, error);
+            // Продолжаем обработку других игроков
+          }
+        } else {
+          // Игрок не участвовал - помечаем регистрацию как cancelled
           try {
             await query(
-              `INSERT INTO user_stats (user_id, games_played, games_won, total_points)
-               VALUES ($1, 1, $2, $3)
-               ON CONFLICT (user_id) 
-               DO UPDATE SET 
-                 games_played = user_stats.games_played + 1,
-                 games_won = user_stats.games_won + $2,
-                 total_points = user_stats.total_points + $3`,
-              [registration.user_id, finishPlace === 1 ? 1 : 0, totalPoints]
+              `UPDATE game_registrations 
+               SET status = 'cancelled'
+               WHERE game_id = $1 AND user_id = $2`,
+              [gameId, registration.user_id]
             );
-          } catch (statsError) {
-            console.warn('Error updating user_stats (non-critical):', statsError.message);
+          } catch (error) {
+            console.error(`Error cancelling registration for player ${registration.user_id}:`, error);
           }
-
-          // Обновляем регистрацию
-          // ВАЖНО: position может не существовать, используем только status
-          await query(
-            `UPDATE game_registrations 
-             SET status = 'participated'
-             WHERE game_id = $1 AND user_id = $2`,
-            [gameId, registration.user_id]
-          );
-
-          // Добавляем активность (опционально, может не существовать)
-          try {
-            const description = finishPlace === 1 
-              ? 'Победа в турнире'
-              : finishPlace 
-              ? `${finishPlace}-е место в турнире`
-              : 'Участие в турнире';
-              
-            await query(
-              `INSERT INTO user_activities (user_id, activity_type, description, related_id)
-               VALUES ($1, $2, $3, $4)`,
-              [
-                registration.user_id,
-                finishPlace === 1 ? 'game_won' : 'game_participated',
-                description,
-                gameId
-              ]
-            );
-          } catch (activityError) {
-            console.warn('Error inserting user_activities (non-critical):', activityError.message);
-          }
-        } catch (error) {
-          console.error(`Error processing player ${registration.user_id}:`, error);
-          // Продолжаем обработку других игроков
-        }
-      } else {
-        // Игрок не участвовал - помечаем регистрацию как cancelled
-        try {
-          await query(
-            `UPDATE game_registrations 
-             SET status = 'cancelled'
-             WHERE game_id = $1 AND user_id = $2`,
-            [gameId, registration.user_id]
-          );
-        } catch (error) {
-          console.error(`Error cancelling registration for player ${registration.user_id}:`, error);
         }
       }
 
