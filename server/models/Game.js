@@ -302,11 +302,12 @@ export const Game = {
       );
 
       // Обновляем статус регистрации на 'playing'
+      // ВАЖНО: table_number и seat_number хранятся в table_assignments, а не в game_registrations
       await query(
         `UPDATE game_registrations 
-         SET status = 'playing', table_number = $1, seat_number = $2
-         WHERE game_id = $3 AND user_id = $4`,
-        [tableNumber, seatNumber, gameId, player.user_id]
+         SET status = 'playing'
+         WHERE game_id = $1 AND user_id = $2`,
+        [gameId, player.user_id]
       );
 
       assignments.push({
@@ -874,19 +875,17 @@ export const Game = {
     const seat = await this.assignSeatToPlayer(gameId, userId);
 
     // Создаем регистрацию
+    // ВАЖНО: table_number и seat_number хранятся в table_assignments, а не в game_registrations
     // Все данные о платеже хранятся в таблице tournament_payments
     const result = await query(
       `INSERT INTO game_registrations 
-       (game_id, user_id, status, registration_type, is_late_entry,
-        table_number, seat_number)
-       VALUES ($1, $2, 'paid', 'late', true, $3, $4)
+       (game_id, user_id, status, registration_type, is_late_entry)
+       VALUES ($1, $2, 'paid', 'late', true)
        ON CONFLICT (game_id, user_id) DO UPDATE
        SET status = 'paid',
-           is_late_entry = true,
-           table_number = $3,
-           seat_number = $4
+           is_late_entry = true
        RETURNING *`,
-      [gameId, userId, seat.table_number, seat.seat_number]
+      [gameId, userId]
     );
 
     const registration = result.rows[0];
