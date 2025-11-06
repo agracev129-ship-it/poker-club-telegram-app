@@ -46,27 +46,42 @@ export function SeatingView({ onClose }: SeatingViewProps) {
       
       if (!user) return;
 
-      // Загружаем игры пользователя (только started/in_progress турниры)
-      const myGames = await gamesAPI.getUserGames('started');
+      // Загружаем все начатые турниры (используем 'upcoming', который включает 'started')
+      const allGames = await gamesAPI.getAll({ status: 'upcoming' });
+      const startedGames = allGames.filter((g: any) => g.tournament_status === 'started');
+      
+      console.log('Started games:', startedGames.length);
+      
+      // Фильтруем только те, в которых участвует пользователь (есть в рассадке)
+      const myGames = [];
+      for (const game of startedGames) {
+        try {
+          // Проверяем, есть ли пользователь в рассадке (значит он участвует)
+          const seating = await gamesAPI.getSeating(game.id);
+          console.log('Seating for game', game.id, ':', seating.length, 'players');
+          const mySeat = seating.find((s: any) => s.user_id === user.id);
+          if (mySeat) {
+            console.log('Found my seat:', mySeat);
+            myGames.push(game);
+            // Если это первая игра, сразу устанавливаем рассадку
+            if (myGames.length === 1) {
+              setCurrentGame(game);
+              setMySeating({
+                table_number: mySeat.table_number,
+                seat_number: mySeat.seat_number,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error checking seating for game:', game.id, error);
+        }
+      }
+      
+      console.log('My games with seating:', myGames.length);
       
       if (myGames.length === 0) {
         setLoading(false);
         return;
-      }
-
-      // Берем первую игру
-      const game = myGames[0];
-      setCurrentGame(game);
-
-      // Загружаем рассадку для этой игры из table_assignments
-      const seating = await gamesAPI.getSeating(game.id);
-      const mySeat = seating.find((s: any) => s.user_id === user.id);
-
-      if (mySeat) {
-        setMySeating({
-          table_number: mySeat.table_number,
-          seat_number: mySeat.seat_number,
-        });
       }
 
       setRegisteredGames(myGames);

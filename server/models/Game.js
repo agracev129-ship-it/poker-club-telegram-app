@@ -7,10 +7,8 @@ export const Game = {
   async getAll(filters = {}) {
     let sql = `
       SELECT g.*,
-             COUNT(DISTINCT gr.user_id) as registered_count,
              u.username as creator_username
       FROM games g
-      LEFT JOIN game_registrations gr ON g.id = gr.game_id AND gr.status = 'registered'
       LEFT JOIN users u ON g.created_by = u.id
     `;
     
@@ -47,9 +45,25 @@ export const Game = {
       sql += ' WHERE ' + conditions.join(' AND ');
     }
     
-    sql += ' GROUP BY g.id, u.username ORDER BY g.date, g.time';
+    sql += ' ORDER BY g.date, g.time';
     
     const result = await query(sql, params);
+    
+    // Добавляем registered_count для каждой игры отдельно
+    for (const game of result.rows) {
+      const countResult = await query(
+        `SELECT COUNT(DISTINCT gr.user_id) as count
+         FROM game_registrations gr
+         WHERE gr.game_id = $1
+           AND (
+             ($2 = 'started' AND gr.status IN ('paid', 'playing'))
+             OR ($2 != 'started' OR $2 IS NULL) AND gr.status = 'registered'
+           )`,
+        [game.id, game.tournament_status]
+      );
+      game.registered_count = parseInt(countResult.rows[0].count) || 0;
+    }
+    
     return result.rows;
   },
 
@@ -59,17 +73,33 @@ export const Game = {
   async getById(gameId) {
     const result = await query(
       `SELECT g.*,
-              COUNT(DISTINCT gr.user_id) as registered_count,
               u.username as creator_username
        FROM games g
-       LEFT JOIN game_registrations gr ON g.id = gr.game_id AND gr.status = 'registered'
        LEFT JOIN users u ON g.created_by = u.id
-       WHERE g.id = $1
-       GROUP BY g.id, u.username`,
+       WHERE g.id = $1`,
       [gameId]
     );
     
-    return result.rows[0];
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    const game = result.rows[0];
+    
+    // Добавляем registered_count отдельным запросом
+    const countResult = await query(
+      `SELECT COUNT(DISTINCT gr.user_id) as count
+       FROM game_registrations gr
+       WHERE gr.game_id = $1
+         AND (
+           ($2 = 'started' AND gr.status IN ('paid', 'playing'))
+           OR ($2 != 'started' OR $2 IS NULL) AND gr.status = 'registered'
+         )`,
+      [gameId, game.tournament_status]
+    );
+    game.registered_count = parseInt(countResult.rows[0].count) || 0;
+    
+    return game;
   },
 
   /**
@@ -434,18 +464,23 @@ export const Game = {
    * Завершает турнир и начисляет очки всем игрокам
    */
   async finishTournament(gameId) {
+    console.log('finishTournament called for gameId:', gameId);
+    
     // Получаем всех игроков с рассадкой
     const seating = await this.getSeating(gameId);
+    console.log('Seating players:', seating.length);
     
-    // Получаем всех зарегистрированных игроков (включая тех кто не в рассадке)
+    // Получаем всех игроков, которые участвуют в турнире (paid/playing)
+    // ВАЖНО: Для начатого турнира ищем игроков со статусом 'paid' или 'playing'
     const registrationsResult = await query(
       `SELECT gr.user_id, u.first_name, u.last_name
        FROM game_registrations gr
        JOIN users u ON gr.user_id = u.id
-       WHERE gr.game_id = $1 AND gr.status = 'registered'`,
+       WHERE gr.game_id = $1 AND gr.status IN ('paid', 'playing')`,
       [gameId]
     );
     const allRegistered = registrationsResult.rows;
+    console.log('Registered players (paid/playing):', allRegistered.length);
 
     // Обновляем статус турнира
     await query(
@@ -494,11 +529,12 @@ export const Game = {
         );
 
         // Обновляем регистрацию
+        // ВАЖНО: position может не существовать, используем только status
         await query(
           `UPDATE game_registrations 
-           SET status = 'participated', position = $1
-           WHERE game_id = $2 AND user_id = $3`,
-          [finishPlace, gameId, registration.user_id]
+           SET status = 'participated'
+           WHERE game_id = $1 AND user_id = $2`,
+          [gameId, registration.user_id]
         );
 
         // Добавляем активность

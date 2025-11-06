@@ -322,11 +322,16 @@ router.post('/:id/rebalance', authenticateTelegram, requireAdmin, async (req, re
 router.post('/:id/finish', authenticateTelegram, requireAdmin, async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
+    console.log('Finish tournament request:', { gameId, adminId: req.telegramUser?.id });
+    
     const results = await Game.finishTournament(gameId);
+    console.log('Tournament finished successfully:', results.length, 'players');
+    
     res.json({ message: 'Tournament finished', results });
   } catch (error) {
     console.error('Error finishing tournament:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
