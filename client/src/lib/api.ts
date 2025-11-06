@@ -20,15 +20,26 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Network error' }));
-    
-    // Если пользователь заблокирован - показываем специальное сообщение
-    if (response.status === 403 && error.blocked) {
-      alert(error.message || 'Ваш аккаунт был заблокирован администратором');
-      throw new Error(error.message || 'Доступ заблокирован');
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch {
+      errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
     }
     
-    throw new Error(error.error || 'API request failed');
+    // Если пользователь заблокирован - показываем специальное сообщение
+    if (response.status === 403 && errorData.blocked) {
+      alert(errorData.message || 'Ваш аккаунт был заблокирован администратором');
+      throw new Error(errorData.message || 'Доступ заблокирован');
+    }
+    
+    // Формируем понятное сообщение об ошибке
+    const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+    const error = new Error(errorMessage);
+    (error as any).error = errorData.error;
+    (error as any).response = errorData;
+    (error as any).status = response.status;
+    throw error;
   }
 
   return response.json();

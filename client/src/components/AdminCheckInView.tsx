@@ -101,8 +101,23 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
     try {
       setLoading(true);
       
-      // Загружаем всех игроков
-      const allPlayers = await gamesAPI.getRegistrations(game.id);
+      // Загружаем всех игроков всех статусов для админ-панели
+      const [registered, paid, noShow] = await Promise.all([
+        gamesAPI.getPlayersByStatus(game.id, 'registered').catch(() => []),
+        gamesAPI.getPlayersByStatus(game.id, 'paid').catch(() => []),
+        gamesAPI.getPlayersByStatus(game.id, 'no_show').catch(() => []),
+      ]);
+      
+      // Объединяем всех игроков
+      const allPlayers = [...registered, ...paid, ...noShow];
+      
+      console.log('Loaded players:', {
+        registered: registered.length,
+        paid: paid.length,
+        noShow: noShow.length,
+        total: allPlayers.length
+      });
+      
       setPlayers(allPlayers);
       
       // Загружаем статистику
@@ -193,6 +208,9 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
         playerData: selectedPlayer
       });
       
+      // Показываем индикатор загрузки
+      const loadingToast = toast.loading('Подтверждение оплаты...');
+      
       const result = await gamesAPI.confirmPayment(
         game.id,
         userId,
@@ -201,16 +219,46 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
         paymentNotes || undefined
       );
       
-      console.log('Payment confirmed:', result);
-      toast.success(`Оплата подтверждена для ${selectedPlayer.first_name || 'игрока'}`);
+      console.log('Payment confirmed successfully:', result);
+      
+      // Закрываем индикатор загрузки
+      toast.dismiss(loadingToast);
+      
+      // Закрываем диалог и очищаем форму
       setIsPaymentDialogOpen(false);
       setSelectedPlayer(null);
       setPaymentAmount('');
       setPaymentNotes('');
+      
+      // Показываем успешное сообщение
+      toast.success(`Оплата подтверждена для ${selectedPlayer.first_name || 'игрока'}`);
+      
+      // Обновляем данные
       await loadData();
+      
+      // Если игрок был в фильтре "Ожидают", автоматически переключаемся на "Оплатили"
+      if (filterStatus === 'registered') {
+        setFilterStatus('paid');
+      }
     } catch (error: any) {
       console.error('Payment confirmation error:', error);
-      const errorMessage = error.message || error.error || 'Ошибка подтверждения оплаты';
+      console.error('Error details:', {
+        message: error.message,
+        error: error.error,
+        stack: error.stack,
+        response: error.response
+      });
+      
+      // Показываем детальную ошибку
+      let errorMessage = 'Ошибка подтверждения оплаты';
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.error) {
+        errorMessage = error.error;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast.error(errorMessage);
     }
   };
@@ -287,13 +335,34 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
         playerData: player
       });
       
+      // Показываем индикатор загрузки
+      const loadingToast = toast.loading('Исключение игрока...');
+      
       const result = await gamesAPI.markNoShow(game.id, userId);
       
-      console.log('Marked no-show:', result);
+      console.log('Marked no-show successfully:', result);
+      
+      // Закрываем индикатор загрузки
+      toast.dismiss(loadingToast);
+      
+      // Показываем успешное сообщение
       toast.success(`${player.first_name || 'Игрок'} исключен`);
+      
+      // Обновляем данные
       await loadData();
+      
+      // Если игрок был в другом фильтре, автоматически переключаемся на "Исключены"
+      if (filterStatus !== 'no_show') {
+        setFilterStatus('no_show');
+      }
     } catch (error: any) {
       console.error('Mark no-show error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        error: error.error,
+        stack: error.stack
+      });
+      
       const errorMessage = error.message || error.error || 'Ошибка при исключении игрока';
       toast.error(errorMessage);
     }
