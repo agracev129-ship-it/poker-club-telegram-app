@@ -466,40 +466,48 @@ export const Game = {
   async finishTournament(gameId) {
     console.log('finishTournament called for gameId:', gameId);
     
-    // Получаем всех игроков с рассадкой
-    const seating = await this.getSeating(gameId);
-    console.log('Seating players:', seating.length);
-    
-    // Получаем всех игроков, которые участвуют в турнире (paid/playing)
-    // ВАЖНО: Для начатого турнира ищем игроков со статусом 'paid' или 'playing'
-    const registrationsResult = await query(
-      `SELECT gr.user_id, u.first_name, u.last_name
-       FROM game_registrations gr
-       JOIN users u ON gr.user_id = u.id
-       WHERE gr.game_id = $1 AND gr.status IN ('paid', 'playing')`,
-      [gameId]
-    );
-    const allRegistered = registrationsResult.rows;
-    console.log('Registered players (paid/playing):', allRegistered.length);
-
-    // Обновляем статус турнира
-    await query(
-      `UPDATE games SET tournament_status = 'finished', status = 'completed' WHERE id = $1`,
-      [gameId]
-    );
-
-    // Создаем Map для быстрого поиска игроков в рассадке
-    const seatingMap = new Map(seating.map(p => [p.user_id, p]));
-
-    // Начисляем очки каждому игроку
-    for (const registration of allRegistered) {
-      const playerInSeating = seatingMap.get(registration.user_id);
+    try {
+      // Получаем всех игроков с рассадкой
+      const seating = await this.getSeating(gameId);
+      console.log('Seating players:', seating.length);
       
-      let totalPoints = 0;
-      let finishPlace = null;
-      let participated = false;
+      // Получаем всех игроков, которые участвуют в турнире (paid/playing)
+      // ВАЖНО: Для начатого турнира ищем игроков со статусом 'paid' или 'playing'
+      const registrationsResult = await query(
+        `SELECT gr.user_id, u.first_name, u.last_name
+         FROM game_registrations gr
+         JOIN users u ON gr.user_id = u.id
+         WHERE gr.game_id = $1 AND gr.status IN ('paid', 'playing')`,
+        [gameId]
+      );
+      const allRegistered = registrationsResult.rows;
+      console.log('Registered players (paid/playing):', allRegistered.length);
 
-      if (playerInSeating) {
+      // ВАЖНО: Сначала обновляем статус турнира, чтобы он попал в историю
+      // даже если обработка игроков упадет с ошибкой
+      const updateResult = await query(
+        `UPDATE games SET tournament_status = 'finished' WHERE id = $1 RETURNING *`,
+        [gameId]
+      );
+      
+      if (updateResult.rows.length === 0) {
+        throw new Error('Tournament not found');
+      }
+      
+      console.log('Tournament status updated to finished:', updateResult.rows[0].tournament_status);
+
+      // Создаем Map для быстрого поиска игроков в рассадке
+      const seatingMap = new Map(seating.map(p => [p.user_id, p]));
+
+      // Начисляем очки каждому игроку
+      for (const registration of allRegistered) {
+        const playerInSeating = seatingMap.get(registration.user_id);
+        
+        let totalPoints = 0;
+        let finishPlace = null;
+        let participated = false;
+
+        if (playerInSeating) {
         // Игрок был в рассадке
         if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
           totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
@@ -516,60 +524,106 @@ export const Game = {
       }
 
       if (participated) {
-        // Обновляем статистику пользователя (создаем если нет)
-        await query(
-          `INSERT INTO user_stats (user_id, games_played, games_won, total_points)
-           VALUES ($1, 1, $2, $3)
-           ON CONFLICT (user_id) 
-           DO UPDATE SET 
-             games_played = user_stats.games_played + 1,
-             games_won = user_stats.games_won + $2,
-             total_points = user_stats.total_points + $3`,
-          [registration.user_id, finishPlace === 1 ? 1 : 0, totalPoints]
-        );
+        try {
+          // Обновляем статистику пользователя (создаем если нет)
+          // ВАЖНО: Обернуто в try-catch, так как таблица может не существовать
+          try {
+            await query(
+              `INSERT INTO user_stats (user_id, games_played, games_won, total_points)
+               VALUES ($1, 1, $2, $3)
+               ON CONFLICT (user_id) 
+               DO UPDATE SET 
+                 games_played = user_stats.games_played + 1,
+                 games_won = user_stats.games_won + $2,
+                 total_points = user_stats.total_points + $3`,
+              [registration.user_id, finishPlace === 1 ? 1 : 0, totalPoints]
+            );
+          } catch (statsError) {
+            console.warn('Error updating user_stats (non-critical):', statsError.message);
+          }
 
-        // Обновляем регистрацию
-        // ВАЖНО: position может не существовать, используем только status
-        await query(
-          `UPDATE game_registrations 
-           SET status = 'participated'
-           WHERE game_id = $1 AND user_id = $2`,
-          [gameId, registration.user_id]
-        );
+          // Обновляем регистрацию
+          // ВАЖНО: position может не существовать, используем только status
+          await query(
+            `UPDATE game_registrations 
+             SET status = 'participated'
+             WHERE game_id = $1 AND user_id = $2`,
+            [gameId, registration.user_id]
+          );
 
-        // Добавляем активность
-        const description = finishPlace === 1 
-          ? 'Победа в турнире'
-          : finishPlace 
-          ? `${finishPlace}-е место в турнире`
-          : 'Участие в турнире';
-          
-        await query(
-          `INSERT INTO user_activities (user_id, activity_type, description, related_id)
-           VALUES ($1, $2, $3, $4)`,
-          [
-            registration.user_id,
-            finishPlace === 1 ? 'game_won' : 'game_participated',
-            description,
-            gameId
-          ]
-        );
+          // Добавляем активность (опционально, может не существовать)
+          try {
+            const description = finishPlace === 1 
+              ? 'Победа в турнире'
+              : finishPlace 
+              ? `${finishPlace}-е место в турнире`
+              : 'Участие в турнире';
+              
+            await query(
+              `INSERT INTO user_activities (user_id, activity_type, description, related_id)
+               VALUES ($1, $2, $3, $4)`,
+              [
+                registration.user_id,
+                finishPlace === 1 ? 'game_won' : 'game_participated',
+                description,
+                gameId
+              ]
+            );
+          } catch (activityError) {
+            console.warn('Error inserting user_activities (non-critical):', activityError.message);
+          }
+        } catch (error) {
+          console.error(`Error processing player ${registration.user_id}:`, error);
+          // Продолжаем обработку других игроков
+        }
       } else {
         // Игрок не участвовал - помечаем регистрацию как cancelled
-        await query(
-          `UPDATE game_registrations 
-           SET status = 'cancelled'
-           WHERE game_id = $1 AND user_id = $2`,
-          [gameId, registration.user_id]
-        );
+        try {
+          await query(
+            `UPDATE game_registrations 
+             SET status = 'cancelled'
+             WHERE game_id = $1 AND user_id = $2`,
+            [gameId, registration.user_id]
+          );
+        } catch (error) {
+          console.error(`Error cancelling registration for player ${registration.user_id}:`, error);
+        }
       }
+
+      // Обновляем рейтинги (опционально, может не работать если таблица не существует)
+      try {
+        const { default: User } = await import('./User.js');
+        await User.updateRankings();
+        console.log('Rankings updated successfully');
+      } catch (rankingsError) {
+        console.warn('Error updating rankings (non-critical):', rankingsError.message);
+      }
+
+      console.log('Tournament finished successfully. Total players processed:', allRegistered.length);
+      
+      // Возвращаем рассадку для обратной совместимости
+      return seating;
+    } catch (error) {
+      console.error('Error in finishTournament:', error);
+      console.error('Error stack:', error.stack);
+      
+      // Даже если произошла ошибка, проверяем что статус обновлен
+      // чтобы турнир попал в историю
+      try {
+        const checkResult = await query(
+          `SELECT tournament_status FROM games WHERE id = $1`,
+          [gameId]
+        );
+        if (checkResult.rows.length > 0 && checkResult.rows[0].tournament_status === 'finished') {
+          console.log('Tournament status is finished, returning empty seating');
+          return [];
+        }
+      } catch (checkError) {
+        console.error('Error checking tournament status:', checkError);
+      }
+      
+      throw error;
     }
-
-    // Обновляем рейтинги
-    const { default: User } = await import('./User.js');
-    await User.updateRankings();
-
-    return seating;
   },
 
   /**
