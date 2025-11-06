@@ -166,16 +166,47 @@ export const User = {
    * Обновляет рейтинги всех пользователей
    */
   async updateRankings() {
-    await query(
-      `UPDATE user_stats us
-       SET current_rank = ranked.rank
-       FROM (
-         SELECT user_id, ROW_NUMBER() OVER (ORDER BY total_points DESC) as rank
-         FROM user_stats
-         WHERE games_played > 0
-       ) ranked
-       WHERE us.user_id = ranked.user_id`
-    );
+    try {
+      // Проверяем, существует ли таблица user_stats
+      const tableExists = await query(
+        `SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'user_stats'
+        )`
+      );
+      
+      if (!tableExists.rows[0].exists) {
+        console.warn('Table user_stats does not exist, skipping rankings update');
+        return;
+      }
+      
+      // Проверяем, есть ли записи в таблице
+      const countResult = await query(`SELECT COUNT(*) as count FROM user_stats WHERE games_played > 0`);
+      if (parseInt(countResult.rows[0].count) === 0) {
+        console.warn('No users with games_played > 0, skipping rankings update');
+        return;
+      }
+      
+      // Обновляем рейтинги
+      await query(
+        `UPDATE user_stats us
+         SET current_rank = ranked.rank
+         FROM (
+           SELECT user_id, ROW_NUMBER() OVER (ORDER BY total_points DESC) as rank
+           FROM user_stats
+           WHERE games_played > 0
+         ) ranked
+         WHERE us.user_id = ranked.user_id`
+      );
+      
+      console.log('Rankings updated successfully');
+    } catch (error) {
+      console.error('Error updating rankings:', error);
+      console.error('Rankings error stack:', error.stack);
+      // НЕ пробрасываем ошибку, чтобы не падало приложение
+      // Просто логируем и продолжаем работу
+    }
   },
 
   /**

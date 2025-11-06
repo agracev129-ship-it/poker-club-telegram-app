@@ -331,7 +331,29 @@ router.post('/:id/finish', authenticateTelegram, requireAdmin, async (req, res) 
   } catch (error) {
     console.error('Error finishing tournament:', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    
+    // ВАЖНО: Всегда возвращаем ответ, даже при ошибке
+    // Проверяем, обновлен ли статус турнира
+    try {
+      const checkResult = await Game.getById(gameId);
+      if (checkResult && checkResult.tournament_status === 'finished') {
+        // Статус обновлен - турнир должен попасть в историю
+        console.log('Tournament status is finished, returning success despite error');
+        return res.json({ 
+          message: 'Tournament finished (some errors occurred during processing)', 
+          results: [],
+          warning: 'Some players may not have been processed correctly'
+        });
+      }
+    } catch (checkError) {
+      console.error('Error checking tournament status in route:', checkError);
+    }
+    
+    // Если статус не обновлен, возвращаем ошибку
+    res.status(500).json({ 
+      error: error.message || 'Internal server error',
+      details: 'Tournament may not have been finished correctly'
+    });
   }
 });
 

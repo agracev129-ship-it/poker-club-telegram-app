@@ -592,12 +592,19 @@ export const Game = {
       }
 
       // Обновляем рейтинги (опционально, может не работать если таблица не существует)
+      // ВАЖНО: Обернуто в try-catch, чтобы не падало все приложение
       try {
         const { default: User } = await import('./User.js');
-        await User.updateRankings();
-        console.log('Rankings updated successfully');
+        if (User && User.updateRankings) {
+          await User.updateRankings();
+          console.log('Rankings updated successfully');
+        } else {
+          console.warn('User.updateRankings not available, skipping rankings update');
+        }
       } catch (rankingsError) {
         console.warn('Error updating rankings (non-critical):', rankingsError.message);
+        console.warn('Rankings error stack:', rankingsError.stack);
+        // НЕ пробрасываем ошибку дальше, чтобы не падало приложение
       }
 
       console.log('Tournament finished successfully. Total players processed:', allRegistered.length);
@@ -616,13 +623,15 @@ export const Game = {
           [gameId]
         );
         if (checkResult.rows.length > 0 && checkResult.rows[0].tournament_status === 'finished') {
-          console.log('Tournament status is finished, returning empty seating');
+          console.log('Tournament status is finished, returning empty seating (error occurred but status is correct)');
+          // НЕ пробрасываем ошибку, если статус обновлен - турнир должен попасть в историю
           return [];
         }
       } catch (checkError) {
         console.error('Error checking tournament status:', checkError);
       }
       
+      // Пробрасываем ошибку только если статус не был обновлен
       throw error;
     }
   },
