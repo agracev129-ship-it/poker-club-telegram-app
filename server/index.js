@@ -13,6 +13,7 @@ import profileRequestsRouter from './routes/profile-requests.js';
 import { initSeating } from './database/init-seating.js';
 import { initProfileModeration } from './database/init-profile-moderation.js';
 import { initTournamentLifecycle } from './database/init-tournament-lifecycle.js';
+import { initTournamentPayments } from './database/init-tournament-payments.js';
 
 dotenv.config();
 
@@ -112,6 +113,13 @@ app.listen(PORT, async () => {
     await initTournamentLifecycle();
   } catch (error) {
     console.error('⚠️ Failed to initialize tournament lifecycle system (may already exist):', error.message);
+  }
+  
+  // Initialize tournament payments table (CRITICAL - fixes the missing table error)
+  try {
+    await initTournamentPayments();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize tournament payments table:', error.message);
   }
   
   // Initialize automated tournament jobs
