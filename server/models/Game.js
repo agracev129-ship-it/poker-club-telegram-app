@@ -20,10 +20,15 @@ export const Game = {
     
     // Фильтр по tournament_status (если передан как status)
     if (filters.status && filters.status !== 'all') {
-      // Проверяем есть ли поле tournament_status
-      conditions.push(`(g.tournament_status = $${paramCount} OR (g.tournament_status IS NULL AND g.status = $${paramCount}))`);
-      params.push(filters.status);
-      paramCount++;
+      // ВАЖНО: 'upcoming' включает и 'started' турниры, чтобы они не исчезали после начала
+      if (filters.status === 'upcoming') {
+        conditions.push(`(g.tournament_status = 'upcoming' OR g.tournament_status = 'started' OR (g.tournament_status IS NULL AND g.status = 'upcoming'))`);
+      } else {
+        // Для других статусов используем обычную фильтрацию
+        conditions.push(`(g.tournament_status = $${paramCount} OR (g.tournament_status IS NULL AND g.status = $${paramCount}))`);
+        params.push(filters.status);
+        paramCount++;
+      }
     }
     
     if (filters.fromDate) {
