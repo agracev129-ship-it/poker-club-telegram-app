@@ -221,8 +221,14 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       
       console.log('Payment confirmed successfully:', result);
       
+      // Сохраняем имя игрока до очистки
+      const playerName = selectedPlayer?.first_name || 'игрока';
+      
       // Закрываем индикатор загрузки
       toast.dismiss(loadingToast);
+      
+      // Показываем успешное сообщение
+      toast.success(`Оплата подтверждена для ${playerName}`);
       
       // Закрываем диалог и очищаем форму
       setIsPaymentDialogOpen(false);
@@ -230,15 +236,37 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       setPaymentAmount('');
       setPaymentNotes('');
       
-      // Показываем успешное сообщение
-      toast.success(`Оплата подтверждена для ${selectedPlayer.first_name || 'игрока'}`);
+      // Небольшая задержка, чтобы сервер успел обновить данные
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Обновляем данные
       await loadData();
       
+      // Проверяем, что игрок теперь в списке оплативших
+      const updatedPlayers = await Promise.all([
+        gamesAPI.getPlayersByStatus(game.id, 'paid').catch(() => [])
+      ]);
+      const paidPlayers = updatedPlayers[0];
+      const playerFound = paidPlayers.find((p: any) => (p.user_id || p.id) === userId);
+      
+      console.log('After payment confirmation:', {
+        userId,
+        playerFound: !!playerFound,
+        totalPaidPlayers: paidPlayers.length,
+        paidPlayers: paidPlayers.map((p: any) => ({ id: p.user_id || p.id, name: p.first_name }))
+      });
+      
       // Если игрок был в фильтре "Ожидают", автоматически переключаемся на "Оплатили"
       if (filterStatus === 'registered') {
         setFilterStatus('paid');
+      }
+      
+      // Если игрок не найден в списке оплативших - предупреждаем
+      if (!playerFound) {
+        console.warn('Player not found in paid list after confirmation!', {
+          userId,
+          paidPlayersCount: paidPlayers.length
+        });
       }
     } catch (error: any) {
       console.error('Payment confirmation error:', error);

@@ -597,7 +597,29 @@ export const Game = {
   async confirmPayment(gameId, userId, adminId, paymentData) {
     const { amount, payment_method, notes } = paymentData;
 
+    console.log('Game.confirmPayment called:', {
+      gameId,
+      userId,
+      adminId,
+      amount,
+      payment_method
+    });
+
+    // Проверяем текущий статус регистрации
+    const currentReg = await query(
+      `SELECT * FROM game_registrations WHERE game_id = $1 AND user_id = $2`,
+      [gameId, userId]
+    );
+
+    if (currentReg.rows.length === 0) {
+      console.error('Registration not found for gameId:', gameId, 'userId:', userId);
+      throw new Error('Registration not found');
+    }
+
+    console.log('Current registration status:', currentReg.rows[0].status);
+
     // Обновляем регистрацию - теперь игрок оплатил
+    // ВАЖНО: Игрок остается в турнире, только меняется статус с 'registered' на 'paid'
     // Все данные о платеже хранятся в таблице tournament_payments
     const regResult = await query(
       `UPDATE game_registrations
@@ -608,10 +630,17 @@ export const Game = {
     );
 
     if (regResult.rows.length === 0) {
-      throw new Error('Registration not found');
+      console.error('Failed to update registration status');
+      throw new Error('Failed to update registration');
     }
 
     const registration = regResult.rows[0];
+    console.log('Registration updated to paid:', {
+      id: registration.id,
+      game_id: registration.game_id,
+      user_id: registration.user_id,
+      status: registration.status
+    });
 
     // Создаем запись о платеже
     const { TournamentPayment } = await import('./TournamentPayment.js');
@@ -640,6 +669,28 @@ export const Game = {
     if (game.tournament_status === 'started') {
       await this.assignSeatToPlayer(gameId, userId);
     }
+
+    // Проверяем, что игрок действительно остался в турнире со статусом 'paid'
+    const verifyReg = await query(
+      `SELECT * FROM game_registrations WHERE game_id = $1 AND user_id = $2`,
+      [gameId, userId]
+    );
+
+    if (verifyReg.rows.length === 0) {
+      console.error('ERROR: Player was removed from tournament after payment confirmation!');
+      throw new Error('Player was removed from tournament');
+    }
+
+    if (verifyReg.rows[0].status !== 'paid') {
+      console.error('ERROR: Player status is not "paid" after confirmation:', verifyReg.rows[0].status);
+      throw new Error(`Player status is ${verifyReg.rows[0].status}, expected "paid"`);
+    }
+
+    console.log('Payment confirmation completed successfully. Player remains in tournament with status "paid":', {
+      registrationId: verifyReg.rows[0].id,
+      userId: verifyReg.rows[0].user_id,
+      status: verifyReg.rows[0].status
+    });
 
     return registration;
   },

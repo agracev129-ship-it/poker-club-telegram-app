@@ -323,3 +323,5 @@ Payment confirmation error: Error: ...
 
 После деплоя проверьте работу всех функций!
 
+
+

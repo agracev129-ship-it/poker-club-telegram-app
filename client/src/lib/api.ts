@@ -169,6 +169,10 @@ export const usersAPI = {
       body: JSON.stringify(updates),
     });
   },
+
+  async search(query: string): Promise<User[]> {
+    return fetchAPI(`/users/search?q=${encodeURIComponent(query)}`);
+  },
 };
 
 // ============= GAMES API =============
