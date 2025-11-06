@@ -130,25 +130,55 @@ async function initTournamentActionsLog() {
       );
     `);
     
+    // Добавляем constraint для action_type (с проверкой существования)
     await query(`
-      ALTER TABLE tournament_actions_log ADD CONSTRAINT tal_action_type_check
-      CHECK (action_type IN (
-        'open_registration',
-        'close_registration',
-        'confirm_payment',
-        'mark_no_show',
-        'restore_player',
-        'start_tournament',
-        'assign_seat',
-        'finalize_results',
-        'cancel_tournament'
-      ));
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'tal_action_type_check'
+        ) THEN
+          ALTER TABLE tournament_actions_log ADD CONSTRAINT tal_action_type_check
+          CHECK (action_type IN (
+            'open_registration',
+            'close_registration',
+            'confirm_payment',
+            'mark_no_show',
+            'restore_player',
+            'start_tournament',
+            'assign_seat',
+            'finalize_results',
+            'cancel_tournament'
+          ));
+        END IF;
+      END $$;
     `);
     
-    await query(`CREATE INDEX idx_tal_game_id ON tournament_actions_log(game_id);`);
-    await query(`CREATE INDEX idx_tal_admin_id ON tournament_actions_log(admin_id);`);
-    await query(`CREATE INDEX idx_tal_action_type ON tournament_actions_log(action_type);`);
-    await query(`CREATE INDEX idx_tal_created_at ON tournament_actions_log(created_at);`);
+    // Создаем индексы (с проверкой существования)
+    const indexes = [
+      { name: 'idx_tal_game_id', sql: 'CREATE INDEX idx_tal_game_id ON tournament_actions_log(game_id);' },
+      { name: 'idx_tal_admin_id', sql: 'CREATE INDEX idx_tal_admin_id ON tournament_actions_log(admin_id);' },
+      { name: 'idx_tal_action_type', sql: 'CREATE INDEX idx_tal_action_type ON tournament_actions_log(action_type);' },
+      { name: 'idx_tal_created_at', sql: 'CREATE INDEX idx_tal_created_at ON tournament_actions_log(created_at);' }
+    ];
+    
+    for (const idx of indexes) {
+      try {
+        const exists = await query(`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_indexes 
+            WHERE schemaname = 'public' 
+            AND indexname = $1
+          );
+        `, [idx.name]);
+        
+        if (!exists.rows[0].exists) {
+          await query(idx.sql);
+        }
+      } catch (e) {
+        // Игнорируем ошибки создания индекса (может уже существовать)
+        console.warn(`⚠️ Could not create index ${idx.name}:`, e.message);
+      }
+    }
     
     console.log('✅ Table tournament_actions_log created successfully!');
   } catch (error) {

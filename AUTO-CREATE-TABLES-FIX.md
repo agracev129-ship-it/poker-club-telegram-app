@@ -36,18 +36,27 @@
 
 ```
 🚀 Server running on port 3001
+🎰 Initializing all tournament tables...
 💳 Checking tournament_payments table...
 📝 Creating tournament_payments table...
 ✅ Table tournament_payments created successfully!
+📝 Creating tournament_actions_log table...
+✅ Table tournament_actions_log created successfully!
+📝 Creating tournament_point_structure table...
+✅ Table tournament_point_structure created successfully!
 ✅ All tournament tables initialized!
 ```
 
-Или если таблица уже существует:
+Или если таблицы уже существуют:
 
 ```
 🚀 Server running on port 3001
+🎰 Initializing all tournament tables...
 💳 Checking tournament_payments table...
 ✅ Table tournament_payments already exists
+✅ Table tournament_actions_log already exists
+✅ Table tournament_point_structure already exists
+✅ All tournament tables initialized!
 ```
 
 ---
@@ -70,7 +79,10 @@
 4. **Если таблицы нет** → создается автоматически
 5. **Сервер готов к работе** ✅
 
-**Больше никаких ошибок `relation "tournament_payments" does not exist`!**
+**Больше никаких ошибок:**
+- ✅ `relation "tournament_payments" does not exist` - исправлено!
+- ✅ `relation "tournament_actions_log" does not exist` - исправлено!
+- ✅ `relation "tournament_point_structure" does not exist` - исправлено!
 
 ---
 
@@ -79,8 +91,10 @@
 Автоматически создаются следующие таблицы:
 
 1. ✅ **`tournament_payments`** - платежи за турниры (КРИТИЧЕСКАЯ!)
-2. ✅ **`tournament_actions_log`** - лог действий администратора
+2. ✅ **`tournament_actions_log`** - лог действий администратора (КРИТИЧЕСКАЯ!)
 3. ✅ **`tournament_point_structure`** - структура распределения очков
+
+**Все три таблицы создаются автоматически при запуске сервера!**
 
 ---
 
