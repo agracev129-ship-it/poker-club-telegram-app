@@ -530,15 +530,15 @@ export function HomeTab({
           onClick={handleAboutClubClick}
           className="rounded-3xl p-5 relative overflow-hidden w-full text-left transition-all"
         >
-          {/* Background Image with Cards */}
+          {/* Background Image with Poker Cards and Chips */}
           <div 
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: `url('https://images.unsplash.com/photo-1596838132731-3301c3fd4317?w=800&auto=format&fit=crop&q=80')`,
+              backgroundImage: `url('https://images.unsplash.com/photo-1560526396-82d093122bda?w=1200&auto=format&fit=crop&q=90')`,
             }}
           ></div>
-          {/* Dark overlay for readability */}
-          <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/70 to-red-950/75 hover:from-black/70 hover:via-black/65 hover:to-red-950/70 transition-all"></div>
+          {/* Dark overlay for readability with red tint */}
+          <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-red-950/70 to-black/85 hover:from-black/75 hover:via-red-950/65 hover:to-black/80 transition-all"></div>
           
           <div className="relative z-10">
             <h3 className="text-lg mb-2 text-white font-medium">О клубе</h3>
