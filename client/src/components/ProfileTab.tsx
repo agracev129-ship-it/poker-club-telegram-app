@@ -207,10 +207,16 @@ export function ProfileTab() {
       if (!user?.id) return;
       
       try {
+        console.log('Loading last game place for user:', user.id);
         const lastGame = await gamesAPI.getLastFinishedGame(user.id);
-        if (lastGame && lastGame.finish_place) {
+        console.log('Last game result:', lastGame);
+        
+        // ВАЖНО: Берем место из finish_place в table_assignments, а не из рейтинга
+        if (lastGame && lastGame.finish_place !== null && lastGame.finish_place !== undefined) {
+          console.log('Setting last game place:', lastGame.finish_place);
           setLastGamePlace(lastGame.finish_place);
         } else {
+          console.log('No finish_place found, setting to null');
           setLastGamePlace(null);
         }
       } catch (error) {

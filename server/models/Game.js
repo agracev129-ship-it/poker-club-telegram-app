@@ -246,6 +246,8 @@ export const Game = {
    */
   /**
    * Получает последнюю завершенную игру пользователя с местом
+   * ВАЖНО: Место берется из table_assignments.finish_place, а не из рейтинга
+   * finish_place может быть NULL для игроков, которые не выбыли (активны на момент завершения)
    */
   async getLastFinishedGame(userId) {
     const result = await query(
@@ -255,19 +257,40 @@ export const Game = {
         g.date,
         g.time,
         ta.finish_place,
-        gr.status as registration_status
+        gr.status as registration_status,
+        ta.is_eliminated,
+        ta.points_earned
        FROM game_registrations gr
        JOIN games g ON g.id = gr.game_id
-       LEFT JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
+       INNER JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
        WHERE gr.user_id = $1
          AND g.tournament_status = 'finished'
          AND gr.status = 'participated'
-       ORDER BY g.date DESC, g.time DESC
+       ORDER BY g.date DESC, g.time DESC, g.id DESC
        LIMIT 1`,
       [userId]
     );
     
-    return result.rows[0] || null;
+    if (result.rows.length === 0) {
+      console.log(`No finished games found for user ${userId}`);
+      return null;
+    }
+    
+    const game = result.rows[0];
+    console.log(`Last finished game for user ${userId}:`, {
+      gameId: game.id,
+      gameName: game.name,
+      gameDate: game.date,
+      gameTime: game.time,
+      finishPlace: game.finish_place,
+      isEliminated: game.is_eliminated,
+      pointsEarned: game.points_earned,
+      registrationStatus: game.registration_status
+    });
+    
+    // ВАЖНО: Возвращаем finish_place только если он не NULL
+    // Если finish_place NULL, значит игрок был активен на момент завершения (не выбыл)
+    return game;
   },
 
   async getUserGames(userId, status = null) {
