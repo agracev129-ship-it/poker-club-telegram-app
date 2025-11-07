@@ -25,6 +25,25 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/games/last-finished/:userId - Получить последнюю завершенную игру пользователя
+ */
+router.get('/last-finished/:userId', authenticateTelegram, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const lastGame = await Game.getLastFinishedGame(userId);
+    
+    if (!lastGame) {
+      return res.json(null);
+    }
+    
+    res.json(lastGame);
+  } catch (error) {
+    console.error('Error getting last finished game:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/games/:id - Получить игру по ID
  */
 router.get('/:id', async (req, res) => {

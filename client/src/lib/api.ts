@@ -217,6 +217,10 @@ export const gamesAPI = {
     return fetchAPI(`/games/${id}`);
   },
 
+  async getLastFinishedGame(userId: number): Promise<{ id: number; name: string; date: string; time: string; finish_place: number | null } | null> {
+    return fetchAPI(`/games/last-finished/${userId}`);
+  },
+
   async create(gameData: Partial<Game>): Promise<Game> {
     return fetchAPI('/games', {
       method: 'POST',

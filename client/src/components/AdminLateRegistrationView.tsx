@@ -38,21 +38,28 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
   const [paymentNotes, setPaymentNotes] = useState('');
 
   const handleSearchUsers = async () => {
-    if (!searchQuery || searchQuery.length < 2) {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery || trimmedQuery.length < 2) {
       toast.error('Введите минимум 2 символа');
       return;
     }
     
     setLoading(true);
     try {
-      const results = await usersAPI.search(searchQuery);
+      console.log('Searching users with query:', trimmedQuery);
+      const results = await usersAPI.search(trimmedQuery);
+      console.log('Search results:', results);
       setSearchResults(results);
       
       if (results.length === 0) {
-        toast.error('Пользователи не найдены');
+        toast.info('Пользователи не найдены');
+      } else {
+        toast.success(`Найдено пользователей: ${results.length}`);
       }
     } catch (error: any) {
-      toast.error('Ошибка поиска');
+      console.error('Search error:', error);
+      toast.error(error.message || 'Ошибка поиска');
+      setSearchResults([]);
     } finally {
       setLoading(false);
     }
@@ -137,9 +144,13 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
                     id="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Введите имя..."
+                    placeholder="Введите имя или username..."
                     className="bg-gray-800 border-gray-700 pl-10"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearchUsers()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !loading) {
+                        handleSearchUsers();
+                      }
+                    }}
                   />
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                     <SearchIcon />

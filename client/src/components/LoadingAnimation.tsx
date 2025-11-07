@@ -18,7 +18,7 @@ export function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
       
       {/* Loading Text */}
       <div className="mt-8 text-center">
-        <h2 className="text-2xl font-bold text-white mb-2">Покерный клуб</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">King House</h2>
         <p className="text-gray-400 animate-pulse">Загрузка...</p>
       </div>
     </div>

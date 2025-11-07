@@ -5,7 +5,7 @@ import { SettingsView } from './SettingsView';
 import { ProfileEditView } from './ProfileEditView';
 import { useAdmin } from './AdminContext';
 import { useLeaderboard } from '../hooks/useLeaderboard';
-import { usersAPI, User } from '../lib/api';
+import { usersAPI, User, gamesAPI } from '../lib/api';
 import {
   Collapsible,
   CollapsibleContent,
@@ -175,6 +175,7 @@ export function ProfileTab() {
   const [friends, setFriends] = useState<User[]>([]);
   const [isUnlockedOpen, setIsUnlockedOpen] = useState(true);
   const [isLockedOpen, setIsLockedOpen] = useState(false);
+  const [lastGamePlace, setLastGamePlace] = useState<number | null>(null);
 
   // Вычисляем позицию пользователя из рейтинга
   useEffect(() => {
@@ -199,6 +200,26 @@ export function ProfileTab() {
     };
     loadFriends();
   }, []);
+
+  // Загружаем место в последней игре
+  useEffect(() => {
+    const loadLastGamePlace = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const lastGame = await gamesAPI.getLastFinishedGame(user.id);
+        if (lastGame && lastGame.finish_place) {
+          setLastGamePlace(lastGame.finish_place);
+        } else {
+          setLastGamePlace(null);
+        }
+      } catch (error) {
+        console.error('Error loading last game place:', error);
+        setLastGamePlace(null);
+      }
+    };
+    loadLastGamePlace();
+  }, [user?.id]);
 
   const handleActivateAdminMode = () => {
     setAdminMode(true);
@@ -267,7 +288,7 @@ export function ProfileTab() {
               <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-white/10 flex items-center justify-center">
                 <MedalIcon className="w-5 h-5 text-white" />
               </div>
-              <div className="text-xl mb-0.5">—</div>
+              <div className="text-xl mb-0.5">{lastGamePlace || '—'}</div>
               <div className="text-xs text-gray-400">Место в последней игре</div>
             </div>
           </div>

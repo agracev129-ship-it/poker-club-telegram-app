@@ -244,6 +244,32 @@ export const Game = {
    * Получает игры пользователя
    * status может быть: 'registered', 'paid', 'playing', 'started' (статус турнира)
    */
+  /**
+   * Получает последнюю завершенную игру пользователя с местом
+   */
+  async getLastFinishedGame(userId) {
+    const result = await query(
+      `SELECT 
+        g.id,
+        g.name,
+        g.date,
+        g.time,
+        ta.finish_place,
+        gr.status as registration_status
+       FROM game_registrations gr
+       JOIN games g ON g.id = gr.game_id
+       LEFT JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
+       WHERE gr.user_id = $1
+         AND g.tournament_status = 'finished'
+         AND gr.status = 'participated'
+       ORDER BY g.date DESC, g.time DESC
+       LIMIT 1`,
+      [userId]
+    );
+    
+    return result.rows[0] || null;
+  },
+
   async getUserGames(userId, status = null) {
     let sql = `
       SELECT g.*, gr.registered_at, gr.status as registration_status,
@@ -1116,13 +1142,14 @@ export const Game = {
     // Создаем регистрацию
     // ВАЖНО: table_number и seat_number хранятся в table_assignments, а не в game_registrations
     // Все данные о платеже хранятся в таблице tournament_payments
+    // ВАЖНО: is_late_entry может не существовать, используем только registration_type
     const result = await query(
-      `INSERT INTO game_registrations 
-       (game_id, user_id, status, registration_type, is_late_entry)
-       VALUES ($1, $2, 'paid', 'late', true)
+      `INSERT INTO game_registrations
+       (game_id, user_id, status, registration_type)
+       VALUES ($1, $2, 'paid', 'late')
        ON CONFLICT (game_id, user_id) DO UPDATE
        SET status = 'paid',
-           is_late_entry = true
+           registration_type = 'late'
        RETURNING *`,
       [gameId, userId]
     );
@@ -1199,6 +1226,7 @@ export const Game = {
       };
 
       // Подсчитываем игроков по статусам
+      // ВАЖНО: is_late_entry может не существовать, используем registration_type вместо этого
       const statusCounts = await query(
         `SELECT 
           COUNT(*) FILTER (WHERE status = 'registered') as registered_count,
@@ -1206,7 +1234,7 @@ export const Game = {
           COUNT(*) FILTER (WHERE status = 'no_show') as no_show_count,
           COUNT(*) FILTER (WHERE status = 'playing') as playing_count,
           COUNT(*) FILTER (WHERE status = 'eliminated') as eliminated_count,
-          COUNT(*) FILTER (WHERE is_late_entry = true) as late_registered_count
+          COUNT(*) FILTER (WHERE registration_type = 'late') as late_registered_count
          FROM game_registrations
          WHERE game_id = $1`,
         [gameId]

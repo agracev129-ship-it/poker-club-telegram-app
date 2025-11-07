@@ -136,12 +136,21 @@ export function HistoryView({ onClose }: HistoryViewProps) {
           g.status === 'completed'
         );
         
+        // Сортируем от недавно завершенного к самому первому (по дате и времени)
+        finished.sort((a, b) => {
+          const dateA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+          const dateB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+          return dateB - dateA; // От новых к старым
+        });
+        
         console.log('📚 Finished games filtered:', finished.length);
         console.log('📚 Finished games:', finished.map(g => ({
           id: g.id,
           name: g.name,
           tournament_status: g.tournament_status,
-          status: g.status
+          status: g.status,
+          date: g.date,
+          time: g.time
         })));
         
         setAllGames(finished);
