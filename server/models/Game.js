@@ -541,12 +541,18 @@ export const Game = {
             totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
             finishPlace = playerInSeating.finish_place;
           } else if (playerInSeating.is_eliminated === false) {
-            // Игрок активен на момент завершения - начисляем только бонусные очки
-            totalPoints = (playerInSeating.bonus_points || 0);
+            // Игрок активен на момент завершения - начисляем бонусные очки + минимум 1 очко за участие
+            totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
             // finishPlace остается null для активных игроков
           } else {
-            // Игрок в рассадке, но статус неопределенный - начисляем только бонусные очки
-            totalPoints = (playerInSeating.bonus_points || 0);
+            // Игрок в рассадке, но статус неопределенный - начисляем бонусные очки + минимум 1 очко за участие
+            totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
+          }
+          
+          // ВАЖНО: Если totalPoints все еще 0, начисляем минимум 1 очко за участие
+          if (totalPoints === 0) {
+            totalPoints = 1;
+            console.log(`Player ${registration.user_id} has 0 points, setting minimum 1 point for participation`);
           }
         } else {
           // Игрок зарегистрирован но не был в рассадке (турнир завершен до старта или игрок не явился)
@@ -566,6 +572,14 @@ export const Game = {
             // Обновляем статистику пользователя (создаем если нет)
             // ВАЖНО: Обернуто в try-catch, так как таблица может не существовать
             try {
+              // ВАЖНО: Убеждаемся, что totalPoints > 0 для начисления очков
+              if (totalPoints <= 0) {
+                console.warn(`Player ${registration.user_id} has ${totalPoints} points, setting to 1`);
+                totalPoints = 1;
+              }
+              
+              console.log(`Updating user_stats for player ${registration.user_id} with ${totalPoints} points`);
+              
               const statsResult = await query(
                 `INSERT INTO user_stats (user_id, games_played, games_won, total_points)
                  VALUES ($1, 1, $2, $3)
@@ -577,10 +591,17 @@ export const Game = {
                  RETURNING *`,
                 [registration.user_id, finishPlace === 1 ? 1 : 0, totalPoints]
               );
-              console.log(`Stats updated for player ${registration.user_id}:`, statsResult.rows[0]);
+              
+              const updatedStats = statsResult.rows[0];
+              console.log(`✅ Stats updated for player ${registration.user_id}:`, {
+                games_played: updatedStats.games_played,
+                games_won: updatedStats.games_won,
+                total_points: updatedStats.total_points,
+                points_added: totalPoints
+              });
               playersWithPoints++;
             } catch (statsError) {
-              console.error(`Error updating user_stats for player ${registration.user_id}:`, statsError);
+              console.error(`❌ Error updating user_stats for player ${registration.user_id}:`, statsError);
               console.error('Stats error details:', {
                 message: statsError.message,
                 code: statsError.code,
@@ -639,33 +660,55 @@ export const Game = {
         }
       }
 
-      // Обновляем рейтинги (опционально, может не работать если таблица не существует)
+      // Обновляем рейтинги ПОСЛЕ начисления очков всем игрокам
       // ВАЖНО: Обернуто в try-catch, чтобы не падало все приложение
-      try {
-        const { default: User } = await import('./User.js');
-        if (User && User.updateRankings) {
-          console.log('Updating rankings...');
-          await User.updateRankings();
-          console.log('Rankings updated successfully');
-        } else {
-          console.warn('User.updateRankings not available, skipping rankings update');
+      if (playersWithPoints > 0) {
+        try {
+          console.log(`Updating rankings for ${playersWithPoints} players with points...`);
+          const { default: User } = await import('./User.js');
+          if (User && User.updateRankings) {
+            await User.updateRankings();
+            console.log('✅ Rankings updated successfully');
+          } else {
+            console.warn('User.updateRankings not available, skipping rankings update');
+          }
+        } catch (rankingsError) {
+          console.error('❌ Error updating rankings:', rankingsError);
+          console.error('Rankings error details:', {
+            message: rankingsError.message,
+            code: rankingsError.code,
+            stack: rankingsError.stack
+          });
+          // НЕ пробрасываем ошибку дальше, чтобы не падало приложение
         }
-      } catch (rankingsError) {
-        console.warn('Error updating rankings (non-critical):', rankingsError.message);
-        console.warn('Rankings error stack:', rankingsError.stack);
-        // НЕ пробрасываем ошибку дальше, чтобы не падало приложение
+      } else {
+        console.warn('⚠️ No players with points, skipping rankings update');
       }
 
       // Финальная проверка статуса
       const finalCheck = await query(
-        `SELECT tournament_status, id, name FROM games WHERE id = $1`,
+        `SELECT tournament_status, id, name, date FROM games WHERE id = $1`,
         [gameId]
       );
-      console.log('Final check - tournament status:', finalCheck.rows[0]?.tournament_status);
+      const finalStatus = finalCheck.rows[0]?.tournament_status;
+      console.log('🔍 Final check - tournament status:', finalStatus);
+      console.log('🔍 Final check - tournament details:', finalCheck.rows[0]);
 
-      console.log('Tournament finished successfully:', {
+      if (finalStatus !== 'finished') {
+        console.error('❌ ERROR: Tournament status is not "finished" after completion!', {
+          expected: 'finished',
+          actual: finalStatus,
+          gameId
+        });
+      } else {
+        console.log('✅ Tournament status is correctly set to "finished"');
+      }
+
+      console.log('🎉 Tournament finished successfully:', {
         gameId,
-        tournamentStatus: finalCheck.rows[0]?.tournament_status,
+        tournamentStatus: finalStatus,
+        tournamentName: finalCheck.rows[0]?.name,
+        tournamentDate: finalCheck.rows[0]?.date,
         totalRegistered: allRegistered.length,
         playersProcessed,
         playersWithPoints,

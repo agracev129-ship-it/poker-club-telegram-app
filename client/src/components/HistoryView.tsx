@@ -120,15 +120,33 @@ export function HistoryView({ onClose }: HistoryViewProps) {
     const loadFinishedGames = async () => {
       try {
         setGamesLoading(true);
+        console.log('📚 Loading finished games...');
         const response = await gamesAPI.getAll({});
+        console.log('📚 All games loaded:', response.length);
+        console.log('📚 Games statuses:', response.map(g => ({
+          id: g.id,
+          name: g.name,
+          tournament_status: g.tournament_status,
+          status: g.status
+        })));
+        
         // Фильтруем только завершенные и со статусом 'completed'
         const finished = response.filter(g => 
           g.tournament_status === 'finished' || 
           g.status === 'completed'
         );
+        
+        console.log('📚 Finished games filtered:', finished.length);
+        console.log('📚 Finished games:', finished.map(g => ({
+          id: g.id,
+          name: g.name,
+          tournament_status: g.tournament_status,
+          status: g.status
+        })));
+        
         setAllGames(finished);
       } catch (error) {
-        console.error('Error loading finished games:', error);
+        console.error('❌ Error loading finished games:', error);
         setAllGames([]);
       } finally {
         setGamesLoading(false);
