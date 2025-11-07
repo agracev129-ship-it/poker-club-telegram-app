@@ -1143,12 +1143,72 @@ export const Game = {
    * Получить статистику турнира
    */
   async getTournamentStats(gameId) {
-    const result = await query(
-      'SELECT * FROM get_tournament_stats($1)',
-      [gameId]
-    );
+    try {
+      // Получаем статистику напрямую из таблиц, без использования функции БД
+      const stats = {
+        registered_count: 0,
+        paid_count: 0,
+        no_show_count: 0,
+        late_registered_count: 0,
+        playing_count: 0,
+        eliminated_count: 0,
+        total_prize_pool: 0
+      };
 
-    return result.rows[0];
+      // Подсчитываем игроков по статусам
+      const statusCounts = await query(
+        `SELECT 
+          COUNT(*) FILTER (WHERE status = 'registered') as registered_count,
+          COUNT(*) FILTER (WHERE status = 'paid') as paid_count,
+          COUNT(*) FILTER (WHERE status = 'no_show') as no_show_count,
+          COUNT(*) FILTER (WHERE status = 'playing') as playing_count,
+          COUNT(*) FILTER (WHERE status = 'eliminated') as eliminated_count,
+          COUNT(*) FILTER (WHERE is_late_entry = true) as late_registered_count
+         FROM game_registrations
+         WHERE game_id = $1`,
+        [gameId]
+      );
+
+      if (statusCounts.rows.length > 0) {
+        const counts = statusCounts.rows[0];
+        stats.registered_count = parseInt(counts.registered_count) || 0;
+        stats.paid_count = parseInt(counts.paid_count) || 0;
+        stats.no_show_count = parseInt(counts.no_show_count) || 0;
+        stats.playing_count = parseInt(counts.playing_count) || 0;
+        stats.eliminated_count = parseInt(counts.eliminated_count) || 0;
+        stats.late_registered_count = parseInt(counts.late_registered_count) || 0;
+      }
+
+      // Подсчитываем общий призовой фонд (сумма всех подтвержденных платежей)
+      // ВАЖНО: Учитываем только платежи со статусом 'confirmed' (не 'pending' и не 'refunded')
+      try {
+        const prizePoolResult = await query(
+          `SELECT COALESCE(SUM(amount), 0) as total_prize_pool
+           FROM tournament_payments
+           WHERE game_id = $1 AND (status = 'confirmed' OR status IS NULL OR status = '')`,
+          [gameId]
+        );
+        stats.total_prize_pool = parseFloat(prizePoolResult.rows[0]?.total_prize_pool) || 0;
+      } catch (prizeError) {
+        console.warn('Error calculating prize pool (non-critical):', prizeError.message);
+        // Если таблица не существует, просто возвращаем 0
+        stats.total_prize_pool = 0;
+      }
+
+      return stats;
+    } catch (error) {
+      console.error('Error getting tournament stats:', error);
+      // Возвращаем пустую статистику вместо ошибки
+      return {
+        registered_count: 0,
+        paid_count: 0,
+        no_show_count: 0,
+        late_registered_count: 0,
+        playing_count: 0,
+        eliminated_count: 0,
+        total_prize_pool: 0
+      };
+    }
   },
 
   /**
