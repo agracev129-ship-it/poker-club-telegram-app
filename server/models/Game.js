@@ -489,7 +489,7 @@ export const Game = {
       game_id: gameId,
       admin_id: 1, // system
       action_type: 'start_tournament',
-      details: { players_count: shuffledPlayers.length, tables_count: Math.ceil(shuffledPlayers.length / playersPerTable) }
+      details: { players_count: shuffledPlayers.length, tables_count: currentTable }
     });
 
     return assignments;
