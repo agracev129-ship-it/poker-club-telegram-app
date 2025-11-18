@@ -146,30 +146,88 @@ export function HomeTab({
     loadRegistrations();
   }, [apiGames]);
 
+  // Функция для получения текущего московского времени (в миллисекундах UTC)
+  const getMoscowTime = (): number => {
+    const now = new Date();
+    // Получаем UTC время в миллисекундах
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    // Москва = UTC+3, добавляем 3 часа
+    return utc + (3 * 3600000);
+  };
+
+  // Функция для парсинга даты и времени игры в московское время (в миллисекундах UTC)
+  // Предполагаем, что date и time хранятся в московском времени
+  const parseGameDateTime = (dateStr: string, timeStr: string): number => {
+    // Парсим дату в формате YYYY-MM-DD или DD.MM.YYYY
+    let year: number, month: number, day: number;
+    
+    if (dateStr.includes('-')) {
+      // Формат YYYY-MM-DD
+      const parts = dateStr.split('-');
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1; // месяцы в JS начинаются с 0
+      day = parseInt(parts[2], 10);
+    } else if (dateStr.includes('.')) {
+      // Формат DD.MM.YYYY
+      const parts = dateStr.split('.');
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      year = parseInt(parts[2], 10);
+    } else {
+      // Пытаемся распарсить как есть
+      const d = new Date(dateStr);
+      year = d.getFullYear();
+      month = d.getMonth();
+      day = d.getDate();
+    }
+    
+    // Парсим время в формате HH:MM
+    const timeParts = timeStr.split(':');
+    const hours = parseInt(timeParts[0], 10);
+    const minutes = parseInt(timeParts[1] || '0', 10);
+    
+    // Создаем дату в московском времени
+    // Используем Date.UTC для создания UTC времени, вычитая 3 часа (так как московское время = UTC+3)
+    const utcTime = Date.UTC(year, month, day, hours - 3, minutes, 0, 0);
+    
+    return utcTime;
+  };
+
   useEffect(() => {
-    // Calculate time until next game (example: 23.10 19:00)
+    // Calculate time until next game using Moscow time
     const calculateTimeLeft = () => {
-      const now = new Date();
-      const nextGame = new Date();
-      nextGame.setHours(19, 0, 0, 0);
-      
-      // If time has passed today, set to tomorrow
-      if (now.getHours() >= 19) {
-        nextGame.setDate(nextGame.getDate() + 1);
+      if (!firstGame || !firstGame.date || !firstGame.time) {
+        setTimeLeft({ hours: 0, minutes: 0 });
+        return;
       }
-      
-      const diff = nextGame.getTime() - now.getTime();
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      
-      setTimeLeft({ hours, minutes });
+
+      try {
+        const moscowNow = getMoscowTime(); // московское время в миллисекундах UTC
+        const gameDateTime = parseGameDateTime(firstGame.date, firstGame.time); // время игры в миллисекундах UTC
+        
+        const diff = gameDateTime - moscowNow;
+        
+        if (diff < 0) {
+          // Игра уже прошла или началась
+          setTimeLeft({ hours: 0, minutes: 0 });
+          return;
+        }
+        
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        setTimeLeft({ hours, minutes });
+      } catch (error) {
+        console.error('Error calculating time left:', error);
+        setTimeLeft({ hours: 0, minutes: 0 });
+      }
     };
 
     calculateTimeLeft();
     const interval = setInterval(calculateTimeLeft, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, []);
+  }, [firstGame]);
 
   const handleGameClick = (game: Game) => {
     setSelectedGame(game);
@@ -419,56 +477,56 @@ export function HomeTab({
           <div className="relative z-10">
             {/* Header with Period Switcher */}
             <div className="flex items-start justify-between mb-4">
-              <div className="text-sm text-[rgb(255,255,255)] font-normal text-[14px] font-bold">Ваша активность</div>
+              <div className="text-sm text-[rgb(255,255,255)] font-normal text-[15px] font-bold">Ваша активность</div>
               
               {/* Period Switcher */}
-              <div className="bg-[#0d0d0d]/80 rounded-full mt-[-4px] min-w-[175px] p-[4px] mr-[0px] mb-[0px] ml-[0px]">
-                <div className="relative flex items-center">
+              <div className="bg-[rgba(13,13,13,0.8)] rounded-full mt-[-4px]" style={{ width: '193px', height: '35px' }}>
+                <div className="relative flex items-center h-[27px] mt-[3.99px] mx-[3.99px]">
                   {/* Animated indicator */}
                   <motion.div
                     className="absolute bg-gradient-to-br from-red-700 to-red-900 rounded-full"
                     initial={false}
                     animate={{
-                      left: activeIndex === 0 ? '4px' : activeIndex === 1 ? '33.333%' : 'calc(66.666% - 8px)',
-                      width: activeIndex === 2 ? 'calc(33.333% + 10px)' : 'calc(33.333% - 6px)',
+                      left: activeIndex === 0 ? '3px' : activeIndex === 1 ? '58.006px' : '117.012px',
+                      width: '57.33px',
                     }}
                     transition={{
-                      type: 'spring',
-                      stiffness: 300,
-                      damping: 30,
+                      type: 'tween',
+                      duration: 0.3,
+                      ease: 'easeInOut',
                     }}
                     style={{
-                      height: 'calc(100% - 8px)',
-                      top: '4px',
+                      height: '18.991px',
+                      top: '3.99px',
                     }}
                   />
 
                   <button
                     onClick={() => setActivityPeriod('month')}
-                    className="relative py-1.5 z-10 transition-all flex items-center justify-center"
-                    style={{ width: '33.333%' }}
+                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
+                    style={{ width: '58.006px' }}
                   >
-                    <span className={`text-[10px] transition-colors ${activityPeriod === 'month' ? 'text-white' : 'text-gray-400'}`}>
+                    <span className={`text-[10px] transition-colors ${activityPeriod === 'month' ? 'text-white' : 'text-[#99a1af]'}`}>
                       Месяц
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActivityPeriod('year')}
-                    className="relative py-1.5 z-10 transition-all flex items-center justify-center"
-                    style={{ width: '33.333%' }}
+                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
+                    style={{ width: '58.006px' }}
                   >
-                    <span className={`text-[10px] transition-colors ${activityPeriod === 'year' ? 'text-white' : 'text-gray-400'}`} style={{ marginLeft: '-2px' }}>
+                    <span className={`text-[10px] transition-colors ${activityPeriod === 'year' ? 'text-white' : 'text-[#99a1af]'}`}>
                       Год
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActivityPeriod('all')}
-                    className="relative py-1.5 z-10 transition-all flex items-center justify-center"
-                    style={{ width: '33.333%' }}
+                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
+                    style={{ width: '58.006px' }}
                   >
-                    <span className={`text-[10px] whitespace-nowrap transition-colors ${activityPeriod === 'all' ? 'text-white' : 'text-gray-400'}`}>
+                    <span className={`text-[10px] whitespace-nowrap transition-colors ${activityPeriod === 'all' ? 'text-white' : 'text-[#99a1af]'}`}>
                       Всё время
                     </span>
                   </button>
