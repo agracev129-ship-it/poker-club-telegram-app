@@ -88,11 +88,14 @@ declare global {
 }
 
 // Ленивая инициализация для избежания проблем с порядком загрузки
-let _tg: typeof window.Telegram.WebApp | undefined;
+let _tg: any;
 
 function getTg() {
-  if (typeof window !== 'undefined' && !_tg) {
-    _tg = window.Telegram?.WebApp;
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+  if (!_tg && window.Telegram?.WebApp) {
+    _tg = window.Telegram.WebApp;
   }
   return _tg;
 }

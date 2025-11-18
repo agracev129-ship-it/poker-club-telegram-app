@@ -12,15 +12,7 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false, // Оставляем console для отладки
-      },
-      format: {
-        comments: false,
-      },
-    },
+    minify: false, // Временно отключаем минификацию для диагностики
     rollupOptions: {
       output: {
         manualChunks: undefined, // Отключаем автоматическое разделение на чанки
