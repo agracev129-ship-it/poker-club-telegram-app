@@ -13,14 +13,43 @@ export function verifyTelegramWebAppData(initData) {
   const BOT_TOKEN = process.env.BOT_TOKEN;
   
   if (!BOT_TOKEN) {
-    console.error('BOT_TOKEN is not defined');
+    console.error('❌ BOT_TOKEN is not defined in environment variables');
+    console.error('💡 Please set BOT_TOKEN in your .env file or Render environment variables');
     return false;
   }
+
+  // Логируем начало проверки (без чувствительных данных)
+  console.log('🔍 Verifying Telegram WebApp data...');
+  console.log('✅ BOT_TOKEN is set (length:', BOT_TOKEN.length, 'chars)');
 
   try {
     // Парсим initData
     const urlParams = new URLSearchParams(initData);
     const hash = urlParams.get('hash');
+    const userDataStr = urlParams.get('user');
+    
+    if (!hash) {
+      console.error('❌ Hash not found in initData');
+      return false;
+    }
+    
+    if (!userDataStr) {
+      console.error('❌ User data not found in initData');
+      return false;
+    }
+    
+    // Логируем наличие данных (без чувствительной информации)
+    try {
+      const userData = JSON.parse(userDataStr);
+      console.log('✅ User data found:', {
+        id: userData.id,
+        first_name: userData.first_name,
+        username: userData.username || 'no username'
+      });
+    } catch (e) {
+      console.warn('⚠️ Could not parse user data for logging');
+    }
+    
     urlParams.delete('hash');
     
     // Создаем строку для проверки
@@ -41,9 +70,22 @@ export function verifyTelegramWebAppData(initData) {
       .update(dataCheckString)
       .digest('hex');
     
-    return calculatedHash === hash;
+    const isValid = calculatedHash === hash;
+    
+    if (!isValid) {
+      console.error('❌ Telegram data verification failed');
+      console.error('   Expected hash:', hash.substring(0, 10) + '...');
+      console.error('   Calculated hash:', calculatedHash.substring(0, 10) + '...');
+      console.error('💡 This usually means BOT_TOKEN is incorrect or outdated');
+      console.error('💡 If you recreated the bot, update BOT_TOKEN in environment variables');
+    } else {
+      console.log('✅ Telegram data verification successful');
+    }
+    
+    return isValid;
   } catch (error) {
-    console.error('Error verifying Telegram data:', error);
+    console.error('❌ Error verifying Telegram data:', error);
+    console.error('   Error details:', error.message);
     return false;
   }
 }
@@ -54,12 +96,23 @@ export function verifyTelegramWebAppData(initData) {
 export async function authenticateTelegram(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
   
+  console.log('🔐 Authenticating Telegram request...');
+  console.log('   Has initData:', !!initData);
+  
   if (!initData) {
+    console.error('❌ No Telegram initData in request headers');
+    console.error('   Available headers:', Object.keys(req.headers).filter(h => h.toLowerCase().includes('telegram')));
     return res.status(401).json({ error: 'Unauthorized: No Telegram data provided' });
   }
   
+  console.log('   InitData length:', initData.length);
+  
   if (!verifyTelegramWebAppData(initData)) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid Telegram data' });
+    console.error('❌ Telegram data verification failed');
+    return res.status(401).json({ 
+      error: 'Unauthorized: Invalid Telegram data',
+      message: 'BOT_TOKEN may be incorrect. If you recreated the bot, update BOT_TOKEN in environment variables.'
+    });
   }
   
   // Парсим данные пользователя
@@ -68,15 +121,26 @@ export async function authenticateTelegram(req, res, next) {
     const userDataStr = urlParams.get('user');
     if (userDataStr) {
       req.telegramUser = JSON.parse(userDataStr);
+      console.log('✅ User data parsed:', {
+        id: req.telegramUser.id,
+        first_name: req.telegramUser.first_name,
+        username: req.telegramUser.username || 'no username'
+      });
       
       // Находим или создаем пользователя в БД и добавляем в req.user
       const user = await User.findByTelegramId(req.telegramUser.id);
       if (user) {
         req.user = user;
+        console.log('✅ User found in database:', user.id);
+      } else {
+        console.log('⚠️ User not found in database, will be created on first API call');
       }
+    } else {
+      console.error('❌ User data not found in initData');
     }
   } catch (error) {
-    console.error('Error parsing user data:', error);
+    console.error('❌ Error parsing user data:', error);
+    console.error('   Error details:', error.message);
   }
   
   next();

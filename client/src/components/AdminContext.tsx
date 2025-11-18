@@ -13,12 +13,19 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 const ADMIN_TELEGRAM_IDS = [609464085]; // Список telegram_id администраторов
 
 export function AdminProvider({ children }: { children: ReactNode }) {
-  const { user } = useUser();
+  const { user, loading, error } = useUser();
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   
   // Проверяем, является ли пользователь администратором
   // Проверяем и как число, и как строку для совместимости
   const isAdmin = user ? ADMIN_TELEGRAM_IDS.includes(Number(user.telegram_id)) || ADMIN_TELEGRAM_IDS.includes(user.telegram_id as any) : false;
+  
+  // Логируем состояние загрузки
+  useEffect(() => {
+    if (loading || error) {
+      console.log('⏳ Admin check skipped:', { loading, error });
+    }
+  }, [loading, error]);
 
   // Debug logging
   useEffect(() => {

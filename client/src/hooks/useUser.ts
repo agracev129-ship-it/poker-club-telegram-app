@@ -14,11 +14,25 @@ export function useUser() {
     try {
       setLoading(true);
       setError(null);
+      console.log('🔄 Loading user data...');
       const userData = await usersAPI.getMe();
+      console.log('✅ User data loaded:', { id: userData.id, username: userData.username });
       setUser(userData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load user');
-      console.error('Error loading user:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load user';
+      setError(errorMessage);
+      console.error('❌ Error loading user:', err);
+      console.error('   Error details:', {
+        message: errorMessage,
+        status: (err as any)?.status,
+        response: (err as any)?.response
+      });
+      
+      // Если ошибка авторизации, логируем дополнительную информацию
+      if ((err as any)?.status === 401) {
+        console.error('💡 401 Unauthorized - Check BOT_TOKEN on server');
+        console.error('   Make sure BOT_TOKEN matches the bot that opens the app');
+      }
     } finally {
       setLoading(false);
     }

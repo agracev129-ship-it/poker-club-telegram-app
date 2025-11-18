@@ -17,6 +17,7 @@ import { ProfileModerationProvider } from './components/ProfileModerationContext
 import { RatingSeasonsProvider } from './components/RatingSeasonsContext';
 import { TermsAndConditions } from './components/TermsAndConditions';
 import { initTelegramApp } from './lib/telegram';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type TabType = 'home' | 'tournaments' | 'rating' | 'profile';
 
@@ -80,12 +81,19 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    initTelegramApp();
-    
-    // Check if user has accepted terms
-    const accepted = localStorage.getItem('termsAccepted');
-    setHasAcceptedTerms(accepted === 'true');
-    setIsCheckingTerms(false);
+    try {
+      console.log('🚀 Initializing app...');
+      initTelegramApp();
+      console.log('✅ Telegram app initialized');
+      
+      // Check if user has accepted terms
+      const accepted = localStorage.getItem('termsAccepted');
+      setHasAcceptedTerms(accepted === 'true');
+      setIsCheckingTerms(false);
+      console.log('✅ Terms check completed');
+    } catch (error) {
+      console.error('❌ Error initializing app:', error);
+    }
 
     // Простое отслеживание фокуса на input элементах
     const handleFocusIn = (e: Event) => {
@@ -340,17 +348,19 @@ function AppContent() {
 
 export default function App() {
   return (
-    <TournamentsProvider>
-      <GameRegistrationProvider>
-        <RatingSeasonsProvider>
-          <ProfileModerationProvider>
-            <AdminProvider>
-              <AppContent />
-            </AdminProvider>
-          </ProfileModerationProvider>
-        </RatingSeasonsProvider>
-      </GameRegistrationProvider>
-    </TournamentsProvider>
+    <ErrorBoundary>
+      <TournamentsProvider>
+        <GameRegistrationProvider>
+          <RatingSeasonsProvider>
+            <ProfileModerationProvider>
+              <AdminProvider>
+                <AppContent />
+              </AdminProvider>
+            </ProfileModerationProvider>
+          </RatingSeasonsProvider>
+        </GameRegistrationProvider>
+      </TournamentsProvider>
+    </ErrorBoundary>
   );
 }
 
