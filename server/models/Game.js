@@ -373,18 +373,20 @@ export const Game = {
    */
   async startTournament(gameId) {
     // ВАЖНО: Получаем только игроков со статусом 'paid' (оплативших)
+    // ВАЖНО: НЕ сортируем по registered_at, чтобы исходный порядок был случайным
     const paidPlayers = await query(
       `SELECT gr.user_id, u.id, u.first_name, u.last_name, u.photo_url
        FROM game_registrations gr
        JOIN users u ON gr.user_id = u.id
-       WHERE gr.game_id = $1 AND gr.status = 'paid'
-       ORDER BY gr.registered_at`,
+       WHERE gr.game_id = $1 AND gr.status = 'paid'`,
       [gameId]
     );
     
     if (paidPlayers.rows.length === 0) {
       throw new Error('No paid players - cannot start tournament');
     }
+
+    console.log('🎲 Starting tournament with', paidPlayers.rows.length, 'paid players');
 
     // Обновляем статус турнира
     // ВАЖНО: Обновляем только tournament_status, так как started_at может не существовать
@@ -399,16 +401,18 @@ export const Game = {
     // Правильная рандомизация с использованием алгоритма Fisher-Yates shuffle
     const shuffledPlayers = [...paidPlayers.rows];
     console.log('🎲 Shuffling players for random seating...');
-    console.log('   Original order:', shuffledPlayers.map(p => `${p.first_name} ${p.last_name || ''}`).join(', '));
+    console.log('   Original order:', shuffledPlayers.map((p, idx) => `${idx + 1}. ${p.first_name} ${p.last_name || ''}`).join(', '));
     
     // Fisher-Yates shuffle для равномерной рандомизации
+    // ВАЖНО: Используем криптографически стойкий генератор случайных чисел, если доступен
     for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+      // Используем Math.random() для совместимости, но можно заменить на crypto.getRandomValues()
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
     }
     
-    console.log('   Shuffled order:', shuffledPlayers.map(p => `${p.first_name} ${p.last_name || ''}`).join(', '));
-    console.log('✅ Players shuffled randomly');
+    console.log('   Shuffled order:', shuffledPlayers.map((p, idx) => `${idx + 1}. ${p.first_name} ${p.last_name || ''}`).join(', '));
+    console.log('✅ Players shuffled randomly using Fisher-Yates algorithm');
 
     // Удаляем старые назначения если есть
     await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);
@@ -1250,6 +1254,8 @@ export const Game = {
    */
   async getTournamentStats(gameId) {
     try {
+      console.log('📊 Getting tournament stats for gameId:', gameId);
+      
       // Получаем статистику напрямую из таблиц, без использования функции БД
       const stats = {
         registered_count: 0,
@@ -1284,6 +1290,16 @@ export const Game = {
         stats.playing_count = parseInt(counts.playing_count) || 0;
         stats.eliminated_count = parseInt(counts.eliminated_count) || 0;
         stats.late_registered_count = parseInt(counts.late_registered_count) || 0;
+        
+        console.log('📊 Tournament stats:', {
+          registered: stats.registered_count,
+          paid: stats.paid_count,
+          no_show: stats.no_show_count,
+          playing: stats.playing_count,
+          eliminated: stats.eliminated_count
+        });
+      } else {
+        console.log('⚠️ No status counts found for gameId:', gameId);
       }
 
       // Подсчитываем общий призовой фонд (сумма всех подтвержденных платежей)

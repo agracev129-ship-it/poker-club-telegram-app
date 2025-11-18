@@ -194,6 +194,7 @@ export interface Game {
   max_players: number;
   buy_in?: number;
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
+  tournament_status?: 'upcoming' | 'started' | 'finished' | 'cancelled';
   registered_count: number;
   creator_username?: string;
   created_at: string;

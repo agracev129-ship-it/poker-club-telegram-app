@@ -165,12 +165,16 @@ export function HomeTab({
         return;
       }
       
-      // Ищем только начатые турниры из уже загруженных apiGames
+      // Ищем ВСЕ начатые турниры из уже загруженных apiGames
+      // ВАЖНО: Проверяем рассадку для всех начатых турниров, не только для тех, где пользователь зарегистрирован
       const startedGames = apiGames.filter(game => 
-        game.tournament_status === 'started' && registeredGameIds.has(game.id)
+        game.tournament_status === 'started'
       );
       
+      console.log('🔍 Checking seating for started games:', startedGames.length, startedGames.map(g => g.id));
+      
       if (startedGames.length === 0) {
+        console.log('❌ No started games found');
         setHasSeating(false);
         return;
       }
@@ -179,7 +183,10 @@ export function HomeTab({
       const seatingChecks = startedGames.map(async (game) => {
         try {
           const seating = await gamesAPI.getSeating(game.id);
-          return seating.some((s: any) => s.user_id === user.id);
+          console.log(`🔍 Game ${game.id} seating:`, seating.length, 'players');
+          const userHasSeating = seating.some((s: any) => s.user_id === user.id);
+          console.log(`   User ${user.id} has seating:`, userHasSeating);
+          return userHasSeating;
         } catch (error) {
           console.error(`Error checking seating for game ${game.id}:`, error);
           return false;
@@ -189,13 +196,14 @@ export function HomeTab({
       const results = await Promise.all(seatingChecks);
       const hasSeatingResult = results.some(result => result === true);
       
+      console.log('✅ Seating check result:', hasSeatingResult);
       setHasSeating(hasSeatingResult);
     };
     
     // Небольшая задержка, чтобы не блокировать основной рендер
     const timeoutId = setTimeout(checkSeating, 100);
     return () => clearTimeout(timeoutId);
-  }, [user, apiGames, registeredGameIds]);
+  }, [user, apiGames]);
 
   // Функция для получения текущего московского времени (в миллисекундах UTC)
   const getMoscowTime = (): number => {
