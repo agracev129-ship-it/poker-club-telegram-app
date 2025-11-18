@@ -397,8 +397,8 @@ export const Game = {
       [gameId]
     );
 
-    // Генерируем рассадку (9 игроков за столом)
-    const playersPerTable = 9;
+    // Генерируем рассадку (10 мест за столом: от 1 до 10)
+    const seatsPerTable = 10;
     
     // Дополнительная рандомизация с использованием алгоритма Fisher-Yates shuffle
     // Это обеспечивает двойную рандомизацию: сначала на уровне БД (ORDER BY RANDOM()),
@@ -428,17 +428,39 @@ export const Game = {
     // Удаляем старые назначения если есть
     await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);
 
-    // Создаем новые назначения
+    // НОВАЯ ЛОГИКА: Для каждого игрока случайно выбираем место из доступных на текущем столе
+    // Когда стол заполняется, переходим к следующему столу
     const assignments = [];
+    let currentTable = 1;
+    let availableSeats = Array.from({ length: seatsPerTable }, (_, i) => i + 1); // [1, 2, 3, ..., 10]
+    
+    console.log('🎲 Starting random seat assignment...');
+    console.log(`   Table ${currentTable} - Available seats:`, availableSeats);
+    
     for (let i = 0; i < shuffledPlayers.length; i++) {
       const player = shuffledPlayers[i];
-      const tableNumber = Math.floor(i / playersPerTable) + 1;
-      const seatNumber = (i % playersPerTable) + 1;
+      
+      // Если текущий стол заполнен, переходим к следующему
+      if (availableSeats.length === 0) {
+        currentTable++;
+        availableSeats = Array.from({ length: seatsPerTable }, (_, i) => i + 1); // [1, 2, 3, ..., 10]
+        console.log(`   Table ${currentTable} - Available seats:`, availableSeats);
+      }
+      
+      // Случайно выбираем место из доступных
+      const randomIndex = getRandomInt(availableSeats.length - 1);
+      const seatNumber = availableSeats[randomIndex];
+      
+      // Удаляем выбранное место из списка доступных
+      availableSeats.splice(randomIndex, 1);
+      
+      console.log(`   ${player.first_name} ${player.last_name || ''} → Table ${currentTable}, Seat ${seatNumber}`);
+      console.log(`   Remaining seats at table ${currentTable}:`, availableSeats);
 
       await query(
         `INSERT INTO table_assignments (game_id, user_id, table_number, seat_number)
          VALUES ($1, $2, $3, $4)`,
-        [gameId, player.user_id, tableNumber, seatNumber]
+        [gameId, player.user_id, currentTable, seatNumber]
       );
 
       // Обновляем статус регистрации на 'playing'
@@ -453,10 +475,13 @@ export const Game = {
       assignments.push({
         userId: player.user_id,
         userName: `${player.first_name} ${player.last_name || ''}`.trim(),
-        tableNumber,
+        tableNumber: currentTable,
         seatNumber,
       });
     }
+    
+    console.log('✅ Random seat assignment completed!');
+    console.log(`   Total tables: ${currentTable}, Total players: ${shuffledPlayers.length}`);
 
     // Логируем
     const { TournamentAction } = await import('./TournamentAction.js');
