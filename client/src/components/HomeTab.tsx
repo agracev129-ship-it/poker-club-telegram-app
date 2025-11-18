@@ -128,61 +128,74 @@ export function HomeTab({
   // Get first game - вычисляем сразу, чтобы использовать в useEffect
   const firstGame = apiGames.length > 0 ? apiGames[0] : undefined;
 
-  // Загрузка зарегистрированных игр и проверка наличия рассадки
+  // Загрузка зарегистрированных игр (быстро, без блокировки)
   useEffect(() => {
-    const loadRegistrationsAndSeating = async () => {
-      if (!user) {
-        setHasSeating(false);
+    const loadRegistrations = async () => {
+      if (apiGames.length === 0) {
+        setRegisteredGameIds(new Set());
         return;
       }
       
       const registeredIds = new Set<number>();
-      let seatingFound = false;
       
-      // Загружаем все игры (включая начатые) для проверки рассадки
-      try {
-        const allGames = await gamesAPI.getAll({});
-        console.log('🔍 Checking seating for all games:', allGames.length);
-        
-        for (const game of allGames) {
-          try {
-            const { isRegistered } = await gamesAPI.checkRegistration(game.id);
-            if (isRegistered) {
-              registeredIds.add(game.id);
-              
-              // Проверяем наличие рассадки для начатых турниров
-              if (game.tournament_status === 'started') {
-                try {
-                  const seating = await gamesAPI.getSeating(game.id);
-                  console.log(`🔍 Game ${game.id} seating:`, seating.length, 'players');
-                  
-                  // Проверяем, есть ли у текущего пользователя место в рассадке
-                  const userSeating = seating.find((s: any) => s.user_id === user.id);
-                  if (userSeating) {
-                    console.log('✅ User has seating:', userSeating);
-                    seatingFound = true;
-                  }
-                } catch (error) {
-                  console.error(`Error checking seating for game ${game.id}:`, error);
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`Error checking registration for game ${game.id}:`, error);
+      // Проверяем регистрации параллельно для скорости
+      const registrationChecks = apiGames.map(async (game) => {
+        try {
+          const { isRegistered } = await gamesAPI.checkRegistration(game.id);
+          if (isRegistered) {
+            registeredIds.add(game.id);
           }
+        } catch (error) {
+          console.error(`Error checking registration for game ${game.id}:`, error);
         }
-        
-        console.log('🔍 Seating check result:', { seatingFound, registeredCount: registeredIds.size });
-      } catch (error) {
-        console.error('Error loading games for seating check:', error);
-      }
+      });
       
+      await Promise.all(registrationChecks);
       setRegisteredGameIds(registeredIds);
-      setHasSeating(seatingFound);
     };
     
-    loadRegistrationsAndSeating();
-  }, [apiGames, user]);
+    loadRegistrations();
+  }, [apiGames]);
+
+  // Отдельная проверка рассадки только для начатых турниров (не блокирует загрузку)
+  useEffect(() => {
+    const checkSeating = async () => {
+      if (!user || apiGames.length === 0) {
+        setHasSeating(false);
+        return;
+      }
+      
+      // Ищем только начатые турниры из уже загруженных apiGames
+      const startedGames = apiGames.filter(game => 
+        game.tournament_status === 'started' && registeredGameIds.has(game.id)
+      );
+      
+      if (startedGames.length === 0) {
+        setHasSeating(false);
+        return;
+      }
+      
+      // Проверяем рассадку параллельно для всех начатых турниров
+      const seatingChecks = startedGames.map(async (game) => {
+        try {
+          const seating = await gamesAPI.getSeating(game.id);
+          return seating.some((s: any) => s.user_id === user.id);
+        } catch (error) {
+          console.error(`Error checking seating for game ${game.id}:`, error);
+          return false;
+        }
+      });
+      
+      const results = await Promise.all(seatingChecks);
+      const hasSeatingResult = results.some(result => result === true);
+      
+      setHasSeating(hasSeatingResult);
+    };
+    
+    // Небольшая задержка, чтобы не блокировать основной рендер
+    const timeoutId = setTimeout(checkSeating, 100);
+    return () => clearTimeout(timeoutId);
+  }, [user, apiGames, registeredGameIds]);
 
   // Функция для получения текущего московского времени (в миллисекундах UTC)
   const getMoscowTime = (): number => {
