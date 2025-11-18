@@ -122,32 +122,53 @@ export function HomeTab({
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [activityPeriod, setActivityPeriod] = useState<'month' | 'year' | 'all'>('month');
   const [registeredGameIds, setRegisteredGameIds] = useState<Set<number>>(new Set());
+  const [hasSeating, setHasSeating] = useState(false);
   const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames} = useGameRegistration();
 
   // Get first game - вычисляем сразу, чтобы использовать в useEffect
   const firstGame = apiGames.length > 0 ? apiGames[0] : undefined;
 
-  // Загрузка зарегистрированных игр через API
+  // Загрузка зарегистрированных игр и проверка наличия рассадки
   useEffect(() => {
-    const loadRegistrations = async () => {
-      if (apiGames.length === 0) return;
+    const loadRegistrationsAndSeating = async () => {
+      if (apiGames.length === 0) {
+        setHasSeating(false);
+        return;
+      }
       
       const registeredIds = new Set<number>();
+      let seatingFound = false;
+      
       for (const game of apiGames) {
         try {
           const { isRegistered } = await gamesAPI.checkRegistration(game.id);
           if (isRegistered) {
             registeredIds.add(game.id);
+            
+            // Проверяем наличие рассадки для начатых турниров
+            if (game.tournament_status === 'started') {
+              try {
+                const seating = await gamesAPI.getSeating(game.id);
+                // Проверяем, есть ли у текущего пользователя место в рассадке
+                if (user && seating.some((s: any) => s.user_id === user.id)) {
+                  seatingFound = true;
+                }
+              } catch (error) {
+                console.error(`Error checking seating for game ${game.id}:`, error);
+              }
+            }
           }
         } catch (error) {
           console.error(`Error checking registration for game ${game.id}:`, error);
         }
       }
+      
       setRegisteredGameIds(registeredIds);
+      setHasSeating(seatingFound);
     };
     
-    loadRegistrations();
-  }, [apiGames]);
+    loadRegistrationsAndSeating();
+  }, [apiGames, user]);
 
   // Функция для получения текущего московского времени (в миллисекундах UTC)
   const getMoscowTime = (): number => {
@@ -276,8 +297,8 @@ export function HomeTab({
   // Get all registered games
   const allRegisteredGames = apiGames.filter(game => registeredGameIds.has(game.id));
   
-  // Check if seating is available
-  const isSeatingAvailable = registeredGameIds.size > 0;
+  // Check if seating is available - плашка должна гореть когда есть реальная рассадка
+  const isSeatingAvailable = hasSeating;
   
   const handleSeatingClick = () => {
     onOpenSeating();

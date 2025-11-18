@@ -395,7 +395,13 @@ export const Game = {
 
     // Генерируем рассадку (9 игроков за столом)
     const playersPerTable = 9;
-    const shuffledPlayers = [...paidPlayers.rows].sort(() => Math.random() - 0.5);
+    
+    // Правильная рандомизация с использованием алгоритма Fisher-Yates shuffle
+    const shuffledPlayers = [...paidPlayers.rows];
+    for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+    }
 
     // Удаляем старые назначения если есть
     await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);
