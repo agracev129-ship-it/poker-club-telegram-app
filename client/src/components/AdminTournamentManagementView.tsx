@@ -242,7 +242,25 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
   const handleEliminatePlayer = async (playerId: number) => {
     try {
       const activePlayers = seating.filter(p => !p.is_eliminated);
-      const newPlace = activePlayers.length;
+      
+      // ВАЖНО: Место рассчитывается как количество оставшихся активных игроков
+      // Если осталось 2 игрока, и один выбывает, он получает место 2
+      // Если остался 1 игрок (победитель), он получает место 1
+      // НО: нужно учесть уже выбывших игроков
+      const eliminatedPlayers = seating.filter(p => p.is_eliminated);
+      const totalPlayers = seating.length;
+      
+      // Место = общее количество игроков - количество уже выбывших игроков
+      // Это гарантирует правильную нумерацию: последний выбывший = место 2, победитель = место 1
+      const newPlace = totalPlayers - eliminatedPlayers.length;
+      
+      console.log('Calculating place for eliminated player:', {
+        playerId,
+        totalPlayers,
+        eliminatedCount: eliminatedPlayers.length,
+        activeCount: activePlayers.length,
+        calculatedPlace: newPlace
+      });
       
       // Get points from localStorage tournamentSettings
       const tournamentSettings = JSON.parse(localStorage.getItem('tournamentSettings') || '{}');
@@ -265,6 +283,8 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
       if (remainingPlayers.length === 1) {
         const winner = remainingPlayers[0];
         const firstPlacePoints = pointDist.find((p: any) => p.place === 1)?.points || 0;
+        
+        console.log('Only one player remains, eliminating winner with place 1:', winner.user_id);
         
         // Eliminate winner with 1st place
         await gamesAPI.eliminatePlayer(tournament.id, winner.user_id, 1, firstPlacePoints);

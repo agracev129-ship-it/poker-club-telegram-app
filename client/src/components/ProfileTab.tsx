@@ -210,7 +210,15 @@ export function ProfileTab() {
         console.log('Last game result:', lastGame);
         
         // ВАЖНО: Берем место из finish_place в table_assignments, а не из рейтинга
+        // finish_place = 1 означает первое место, 2 = второе место и т.д.
         if (lastGame && lastGame.finish_place !== null && lastGame.finish_place !== undefined) {
+          console.log('Last game data:', {
+            gameId: lastGame.id,
+            gameName: lastGame.name,
+            finishPlace: lastGame.finish_place,
+            isEliminated: lastGame.is_eliminated,
+            pointsEarned: lastGame.points_earned
+          });
           console.log('Setting last game place:', lastGame.finish_place);
           setLastGamePlace(lastGame.finish_place);
         } else {
