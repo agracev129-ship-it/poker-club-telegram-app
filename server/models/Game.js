@@ -373,12 +373,13 @@ export const Game = {
    */
   async startTournament(gameId) {
     // ВАЖНО: Получаем только игроков со статусом 'paid' (оплативших)
-    // ВАЖНО: НЕ сортируем по registered_at, чтобы исходный порядок был случайным
+    // ВАЖНО: Используем ORDER BY RANDOM() для истинной рандомизации на уровне БД
     const paidPlayers = await query(
       `SELECT gr.user_id, u.id, u.first_name, u.last_name, u.photo_url
        FROM game_registrations gr
        JOIN users u ON gr.user_id = u.id
-       WHERE gr.game_id = $1 AND gr.status = 'paid'`,
+       WHERE gr.game_id = $1 AND gr.status = 'paid'
+       ORDER BY RANDOM()`,
       [gameId]
     );
     
@@ -387,6 +388,7 @@ export const Game = {
     }
 
     console.log('🎲 Starting tournament with', paidPlayers.rows.length, 'paid players');
+    console.log('   Random order from DB:', paidPlayers.rows.map((p, idx) => `${idx + 1}. ${p.first_name} ${p.last_name || ''}`).join(', '));
 
     // Обновляем статус турнира
     // ВАЖНО: Обновляем только tournament_status, так как started_at может не существовать
@@ -398,21 +400,30 @@ export const Game = {
     // Генерируем рассадку (9 игроков за столом)
     const playersPerTable = 9;
     
-    // Правильная рандомизация с использованием алгоритма Fisher-Yates shuffle
+    // Дополнительная рандомизация с использованием алгоритма Fisher-Yates shuffle
+    // Это обеспечивает двойную рандомизацию: сначала на уровне БД (ORDER BY RANDOM()),
+    // затем на уровне приложения (Fisher-Yates shuffle)
     const shuffledPlayers = [...paidPlayers.rows];
-    console.log('🎲 Shuffling players for random seating...');
-    console.log('   Original order:', shuffledPlayers.map((p, idx) => `${idx + 1}. ${p.first_name} ${p.last_name || ''}`).join(', '));
+    console.log('🎲 Applying additional Fisher-Yates shuffle...');
     
-    // Fisher-Yates shuffle для равномерной рандомизации
-    // ВАЖНО: Используем криптографически стойкий генератор случайных чисел, если доступен
+    // Fisher-Yates shuffle для дополнительной рандомизации
+    // Используем crypto.getRandomValues() для более надежной рандомизации, если доступно
+    const getRandomInt = (max) => {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
+        return array[0] % (max + 1);
+      }
+      return Math.floor(Math.random() * (max + 1));
+    };
+    
     for (let i = shuffledPlayers.length - 1; i > 0; i--) {
-      // Используем Math.random() для совместимости, но можно заменить на crypto.getRandomValues()
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = getRandomInt(i);
       [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
     }
     
-    console.log('   Shuffled order:', shuffledPlayers.map((p, idx) => `${idx + 1}. ${p.first_name} ${p.last_name || ''}`).join(', '));
-    console.log('✅ Players shuffled randomly using Fisher-Yates algorithm');
+    console.log('   Final shuffled order:', shuffledPlayers.map((p, idx) => `${idx + 1}. ${p.first_name} ${p.last_name || ''}`).join(', '));
+    console.log('✅ Players shuffled randomly using ORDER BY RANDOM() + Fisher-Yates algorithm');
 
     // Удаляем старые назначения если есть
     await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);

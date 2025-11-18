@@ -121,7 +121,9 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       setPlayers(allPlayers);
       
       // Загружаем статистику
+      console.log('📊 Loading tournament stats for game:', game.id);
       const gameStats = await gamesAPI.getTournamentStats(game.id);
+      console.log('📊 Tournament stats received:', gameStats);
       setStats(gameStats);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -237,10 +239,20 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       setPaymentNotes('');
       
       // Небольшая задержка, чтобы сервер успел обновить данные
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Обновляем данные
+      console.log('🔄 Reloading data after payment confirmation...');
       await loadData();
+      
+      // Дополнительно обновляем статистику отдельно для надежности
+      try {
+        const freshStats = await gamesAPI.getTournamentStats(game.id);
+        console.log('📊 Fresh stats after payment:', freshStats);
+        setStats(freshStats);
+      } catch (statsError) {
+        console.error('Error refreshing stats:', statsError);
+      }
       
       // Проверяем, что игрок теперь в списке оплативших
       const updatedPlayers = await Promise.all([
@@ -328,7 +340,22 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       setSelectedUser(null);
       setOnsiteSearchQuery('');
       setSearchResults([]);
+      
+      // Небольшая задержка, чтобы сервер успел обновить данные
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Обновляем данные
+      console.log('🔄 Reloading data after onsite registration...');
       await loadData();
+      
+      // Дополнительно обновляем статистику отдельно для надежности
+      try {
+        const freshStats = await gamesAPI.getTournamentStats(game.id);
+        console.log('📊 Fresh stats after onsite registration:', freshStats);
+        setStats(freshStats);
+      } catch (statsError) {
+        console.error('Error refreshing stats:', statsError);
+      }
     } catch (error: any) {
       toast.error(error.message || 'Ошибка регистрации');
     }
@@ -377,7 +404,17 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       toast.success(`${player.first_name || 'Игрок'} исключен`);
       
       // Обновляем данные
+      console.log('🔄 Reloading data after marking no-show...');
       await loadData();
+      
+      // Дополнительно обновляем статистику отдельно для надежности
+      try {
+        const freshStats = await gamesAPI.getTournamentStats(game.id);
+        console.log('📊 Fresh stats after no-show:', freshStats);
+        setStats(freshStats);
+      } catch (statsError) {
+        console.error('Error refreshing stats:', statsError);
+      }
       
       // Если игрок был в другом фильтре, автоматически переключаемся на "Исключены"
       if (filterStatus !== 'no_show') {
@@ -419,7 +456,22 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
       const result = await gamesAPI.restorePlayer(game.id, userId);
       console.log('Player restored:', result);
       toast.success(`${player.first_name || 'Игрок'} восстановлен`);
+      
+      // Небольшая задержка, чтобы сервер успел обновить данные
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Обновляем данные
+      console.log('🔄 Reloading data after restoring player...');
       await loadData();
+      
+      // Дополнительно обновляем статистику отдельно для надежности
+      try {
+        const freshStats = await gamesAPI.getTournamentStats(game.id);
+        console.log('📊 Fresh stats after restore:', freshStats);
+        setStats(freshStats);
+      } catch (statsError) {
+        console.error('Error refreshing stats:', statsError);
+      }
     } catch (error: any) {
       console.error('Restore player error:', error);
       const errorMessage = error.message || error.error || 'Ошибка при восстановлении игрока';
