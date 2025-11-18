@@ -12,6 +12,20 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: false, // Оставляем console для отладки
+      },
+      format: {
+        comments: false,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: undefined, // Отключаем автоматическое разделение на чанки
+      },
+    },
   },
   server: {
     port: 3000,

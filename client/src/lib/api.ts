@@ -6,7 +6,14 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
  * Базовая функция для выполнения API запросов
  */
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
-  const initData = getTelegramInitData();
+  // Ленивая инициализация initData для избежания проблем с порядком загрузки
+  let initData: string;
+  try {
+    initData = getTelegramInitData();
+  } catch (error) {
+    console.warn('Failed to get Telegram initData, using empty string:', error);
+    initData = '';
+  }
   
   const headers = {
     'Content-Type': 'application/json',
