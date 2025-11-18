@@ -87,30 +87,39 @@ declare global {
   }
 }
 
-export const tg = window.Telegram?.WebApp;
+// Ленивая инициализация для избежания проблем с порядком загрузки
+let _tg: typeof window.Telegram.WebApp | undefined;
+
+function getTg() {
+  if (typeof window !== 'undefined' && !_tg) {
+    _tg = window.Telegram?.WebApp;
+  }
+  return _tg;
+}
 
 /**
  * Инициализирует Telegram Web App
  */
 export function initTelegramApp() {
-  if (tg) {
-    tg.ready();
-    tg.expand(); // Разворачивает приложение
+  const telegramApp = getTg();
+  if (telegramApp) {
+    telegramApp.ready();
+    telegramApp.expand(); // Разворачивает приложение
     
     // Запрашиваем полноэкранный режим только для мобильных устройств
-    const isMobile = ['android', 'ios', 'android_x'].includes(tg.platform);
-    if (isMobile && tg.requestFullscreen) {
-      tg.requestFullscreen();
+    const isMobile = ['android', 'ios', 'android_x'].includes(telegramApp.platform);
+    if (isMobile && telegramApp.requestFullscreen) {
+      telegramApp.requestFullscreen();
       console.log('Fullscreen mode enabled for mobile');
     }
     
-    tg.setHeaderColor('#000000');
-    tg.setBackgroundColor('#000000');
+    telegramApp.setHeaderColor('#000000');
+    telegramApp.setBackgroundColor('#000000');
     console.log('Telegram Web App initialized');
-    console.log('User:', tg.initDataUnsafe.user);
-    console.log('Platform:', tg.platform);
+    console.log('User:', telegramApp.initDataUnsafe.user);
+    console.log('Platform:', telegramApp.platform);
     console.log('Is Mobile:', isMobile);
-    console.log('IsExpanded:', tg.isExpanded);
+    console.log('IsExpanded:', telegramApp.isExpanded);
   } else {
     console.warn('Telegram Web App is not available. Using mock data for development.');
   }
@@ -120,8 +129,9 @@ export function initTelegramApp() {
  * Получает данные пользователя из Telegram
  */
 export function getTelegramUser() {
-  if (tg?.initDataUnsafe.user) {
-    return tg.initDataUnsafe.user;
+  const telegramApp = getTg();
+  if (telegramApp?.initDataUnsafe.user) {
+    return telegramApp.initDataUnsafe.user;
   }
   
   // Мок данные для разработки
@@ -139,8 +149,9 @@ export function getTelegramUser() {
  * Получает initData для авторизации на сервере
  */
 export function getTelegramInitData(): string {
-  if (tg?.initData) {
-    return tg.initData;
+  const telegramApp = getTg();
+  if (telegramApp?.initData) {
+    return telegramApp.initData;
   }
   
   // Мок данные для разработки
@@ -152,10 +163,11 @@ export function getTelegramInitData(): string {
  * Показывает главную кнопку Telegram
  */
 export function showMainButton(text: string, onClick: () => void) {
-  if (tg?.MainButton) {
-    tg.MainButton.setText(text);
-    tg.MainButton.onClick(onClick);
-    tg.MainButton.show();
+  const telegramApp = getTg();
+  if (telegramApp?.MainButton) {
+    telegramApp.MainButton.setText(text);
+    telegramApp.MainButton.onClick(onClick);
+    telegramApp.MainButton.show();
   }
 }
 
@@ -163,8 +175,9 @@ export function showMainButton(text: string, onClick: () => void) {
  * Скрывает главную кнопку Telegram
  */
 export function hideMainButton() {
-  if (tg?.MainButton) {
-    tg.MainButton.hide();
+  const telegramApp = getTg();
+  if (telegramApp?.MainButton) {
+    telegramApp.MainButton.hide();
   }
 }
 
@@ -172,9 +185,10 @@ export function hideMainButton() {
  * Показывает кнопку "Назад" Telegram
  */
 export function showBackButton(onClick: () => void) {
-  if (tg?.BackButton) {
-    tg.BackButton.onClick(onClick);
-    tg.BackButton.show();
+  const telegramApp = getTg();
+  if (telegramApp?.BackButton) {
+    telegramApp.BackButton.onClick(onClick);
+    telegramApp.BackButton.show();
   }
 }
 
@@ -182,8 +196,9 @@ export function showBackButton(onClick: () => void) {
  * Скрывает кнопку "Назад" Telegram
  */
 export function hideBackButton() {
-  if (tg?.BackButton) {
-    tg.BackButton.hide();
+  const telegramApp = getTg();
+  if (telegramApp?.BackButton) {
+    telegramApp.BackButton.hide();
   }
 }
 
@@ -191,8 +206,9 @@ export function hideBackButton() {
  * Показывает алерт в Telegram
  */
 export function showAlert(message: string) {
-  if (tg) {
-    tg.showAlert(message);
+  const telegramApp = getTg();
+  if (telegramApp) {
+    telegramApp.showAlert(message);
   } else {
     alert(message);
   }
@@ -203,8 +219,9 @@ export function showAlert(message: string) {
  */
 export function showConfirm(message: string): Promise<boolean> {
   return new Promise((resolve) => {
-    if (tg) {
-      tg.showConfirm(message, (confirmed) => resolve(confirmed));
+    const telegramApp = getTg();
+    if (telegramApp) {
+      telegramApp.showConfirm(message, (confirmed) => resolve(confirmed));
     } else {
       resolve(confirm(message));
     }
@@ -215,8 +232,9 @@ export function showConfirm(message: string): Promise<boolean> {
  * Закрывает Telegram Mini App
  */
 export function closeTelegramApp() {
-  if (tg) {
-    tg.close();
+  const telegramApp = getTg();
+  if (telegramApp) {
+    telegramApp.close();
   }
 }
 
@@ -224,8 +242,9 @@ export function closeTelegramApp() {
  * Открывает ссылку в Telegram
  */
 export function openTelegramLink(url: string) {
-  if (tg) {
-    tg.openTelegramLink(url);
+  const telegramApp = getTg();
+  if (telegramApp) {
+    telegramApp.openTelegramLink(url);
   } else {
     window.open(url, '_blank');
   }
@@ -235,8 +254,9 @@ export function openTelegramLink(url: string) {
  * Открывает внешнюю ссылку
  */
 export function openLink(url: string) {
-  if (tg) {
-    tg.openLink(url);
+  const telegramApp = getTg();
+  if (telegramApp) {
+    telegramApp.openLink(url);
   } else {
     window.open(url, '_blank');
   }
@@ -252,5 +272,5 @@ export function vibrate(type: 'light' | 'medium' | 'heavy' = 'medium') {
   }
 }
 
-export default tg;
+export default getTg;
 
