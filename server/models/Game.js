@@ -250,6 +250,9 @@ export const Game = {
    * finish_place может быть NULL для игроков, которые не выбыли (активны на момент завершения)
    */
   async getLastFinishedGame(userId) {
+    // ВАЖНО: Ищем последнюю завершенную игру, где игрок был в рассадке
+    // Используем INNER JOIN с table_assignments, чтобы гарантировать, что игрок был в рассадке
+    // Убираем фильтр по gr.status, так как он может быть 'paid' или 'playing', но не 'participated'
     const result = await query(
       `SELECT 
         g.id,
@@ -265,7 +268,7 @@ export const Game = {
        INNER JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
        WHERE gr.user_id = $1
          AND g.tournament_status = 'finished'
-         AND gr.status = 'participated'
+         AND gr.status IN ('paid', 'playing')
        ORDER BY g.date DESC, g.time DESC, g.id DESC
        LIMIT 1`,
       [userId]
@@ -288,8 +291,9 @@ export const Game = {
       registrationStatus: game.registration_status
     });
     
-    // ВАЖНО: Возвращаем finish_place только если он не NULL
-    // Если finish_place NULL, значит игрок был активен на момент завершения (не выбыл)
+    // ВАЖНО: Возвращаем finish_place как есть
+    // finish_place может быть NULL для активных игроков (не выбывших)
+    // Если finish_place установлен, это место игрока в турнире (1 = первое место, 2 = второе и т.д.)
     return game;
   },
 

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useUser } from '../hooks/useUser';
 import { getInitials, formatRelativeTime } from '../lib/utils';
 import { SettingsView } from './SettingsView';
-import { ProfileEditView } from './ProfileEditView';
 import { useAdmin } from './AdminContext';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { usersAPI, User, gamesAPI } from '../lib/api';
@@ -170,7 +169,6 @@ export function ProfileTab() {
   const { isAdmin, setAdminMode } = useAdmin();
   const { leaderboard } = useLeaderboard(100);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [friends, setFriends] = useState<User[]>([]);
   const [isUnlockedOpen, setIsUnlockedOpen] = useState(true);
@@ -253,14 +251,6 @@ export function ProfileTab() {
             <p className="text-sm text-gray-400">Игрок • #{userRank || '—'} в рейтинге</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsProfileEditOpen(true)}
-              className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-              </svg>
-            </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center hover:bg-[#252525] transition-colors"
@@ -553,10 +543,6 @@ export function ProfileTab() {
         <SettingsView onClose={() => setIsSettingsOpen(false)} />
       )}
 
-      {/* Profile Edit View Modal */}
-      {isProfileEditOpen && (
-        <ProfileEditView onClose={() => setIsProfileEditOpen(false)} />
-      )}
     </>
   );
 }
