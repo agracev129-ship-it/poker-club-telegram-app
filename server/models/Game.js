@@ -398,10 +398,17 @@ export const Game = {
     
     // Правильная рандомизация с использованием алгоритма Fisher-Yates shuffle
     const shuffledPlayers = [...paidPlayers.rows];
+    console.log('🎲 Shuffling players for random seating...');
+    console.log('   Original order:', shuffledPlayers.map(p => `${p.first_name} ${p.last_name || ''}`).join(', '));
+    
+    // Fisher-Yates shuffle для равномерной рандомизации
     for (let i = shuffledPlayers.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
     }
+    
+    console.log('   Shuffled order:', shuffledPlayers.map(p => `${p.first_name} ${p.last_name || ''}`).join(', '));
+    console.log('✅ Players shuffled randomly');
 
     // Удаляем старые назначения если есть
     await query('DELETE FROM table_assignments WHERE game_id = $1', [gameId]);

@@ -131,7 +131,7 @@ export function HomeTab({
   // Загрузка зарегистрированных игр и проверка наличия рассадки
   useEffect(() => {
     const loadRegistrationsAndSeating = async () => {
-      if (apiGames.length === 0) {
+      if (!user) {
         setHasSeating(false);
         return;
       }
@@ -139,28 +139,42 @@ export function HomeTab({
       const registeredIds = new Set<number>();
       let seatingFound = false;
       
-      for (const game of apiGames) {
-        try {
-          const { isRegistered } = await gamesAPI.checkRegistration(game.id);
-          if (isRegistered) {
-            registeredIds.add(game.id);
-            
-            // Проверяем наличие рассадки для начатых турниров
-            if (game.tournament_status === 'started') {
-              try {
-                const seating = await gamesAPI.getSeating(game.id);
-                // Проверяем, есть ли у текущего пользователя место в рассадке
-                if (user && seating.some((s: any) => s.user_id === user.id)) {
-                  seatingFound = true;
+      // Загружаем все игры (включая начатые) для проверки рассадки
+      try {
+        const allGames = await gamesAPI.getAll({});
+        console.log('🔍 Checking seating for all games:', allGames.length);
+        
+        for (const game of allGames) {
+          try {
+            const { isRegistered } = await gamesAPI.checkRegistration(game.id);
+            if (isRegistered) {
+              registeredIds.add(game.id);
+              
+              // Проверяем наличие рассадки для начатых турниров
+              if (game.tournament_status === 'started') {
+                try {
+                  const seating = await gamesAPI.getSeating(game.id);
+                  console.log(`🔍 Game ${game.id} seating:`, seating.length, 'players');
+                  
+                  // Проверяем, есть ли у текущего пользователя место в рассадке
+                  const userSeating = seating.find((s: any) => s.user_id === user.id);
+                  if (userSeating) {
+                    console.log('✅ User has seating:', userSeating);
+                    seatingFound = true;
+                  }
+                } catch (error) {
+                  console.error(`Error checking seating for game ${game.id}:`, error);
                 }
-              } catch (error) {
-                console.error(`Error checking seating for game ${game.id}:`, error);
               }
             }
+          } catch (error) {
+            console.error(`Error checking registration for game ${game.id}:`, error);
           }
-        } catch (error) {
-          console.error(`Error checking registration for game ${game.id}:`, error);
         }
+        
+        console.log('🔍 Seating check result:', { seatingFound, registeredCount: registeredIds.size });
+      } catch (error) {
+        console.error('Error loading games for seating check:', error);
       }
       
       setRegisteredGameIds(registeredIds);
