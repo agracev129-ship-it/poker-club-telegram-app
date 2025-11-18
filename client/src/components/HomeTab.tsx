@@ -124,6 +124,9 @@ export function HomeTab({
   const [registeredGameIds, setRegisteredGameIds] = useState<Set<number>>(new Set());
   const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames} = useGameRegistration();
 
+  // Get first game - вычисляем сразу, чтобы использовать в useEffect
+  const firstGame = apiGames.length > 0 ? apiGames[0] : undefined;
+
   // Загрузка зарегистрированных игр через API
   useEffect(() => {
     const loadRegistrations = async () => {
@@ -267,9 +270,8 @@ export function HomeTab({
 
   const isRegistered = selectedGame ? registeredGameIds.has(selectedGame.id) : false;
 
-  // Get first two games
-  const firstGame = apiGames[0];
-  const secondGame = apiGames[1];
+  // Get second game
+  const secondGame = apiGames.length > 1 ? apiGames[1] : undefined;
   
   // Get all registered games
   const allRegisteredGames = apiGames.filter(game => registeredGameIds.has(game.id));
