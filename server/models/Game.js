@@ -1128,10 +1128,10 @@ export const Game = {
     if (existing.rows.length > 0) {
       // Обновляем существующую регистрацию
       // Все данные о платеже хранятся в таблице tournament_payments
+      // ВАЖНО: registration_type может не существовать в БД, поэтому не используем его
       const result = await query(
         `UPDATE game_registrations
-         SET status = 'paid',
-             registration_type = 'onsite'
+         SET status = 'paid'
          WHERE game_id = $1 AND user_id = $2
          RETURNING *`,
         [gameId, userId]
@@ -1140,10 +1140,11 @@ export const Game = {
     } else {
       // Создаем новую регистрацию
       // Все данные о платеже хранятся в таблице tournament_payments
+      // ВАЖНО: registration_type может не существовать в БД, поэтому не используем его
       const result = await query(
         `INSERT INTO game_registrations 
-         (game_id, user_id, status, registration_type)
-         VALUES ($1, $2, 'paid', 'onsite')
+         (game_id, user_id, status)
+         VALUES ($1, $2, 'paid')
          RETURNING *`,
         [gameId, userId]
       );
@@ -1193,14 +1194,13 @@ export const Game = {
     // Создаем регистрацию
     // ВАЖНО: table_number и seat_number хранятся в table_assignments, а не в game_registrations
     // Все данные о платеже хранятся в таблице tournament_payments
-    // ВАЖНО: is_late_entry может не существовать, используем только registration_type
+    // ВАЖНО: registration_type может не существовать в БД, поэтому не используем его
     const result = await query(
       `INSERT INTO game_registrations
-       (game_id, user_id, status, registration_type)
-       VALUES ($1, $2, 'paid', 'late')
+       (game_id, user_id, status)
+       VALUES ($1, $2, 'paid')
        ON CONFLICT (game_id, user_id) DO UPDATE
-       SET status = 'paid',
-           registration_type = 'late'
+       SET status = 'paid'
        RETURNING *`,
       [gameId, userId]
     );
@@ -1279,15 +1279,14 @@ export const Game = {
       };
 
       // Подсчитываем игроков по статусам
-      // ВАЖНО: is_late_entry может не существовать, используем registration_type вместо этого
+      // ВАЖНО: registration_type может не существовать в БД, поэтому не используем его
       const statusCounts = await query(
         `SELECT 
           COUNT(*) FILTER (WHERE status = 'registered') as registered_count,
           COUNT(*) FILTER (WHERE status = 'paid') as paid_count,
           COUNT(*) FILTER (WHERE status = 'no_show') as no_show_count,
           COUNT(*) FILTER (WHERE status = 'playing') as playing_count,
-          COUNT(*) FILTER (WHERE status = 'eliminated') as eliminated_count,
-          COUNT(*) FILTER (WHERE registration_type = 'late') as late_registered_count
+          COUNT(*) FILTER (WHERE status = 'eliminated') as eliminated_count
          FROM game_registrations
          WHERE game_id = $1`,
         [gameId]
@@ -1300,7 +1299,8 @@ export const Game = {
         stats.no_show_count = parseInt(counts.no_show_count) || 0;
         stats.playing_count = parseInt(counts.playing_count) || 0;
         stats.eliminated_count = parseInt(counts.eliminated_count) || 0;
-        stats.late_registered_count = parseInt(counts.late_registered_count) || 0;
+        // late_registered_count больше не используется, так как registration_type не существует в БД
+        stats.late_registered_count = 0;
         
         console.log('📊 Tournament stats:', {
           registered: stats.registered_count,
