@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { useUser } from '../hooks/useUser';
 
 interface AdminContextType {
@@ -18,7 +18,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   
   // Проверяем, является ли пользователь администратором
   // Проверяем и как число, и как строку для совместимости
-  const isAdmin = user ? ADMIN_TELEGRAM_IDS.includes(Number(user.telegram_id)) || ADMIN_TELEGRAM_IDS.includes(user.telegram_id as any) : false;
+  // Используем useMemo для избежания проблем с инициализацией
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    const telegramId = Number(user.telegram_id);
+    return ADMIN_TELEGRAM_IDS.includes(telegramId) || ADMIN_TELEGRAM_IDS.includes(user.telegram_id as any);
+  }, [user]);
   
   // Логируем состояние загрузки
   useEffect(() => {
