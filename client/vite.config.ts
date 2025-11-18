@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
-    minify: false, // Временно отключаем минификацию для диагностики
+    minify: 'esbuild', // Минификация включена для уменьшения размера файлов
     rollupOptions: {
       output: {
         manualChunks: undefined, // Отключаем автоматическое разделение на чанки
