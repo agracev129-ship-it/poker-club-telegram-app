@@ -243,16 +243,22 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
     try {
       const activePlayers = seating.filter(p => !p.is_eliminated);
       
-      // ВАЖНО: Место рассчитывается как количество оставшихся активных игроков
-      // Если осталось 2 игрока, и один выбывает, он получает место 2
-      // Если остался 1 игрок (победитель), он получает место 1
-      // НО: нужно учесть уже выбывших игроков
+      // ВАЖНО: Место рассчитывается правильно
+      // Если всего N игроков, и уже выбыло K, то выбывающий получает место (N - K)
+      // Пример: 10 игроков, выбыло 8 → выбывающий получает место 2 (остается 1 победитель)
+      // Пример: 10 игроков, выбыло 9 → победитель получает место 1
       const eliminatedPlayers = seating.filter(p => p.is_eliminated);
       const totalPlayers = seating.length;
       
       // Место = общее количество игроков - количество уже выбывших игроков
       // Это гарантирует правильную нумерацию: последний выбывший = место 2, победитель = место 1
       const newPlace = totalPlayers - eliminatedPlayers.length;
+      
+      // ВАЖНО: Проверяем, что место не меньше 1 и не больше общего количества игроков
+      if (newPlace < 1 || newPlace > totalPlayers) {
+        console.error('Invalid place calculated:', { newPlace, totalPlayers, eliminatedCount: eliminatedPlayers.length });
+        throw new Error(`Invalid place calculated: ${newPlace}`);
+      }
       
       console.log('Calculating place for eliminated player:', {
         playerId,

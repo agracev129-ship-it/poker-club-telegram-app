@@ -202,6 +202,8 @@ export const Game = {
     
     // Для начатого турнира показываем игроков, которые участвуют (paid/playing)
     // Для ожидающего турнира показываем зарегистрированных (registered)
+    // ВАЖНО: НЕ показываем игроков со статусом 'no_show', так как они исключены
+    // ВАЖНО: НЕ показываем игроков со статусом 'cancelled', так как они отменили регистрацию
     let sql;
     let params;
     
@@ -210,7 +212,10 @@ export const Game = {
                     u.photo_url, gr.registered_at, gr.status
              FROM game_registrations gr
              JOIN users u ON u.id = gr.user_id
-             WHERE gr.game_id = $1 AND gr.status IN ('paid', 'playing')
+             WHERE gr.game_id = $1 
+               AND gr.status IN ('paid', 'playing')
+               AND gr.status != 'no_show'
+               AND gr.status != 'cancelled'
              ORDER BY gr.registered_at`;
       params = [gameId];
     } else {
@@ -218,7 +223,10 @@ export const Game = {
                     u.photo_url, gr.registered_at, gr.status
              FROM game_registrations gr
              JOIN users u ON u.id = gr.user_id
-             WHERE gr.game_id = $1 AND gr.status = 'registered'
+             WHERE gr.game_id = $1 
+               AND gr.status = 'registered'
+               AND gr.status != 'no_show'
+               AND gr.status != 'cancelled'
              ORDER BY gr.registered_at`;
       params = [gameId];
     }
@@ -253,6 +261,7 @@ export const Game = {
     // ВАЖНО: Ищем последнюю завершенную игру, где игрок был в рассадке
     // Используем INNER JOIN с table_assignments, чтобы гарантировать, что игрок был в рассадке
     // Убираем фильтр по gr.status, так как он может быть 'paid' или 'playing', но не 'participated'
+    // ВАЖНО: finish_place должен быть установлен (не NULL) для правильного отображения места
     const result = await query(
       `SELECT 
         g.id,
@@ -269,13 +278,14 @@ export const Game = {
        WHERE gr.user_id = $1
          AND g.tournament_status = 'finished'
          AND gr.status IN ('paid', 'playing')
+         AND ta.finish_place IS NOT NULL
        ORDER BY g.date DESC, g.time DESC, g.id DESC
        LIMIT 1`,
       [userId]
     );
     
     if (result.rows.length === 0) {
-      console.log(`No finished games found for user ${userId}`);
+      console.log(`No finished games with finish_place found for user ${userId}`);
       return null;
     }
     
@@ -292,8 +302,8 @@ export const Game = {
     });
     
     // ВАЖНО: Возвращаем finish_place как есть
-    // finish_place может быть NULL для активных игроков (не выбывших)
-    // Если finish_place установлен, это место игрока в турнире (1 = первое место, 2 = второе и т.д.)
+    // finish_place = 1 означает первое место, 2 = второе место и т.д.
+    // Если finish_place NULL, значит игрок не выбыл (активен на момент завершения)
     return game;
   },
 
