@@ -86,7 +86,7 @@ interface AdminTournamentManagementViewProps {
 export function AdminTournamentManagementView({ tournament, onClose }: AdminTournamentManagementViewProps) {
   const [seating, setSeating] = useState<PlayerSeating[]>([]);
   const [registeredPlayers, setRegisteredPlayers] = useState<User[]>([]);
-  const [tournamentStatus, setTournamentStatus] = useState<'upcoming' | 'started' | 'finished'>(
+  const [tournamentStatus, setTournamentStatus] = useState<'upcoming' | 'started' | 'completed'>(
     (tournament.tournament_status as any) || 'upcoming'
   );
   const [bonusPointsDialog, setBonusPointsDialog] = useState<{ playerId: number; playerName: string } | null>(null);
@@ -228,7 +228,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
     try {
       setLoading(true);
       await gamesAPI.finishTournament(tournament.id);
-      setTournamentStatus('finished');
+      setTournamentStatus('completed');
       alert('Турнир завершён! Результаты сохранены в историю.');
       setTimeout(() => onClose(), 1500);
     } catch (error) {
@@ -644,7 +644,7 @@ export function AdminTournamentManagementView({ tournament, onClose }: AdminTour
         )}
 
         {/* Tournament Finished */}
-        {tournamentStatus === 'finished' && (
+        {tournamentStatus === 'completed' && (
           <div className="bg-gradient-to-br from-yellow-900/30 to-yellow-950/20 rounded-2xl p-6 border border-yellow-700/30 text-center">
             <TrophyIcon className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
             <h3 className="text-xl mb-2">Турнир завершен!</h3>

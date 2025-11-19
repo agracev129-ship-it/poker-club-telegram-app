@@ -106,7 +106,7 @@ export function AdminHomeTab({ onOpenProfileModeration }: AdminHomeTabProps) {
     loadStats();
   }, []);
 
-  const activeTournaments = games.filter(g => g.tournament_status !== 'finished');
+  const activeTournaments = games.filter(g => g.tournament_status !== 'completed');
   const upcomingTournaments = activeTournaments.slice(0, 5);
 
   return (

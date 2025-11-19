@@ -57,8 +57,11 @@ export const Game = {
          WHERE gr.game_id = $1
            AND (
              ($2 = 'started' AND gr.status IN ('paid', 'playing'))
-             OR ($2 != 'started' OR $2 IS NULL) AND gr.status = 'registered'
-           )`,
+             OR ($2 IN ('upcoming', NULL) AND gr.status IN ('registered', 'paid'))
+             OR ($2 NOT IN ('started', 'upcoming') AND gr.status = 'registered')
+           )
+           AND gr.status != 'no_show'
+           AND gr.status != 'cancelled'`,
         [game.id, game.tournament_status]
       );
       game.registered_count = parseInt(countResult.rows[0].count) || 0;
@@ -93,8 +96,11 @@ export const Game = {
        WHERE gr.game_id = $1
          AND (
            ($2 = 'started' AND gr.status IN ('paid', 'playing'))
-           OR ($2 != 'started' OR $2 IS NULL) AND gr.status = 'registered'
-         )`,
+           OR ($2 IN ('upcoming', NULL) AND gr.status IN ('registered', 'paid'))
+           OR ($2 NOT IN ('started', 'upcoming') AND gr.status = 'registered')
+         )
+         AND gr.status != 'no_show'
+         AND gr.status != 'cancelled'`,
       [gameId, game.tournament_status]
     );
     game.registered_count = parseInt(countResult.rows[0].count) || 0;
@@ -219,12 +225,14 @@ export const Game = {
              ORDER BY gr.registered_at`;
       params = [gameId];
     } else {
+      // Для ожидающего турнира показываем и 'registered', и 'paid' игроков
+      // ВАЖНО: Если все игроки стали 'paid', они все равно должны отображаться
       sql = `SELECT u.id, u.telegram_id, u.username, u.first_name, u.last_name,
                     u.photo_url, gr.registered_at, gr.status
              FROM game_registrations gr
              JOIN users u ON u.id = gr.user_id
              WHERE gr.game_id = $1 
-               AND gr.status = 'registered'
+               AND gr.status IN ('registered', 'paid')
                AND gr.status != 'no_show'
                AND gr.status != 'cancelled'
              ORDER BY gr.registered_at`;
@@ -276,7 +284,7 @@ export const Game = {
        JOIN games g ON g.id = gr.game_id
        INNER JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
        WHERE gr.user_id = $1
-         AND g.tournament_status = 'finished'
+         AND g.tournament_status = 'completed'
          AND gr.status IN ('paid', 'playing')
          AND ta.finish_place IS NOT NULL
        ORDER BY g.date DESC, g.time DESC, g.id DESC
@@ -603,7 +611,7 @@ export const Game = {
       // даже если обработка игроков упадет с ошибкой
       console.log('Updating tournament status to finished for gameId:', gameId);
       const updateResult = await query(
-        `UPDATE games SET tournament_status = 'finished' WHERE id = $1 RETURNING id, tournament_status, name, date`,
+        `UPDATE games SET tournament_status = 'completed' WHERE id = $1 RETURNING id, tournament_status, name, date`,
         [gameId]
       );
       
@@ -810,14 +818,14 @@ export const Game = {
       console.log('🔍 Final check - tournament status:', finalStatus);
       console.log('🔍 Final check - tournament details:', finalCheck.rows[0]);
 
-      if (finalStatus !== 'finished') {
-        console.error('❌ ERROR: Tournament status is not "finished" after completion!', {
-          expected: 'finished',
+      if (finalStatus !== 'completed') {
+        console.error('❌ ERROR: Tournament status is not "completed" after completion!', {
+          expected: 'completed',
           actual: finalStatus,
           gameId
         });
       } else {
-        console.log('✅ Tournament status is correctly set to "finished"');
+        console.log('✅ Tournament status is correctly set to "completed"');
       }
 
       console.log('🎉 Tournament finished successfully:', {
@@ -844,8 +852,8 @@ export const Game = {
           `SELECT tournament_status FROM games WHERE id = $1`,
           [gameId]
         );
-        if (checkResult.rows.length > 0 && checkResult.rows[0].tournament_status === 'finished') {
-          console.log('Tournament status is finished, returning empty seating (error occurred but status is correct)');
+        if (checkResult.rows.length > 0 && checkResult.rows[0].tournament_status === 'completed') {
+          console.log('Tournament status is completed, returning empty seating (error occurred but status is correct)');
           // НЕ пробрасываем ошибку, если статус обновлен - турнир должен попасть в историю
           return [];
         }

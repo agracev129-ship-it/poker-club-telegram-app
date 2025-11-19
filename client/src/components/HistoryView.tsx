@@ -132,7 +132,7 @@ export function HistoryView({ onClose }: HistoryViewProps) {
         
         // Фильтруем только завершенные и со статусом 'completed'
         const finished = response.filter(g => 
-          g.tournament_status === 'finished' || 
+          g.tournament_status === 'completed' || 
           g.status === 'completed'
         );
         

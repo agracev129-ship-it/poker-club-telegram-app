@@ -88,7 +88,7 @@ export function AdminProfileTab() {
     loadStats();
   }, []);
 
-  const finishedTournaments = games.filter(g => g.tournament_status === 'finished').length;
+  const finishedTournaments = games.filter(g => g.tournament_status === 'completed').length;
   const upcomingTournaments = games.filter(g => g.tournament_status === 'upcoming').length;
 
   const handleExitAdminMode = () => {

@@ -355,7 +355,7 @@ router.post('/:id/finish', authenticateTelegram, requireAdmin, async (req, res) 
     // Проверяем, обновлен ли статус турнира
     try {
       const checkResult = await Game.getById(gameId);
-      if (checkResult && checkResult.tournament_status === 'finished') {
+      if (checkResult && checkResult.tournament_status === 'completed') {
         // Статус обновлен - турнир должен попасть в историю
         console.log('Tournament status is finished, returning success despite error');
         return res.json({ 
