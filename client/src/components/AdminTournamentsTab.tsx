@@ -95,14 +95,31 @@ const formatDateDisplay = (dateStr: string): string => {
 
 export function AdminTournamentsTab() {
   const { games: upcomingTournaments, loading, refreshGames } = useGames({ status: 'upcoming' });
+  const [completedTournaments, setCompletedTournaments] = useState<Game[]>([]);
+  const [completedLoading, setCompletedLoading] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<Game | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Refresh on mount
   useEffect(() => {
     refreshGames();
+    loadCompletedTournaments();
   }, []);
+
+  const loadCompletedTournaments = async () => {
+    try {
+      setCompletedLoading(true);
+      const allGames = await gamesAPI.getAll();
+      const completed = allGames.filter(g => g.tournament_status === 'completed');
+      setCompletedTournaments(completed);
+    } catch (error) {
+      console.error('Error loading completed tournaments:', error);
+    } finally {
+      setCompletedLoading(false);
+    }
+  };
 
   const handleDeleteTournament = async () => {
     if (!deleteConfirm) return;
@@ -112,6 +129,7 @@ export function AdminTournamentsTab() {
       alert('Турнир удален');
       setDeleteConfirm(null);
       refreshGames();
+      loadCompletedTournaments(); // Обновляем список завершенных
     } catch (error) {
       console.error('Error deleting tournament:', error);
       alert('Ошибка при удалении турнира');
@@ -250,6 +268,81 @@ export function AdminTournamentsTab() {
             </div>
           </div>
         )}
+
+        {/* Completed Tournaments Section */}
+        <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-gray-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <DatabaseIcon className="w-5 h-5 text-gray-500" />
+              <h3 className="text-sm">Завершенные турниры</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">{completedTournaments.length} завершено</span>
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
+              >
+                {showCompleted ? 'Скрыть' : 'Показать'}
+              </button>
+            </div>
+          </div>
+          
+          {showCompleted && (
+            <>
+              {completedLoading ? (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  Загрузка завершенных турниров...
+                </div>
+              ) : completedTournaments.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {completedTournaments.map((tournament) => (
+                    <div
+                      key={tournament.id}
+                      className="bg-[#252525] rounded-xl p-3 flex items-center justify-between gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm mb-0.5 truncate text-gray-400">{tournament.name}</div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <CalendarIcon className="w-3 h-3" />
+                            <span>{formatDateDisplay(tournament.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <ClockIcon className="w-3 h-3" />
+                            <span>{tournament.time}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <UsersIcon className="w-3 h-3" />
+                            <span>{tournament.registered_count || 0} игроков</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-gray-500 shrink-0 px-2 py-0.5 rounded-full bg-gray-700/30">
+                          Завершён
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm({ id: tournament.id, name: tournament.name });
+                          }}
+                          className="w-8 h-8 rounded-full bg-red-700/20 flex items-center justify-center hover:bg-red-700/30 transition-all shrink-0"
+                          title="Удалить турнир"
+                        >
+                          <Trash2Icon className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  Нет завершенных турниров
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Create Tournament Modal */}
