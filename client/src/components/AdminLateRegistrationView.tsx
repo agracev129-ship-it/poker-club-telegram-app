@@ -36,6 +36,7 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
   const [paymentAmount, setPaymentAmount] = useState(game.buy_in?.toString() || '');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [isFirstGame, setIsFirstGame] = useState(false);
 
   const handleSearchUsers = async () => {
     const trimmedQuery = searchQuery.trim();
@@ -65,9 +66,24 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
     }
   };
 
-  const handleSelectUser = (user: any) => {
+  const handleSelectUser = async (user: any) => {
     setSelectedUser(user);
     setPaymentAmount(game.buy_in?.toString() || '');
+    
+    // Проверяем, является ли это первой игрой для игрока
+    try {
+      if (user.id) {
+        const userStats = await usersAPI.getStats(user.id);
+        const gamesPlayed = userStats?.games_played || 0;
+        setIsFirstGame(gamesPlayed === 0);
+        console.log('Player stats (late registration):', { userId: user.id, gamesPlayed, isFirstGame: gamesPlayed === 0 });
+      } else {
+        setIsFirstGame(false);
+      }
+    } catch (error) {
+      console.error('Error checking player stats (late registration):', error);
+      setIsFirstGame(false);
+    }
   };
 
   const handleConfirmRegistration = async () => {
@@ -245,6 +261,23 @@ export function AdminLateRegistrationView({ game, onClose }: AdminLateRegistrati
                 </p>
               </div>
             </div>
+
+            {/* Индикатор первой игры */}
+            {isFirstGame && (
+              <div className="p-4 bg-gradient-to-br from-yellow-900/30 to-yellow-950/20 rounded-xl border border-yellow-700/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-2xl">🎉</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-yellow-400 mb-1">Первая игра!</div>
+                    <div className="text-xs text-gray-400">
+                      Это первая игра для этого игрока. Не забудьте выдать бонус за первую игру.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Payment form */}
             <div className="space-y-4">

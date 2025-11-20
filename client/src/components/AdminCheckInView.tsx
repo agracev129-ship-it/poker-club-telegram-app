@@ -76,6 +76,7 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isOnsiteDialogOpen, setIsOnsiteDialogOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
+  const [isFirstGame, setIsFirstGame] = useState(false);
   
   // Payment form
   const [paymentAmount, setPaymentAmount] = useState(game.buy_in?.toString() || '');
@@ -88,6 +89,7 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [onsiteAmount, setOnsiteAmount] = useState(game.buy_in?.toString() || '');
   const [onsiteMethod, setOnsiteMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
+  const [isOnsiteFirstGame, setIsOnsiteFirstGame] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -161,6 +163,23 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
     setPaymentAmount(buyInAmount);
     setPaymentMethod('cash');
     setPaymentNotes('');
+    
+    // Проверяем, является ли это первой игрой для игрока
+    try {
+      const userId = player.user_id || player.id;
+      if (userId) {
+        const userStats = await usersAPI.getStats(userId);
+        const gamesPlayed = userStats?.games_played || 0;
+        setIsFirstGame(gamesPlayed === 0);
+        console.log('Player stats:', { userId, gamesPlayed, isFirstGame: gamesPlayed === 0 });
+      } else {
+        setIsFirstGame(false);
+      }
+    } catch (error) {
+      console.error('Error checking player stats:', error);
+      setIsFirstGame(false);
+    }
+    
     setIsPaymentDialogOpen(true);
   };
 
@@ -317,9 +336,24 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
     }
   };
 
-  const handleSelectUser = (user: any) => {
+  const handleSelectUser = async (user: any) => {
     setSelectedUser(user);
     setOnsiteAmount(game.buy_in?.toString() || '');
+    
+    // Проверяем, является ли это первой игрой для игрока
+    try {
+      if (user.id) {
+        const userStats = await usersAPI.getStats(user.id);
+        const gamesPlayed = userStats?.games_played || 0;
+        setIsOnsiteFirstGame(gamesPlayed === 0);
+        console.log('Player stats (onsite registration):', { userId: user.id, gamesPlayed, isFirstGame: gamesPlayed === 0 });
+      } else {
+        setIsOnsiteFirstGame(false);
+      }
+    } catch (error) {
+      console.error('Error checking player stats (onsite registration):', error);
+      setIsOnsiteFirstGame(false);
+    }
   };
 
   const handleOnsiteRegistration = async () => {
@@ -723,6 +757,23 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
             </DialogDescription>
           </DialogHeader>
           
+          {/* Индикатор первой игры */}
+          {isFirstGame && (
+            <div className="mt-4 p-4 bg-gradient-to-br from-yellow-900/30 to-yellow-950/20 rounded-xl border border-yellow-700/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
+                  <span className="text-2xl">🎉</span>
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-yellow-400 mb-1">Первая игра!</div>
+                  <div className="text-xs text-gray-400">
+                    Это первая игра для этого игрока. Не забудьте выдать бонус за первую игру.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="space-y-4 mt-4">
             <div>
               <Label htmlFor="amount">Сумма оплаты</Label>
@@ -919,6 +970,23 @@ export function AdminCheckInView({ game, onClose }: AdminCheckInViewProps) {
                     </button>
                   </div>
                 </div>
+
+                {/* Индикатор первой игры */}
+                {isOnsiteFirstGame && (
+                  <div className="p-4 bg-gradient-to-br from-yellow-900/30 to-yellow-950/20 rounded-xl border border-yellow-700/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center shrink-0">
+                        <span className="text-2xl">🎉</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-yellow-400 mb-1">Первая игра!</div>
+                        <div className="text-xs text-gray-400">
+                          Это первая игра для этого игрока. Не забудьте выдать бонус за первую игру.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="onsiteAmount">Сумма оплаты</Label>

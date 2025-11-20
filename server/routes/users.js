@@ -61,6 +61,25 @@ router.get('/stats', authenticateTelegram, async (req, res) => {
 });
 
 /**
+ * GET /api/users/:id/stats - Получить статистику пользователя по ID (только для админов)
+ */
+router.get('/:id/stats', authenticateTelegram, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    
+    const stats = await User.getStats(userId);
+    res.json(stats);
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/users/leaderboard - Получить рейтинг игроков
  */
 router.get('/leaderboard', async (req, res) => {

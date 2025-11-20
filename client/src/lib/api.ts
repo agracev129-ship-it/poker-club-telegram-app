@@ -115,7 +115,10 @@ export const usersAPI = {
     return fetchAPI('/users/me');
   },
 
-  async getStats(): Promise<UserStats> {
+  async getStats(userId?: number): Promise<UserStats> {
+    if (userId) {
+      return fetchAPI(`/users/${userId}/stats`);
+    }
     return fetchAPI('/users/stats');
   },
 
