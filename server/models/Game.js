@@ -268,15 +268,14 @@ export const Game = {
   async getLastFinishedGame(userId) {
     // ВАЖНО: Ищем последнюю завершенную игру, где игрок был в рассадке
     // Используем INNER JOIN с table_assignments, чтобы гарантировать, что игрок был в рассадке
-    // Убираем фильтр по gr.status, так как он может быть 'paid' или 'playing', но не 'participated'
-    // ВАЖНО: finish_place должен быть установлен (не NULL) для правильного отображения места
+    // ВАЖНО: Если finish_place NULL, но игрок не выбыл (is_eliminated = false), это победитель (место 1)
     const result = await query(
       `SELECT 
         g.id,
         g.name,
         g.date,
         g.time,
-        ta.finish_place,
+        COALESCE(ta.finish_place, CASE WHEN ta.is_eliminated = false THEN 1 ELSE NULL END) as finish_place,
         gr.status as registration_status,
         ta.is_eliminated,
         ta.points_earned
@@ -285,19 +284,26 @@ export const Game = {
        INNER JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
        WHERE gr.user_id = $1
          AND g.tournament_status = 'completed'
-         AND gr.status IN ('paid', 'playing')
-         AND ta.finish_place IS NOT NULL
+         AND gr.status IN ('paid', 'playing', 'participated')
+         AND (ta.finish_place IS NOT NULL OR ta.is_eliminated = false)
        ORDER BY g.date DESC, g.time DESC, g.id DESC
        LIMIT 1`,
       [userId]
     );
     
     if (result.rows.length === 0) {
-      console.log(`No finished games with finish_place found for user ${userId}`);
+      console.log(`No finished games found for user ${userId}`);
       return null;
     }
     
     const game = result.rows[0];
+    
+    // ВАЖНО: Если finish_place все еще NULL, но игрок не выбыл, это победитель
+    if (game.finish_place === null && game.is_eliminated === false) {
+      game.finish_place = 1;
+      console.log(`Player ${userId} is winner (not eliminated), setting finish_place = 1`);
+    }
+    
     console.log(`Last finished game for user ${userId}:`, {
       gameId: game.id,
       gameName: game.name,
@@ -311,7 +317,6 @@ export const Game = {
     
     // ВАЖНО: Возвращаем finish_place как есть
     // finish_place = 1 означает первое место, 2 = второе место и т.д.
-    // Если finish_place NULL, значит игрок не выбыл (активен на момент завершения)
     return game;
   },
 
@@ -637,6 +642,42 @@ export const Game = {
       // Создаем Map для быстрого поиска игроков в рассадке
       const seatingMap = new Map(seating.map(p => [p.user_id, p]));
 
+      // ВАЖНО: Сначала определяем места для всех игроков
+      // Сортируем игроков по finish_place (если есть), затем по is_eliminated
+      const playersWithPlaces = seating
+        .filter(p => allRegistered.some(r => r.user_id === p.user_id))
+        .map(p => ({
+          ...p,
+          // Если finish_place уже установлен, используем его
+          // Если нет, но игрок не выбыл - это победитель (место 1)
+          finalPlace: p.finish_place !== null ? p.finish_place : (p.is_eliminated === false ? 1 : null)
+        }))
+        .sort((a, b) => {
+          // Сортируем: сначала по finish_place (если есть), затем по is_eliminated
+          if (a.finalPlace !== null && b.finalPlace !== null) {
+            return a.finalPlace - b.finalPlace;
+          }
+          if (a.finalPlace !== null) return -1;
+          if (b.finalPlace !== null) return 1;
+          // Если оба null, победитель (не выбыл) идет первым
+          if (a.is_eliminated === false && b.is_eliminated !== false) return -1;
+          if (b.is_eliminated === false && a.is_eliminated !== false) return 1;
+          return 0;
+        });
+
+      // Обновляем finish_place для всех игроков в рассадке
+      for (const player of playersWithPlaces) {
+        if (player.finalPlace !== null && player.finish_place !== player.finalPlace) {
+          console.log(`Updating finish_place for player ${player.user_id}: ${player.finish_place} -> ${player.finalPlace}`);
+          await query(
+            `UPDATE table_assignments
+             SET finish_place = $1, updated_at = CURRENT_TIMESTAMP
+             WHERE game_id = $2 AND user_id = $3`,
+            [player.finalPlace, gameId, player.user_id]
+          );
+        }
+      }
+
       // Начисляем очки каждому игроку
       let playersProcessed = 0;
       let playersWithPoints = 0;
@@ -660,14 +701,25 @@ export const Game = {
           // Игрок был в рассадке - ВСЕГДА считаем участвовавшим
           participated = true;
           
+          // ВАЖНО: Определяем finish_place для игрока
+          // Если finish_place уже установлен, используем его
+          // Если нет, но игрок не выбыл - это победитель (место 1)
+          if (playerInSeating.finish_place !== null) {
+            finishPlace = playerInSeating.finish_place;
+          } else if (playerInSeating.is_eliminated === false) {
+            // Игрок активен на момент завершения - это победитель
+            finishPlace = 1;
+            console.log(`Player ${registration.user_id} is active at finish, setting finish_place = 1`);
+          }
+          
           if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
             // Игрок выбыл и имеет очки
             totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
-            finishPlace = playerInSeating.finish_place;
+            // finishPlace уже установлен выше
           } else if (playerInSeating.is_eliminated === false) {
             // Игрок активен на момент завершения - начисляем бонусные очки + минимум 1 очко за участие
             totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
-            // finishPlace остается null для активных игроков
+            // finishPlace = 1 уже установлен выше
           } else {
             // Игрок в рассадке, но статус неопределенный - начисляем бонусные очки + минимум 1 очко за участие
             totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
