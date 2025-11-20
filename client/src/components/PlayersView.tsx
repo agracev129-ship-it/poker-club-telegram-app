@@ -124,8 +124,14 @@ export function PlayersView({ onClose }: PlayersViewProps) {
     try {
       await usersAPI.sendFriendRequest(player.id);
       setSentRequests([...sentRequests, player.id]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending friend request:', error);
+      // Показываем понятное сообщение об ошибке
+      if (error?.error === 'This user does not accept friend requests') {
+        alert('Этот пользователь не принимает запросы в друзья');
+      } else {
+        alert(error?.error || 'Ошибка при отправке запроса в друзья');
+      }
     }
   };
 

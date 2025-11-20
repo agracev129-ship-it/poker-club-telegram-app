@@ -22,8 +22,8 @@ export const User = {
     const displayName = first_name + (last_name ? ` ${last_name}` : '');
     
     const result = await query(
-      `INSERT INTO users (telegram_id, username, first_name, last_name, name, photo_url, last_active)
-       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+      `INSERT INTO users (telegram_id, username, first_name, last_name, name, photo_url, last_active, allow_friend_requests)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, TRUE)
        ON CONFLICT (telegram_id) 
        DO UPDATE SET 
          username = EXCLUDED.username,
@@ -31,7 +31,8 @@ export const User = {
          last_name = EXCLUDED.last_name,
          name = EXCLUDED.name,
          photo_url = EXCLUDED.photo_url,
-         last_active = CURRENT_TIMESTAMP
+         last_active = CURRENT_TIMESTAMP,
+         allow_friend_requests = COALESCE(users.allow_friend_requests, TRUE)
        RETURNING *`,
       [telegram_id, username, first_name, last_name, displayName, photo_url]
     );

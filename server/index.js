@@ -14,6 +14,7 @@ import { initSeating } from './database/init-seating.js';
 import { initProfileModeration } from './database/init-profile-moderation.js';
 import { initTournamentLifecycle } from './database/init-tournament-lifecycle.js';
 import { initAllTournamentTables } from './database/init-tournament-payments.js';
+import { initAllowFriendRequests } from './database/init-allow-friend-requests.js';
 
 dotenv.config();
 
@@ -120,6 +121,13 @@ app.listen(PORT, async () => {
     await initAllTournamentTables();
   } catch (error) {
     console.error('⚠️ Failed to initialize tournament tables:', error.message);
+  }
+  
+  // Initialize allow_friend_requests setting
+  try {
+    await initAllowFriendRequests();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize allow_friend_requests setting (may already exist):', error.message);
   }
   
   // Initialize automated tournament jobs

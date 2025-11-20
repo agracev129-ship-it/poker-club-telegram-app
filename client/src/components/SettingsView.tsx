@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Switch } from './ui/switch';
 import { useUser } from '../hooks/useUser';
 import { getInitials } from '../lib/utils';
+import { usersAPI } from '../lib/api';
 
 const ArrowLeftIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -33,15 +34,19 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   const [friendRequests, setFriendRequests] = useState(false);
   
   // Other settings
-  const [allowFriendRequests, setAllowFriendRequests] = useState(false);
+  const [allowFriendRequests, setAllowFriendRequests] = useState(true);
   const [notifyFriendsOnRegistration, setNotifyFriendsOnRegistration] = useState(true);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   useEffect(() => {
     if (user) {
       setUserName(user.first_name || 'Игрок');
+      // Загружаем настройку allow_friend_requests из профиля пользователя
+      // По умолчанию true, если не указано
+      setAllowFriendRequests(user.allow_friend_requests !== false);
     }
     
-    // Load settings from localStorage
+    // Load other settings from localStorage
     const settings = localStorage.getItem('appSettings');
     if (settings) {
       try {
@@ -49,7 +54,6 @@ export function SettingsView({ onClose }: SettingsViewProps) {
         setUpcomingGames(parsed.upcomingGames || false);
         setFriendRegistration(parsed.friendRegistration || false);
         setFriendRequests(parsed.friendRequests || false);
-        setAllowFriendRequests(parsed.allowFriendRequests || false);
         setNotifyFriendsOnRegistration(parsed.notifyFriendsOnRegistration !== false);
       } catch (e) {
         console.error('Error loading settings:', e);
@@ -57,20 +61,48 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     }
   }, [user]);
 
-  const saveSettings = () => {
+  const saveLocalSettings = () => {
+    // Сохраняем локальные настройки в localStorage
     const settings = {
       upcomingGames,
       friendRegistration,
       friendRequests,
-      allowFriendRequests,
       notifyFriendsOnRegistration,
     };
     localStorage.setItem('appSettings', JSON.stringify(settings));
   };
 
+  const saveAllowFriendRequests = async (value: boolean) => {
+    // Сохраняем allow_friend_requests на сервере
+    if (user?.id) {
+      try {
+        setIsSavingSettings(true);
+        await usersAPI.updateSettings({ allow_friend_requests: value });
+        console.log('allow_friend_requests setting saved successfully:', value);
+      } catch (error) {
+        console.error('Error saving allow_friend_requests setting:', error);
+        // Не показываем ошибку пользователю, так как это не критично
+      } finally {
+        setIsSavingSettings(false);
+      }
+    }
+  };
+
   useEffect(() => {
-    saveSettings();
-  }, [upcomingGames, friendRegistration, friendRequests, allowFriendRequests, notifyFriendsOnRegistration]);
+    saveLocalSettings();
+  }, [upcomingGames, friendRegistration, friendRequests, notifyFriendsOnRegistration]);
+
+  // Отдельный useEffect для allowFriendRequests, чтобы сохранять на сервер
+  useEffect(() => {
+    if (user?.id && allowFriendRequests !== undefined) {
+      // Используем debounce, чтобы не отправлять запрос при каждой загрузке
+      const timeoutId = setTimeout(() => {
+        saveAllowFriendRequests(allowFriendRequests);
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [allowFriendRequests, user?.id]);
 
   const handleNameSave = () => {
     setIsEditingName(false);
@@ -102,7 +134,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   return (
     <div className="fixed inset-0 bg-black z-50 overflow-y-auto">
       {/* Header - sticky на самом верху */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-gray-800 px-4 py-4 z-10 pt-16">
+      <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-gray-800 px-4 py-4 z-10 pt-20 pb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}

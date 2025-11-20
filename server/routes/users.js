@@ -80,6 +80,38 @@ router.get('/:id/stats', authenticateTelegram, requireAdmin, async (req, res) =>
 });
 
 /**
+ * PUT /api/users/settings - Обновить настройки пользователя
+ */
+router.put('/settings', authenticateTelegram, async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    const user = await User.findByTelegramId(telegramUser.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { allow_friend_requests } = req.body;
+
+    if (allow_friend_requests !== undefined) {
+      await db.query(
+        'UPDATE users SET allow_friend_requests = $1 WHERE id = $2',
+        [allow_friend_requests, user.id]
+      );
+    }
+
+    // Возвращаем обновленного пользователя
+    const updatedUser = await User.findByTelegramId(telegramUser.id);
+    res.json({ 
+      allow_friend_requests: updatedUser.allow_friend_requests !== false 
+    });
+  } catch (error) {
+    console.error('Error updating user settings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/users/leaderboard - Получить рейтинг игроков
  */
 router.get('/leaderboard', async (req, res) => {
@@ -228,6 +260,24 @@ router.post('/friend-request', authenticateTelegram, async (req, res) => {
 
     if (user.id === friendId) {
       return res.status(400).json({ error: 'Cannot send friend request to yourself' });
+    }
+
+    // Проверяем, разрешает ли целевой пользователь получать запросы в друзья
+    const targetUser = await db.query(
+      'SELECT id, allow_friend_requests FROM users WHERE id = $1',
+      [friendId]
+    );
+
+    if (targetUser.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Если allow_friend_requests = false, запрещаем отправку запроса
+    // НО: если пользователи уже друзья, это не влияет (друзья сохраняются)
+    const allowFriendRequests = targetUser.rows[0].allow_friend_requests !== false;
+    
+    if (!allowFriendRequests) {
+      return res.status(403).json({ error: 'This user does not accept friend requests' });
     }
 
     // Check if friendship already exists

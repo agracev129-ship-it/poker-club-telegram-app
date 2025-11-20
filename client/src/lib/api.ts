@@ -64,6 +64,7 @@ export interface User {
   photo_url?: string;
   is_admin: boolean;
   is_blocked?: boolean;
+  allow_friend_requests?: boolean;
   created_at: string;
   last_active: string;
 }
@@ -182,6 +183,13 @@ export const usersAPI = {
 
   async search(query: string): Promise<User[]> {
     return fetchAPI(`/users/search?q=${encodeURIComponent(query)}`);
+  },
+
+  async updateSettings(settings: { allow_friend_requests?: boolean }): Promise<{ allow_friend_requests: boolean }> {
+    return fetchAPI('/users/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
   },
 };
 
