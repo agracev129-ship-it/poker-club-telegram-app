@@ -54,6 +54,7 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('Покер Клуб "Ривер", ул. Тверская, 15');
   const [autoBalance, setAutoBalance] = useState(true);
+  const [useDefaultDistribution, setUseDefaultDistribution] = useState(true);
   const [pointDistribution, setPointDistribution] = useState<PointDistribution[]>([
     { place: 1, points: 100 },
     { place: 2, points: 75 },
@@ -123,6 +124,7 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
         max_players: maxPlayers,
         buy_in: 0, // Можно добавить поле в форму
         status: 'upcoming',
+        points_distribution_mode: useDefaultDistribution ? 'default' : 'manual',
       };
 
       const createdGame = await gamesAPI.create(gameData);
@@ -133,6 +135,7 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
         pointDistribution,
         autoBalance,
         location,
+        useDefaultDistribution,
       };
       localStorage.setItem('tournamentSettings', JSON.stringify(tournamentSettings));
 
@@ -273,7 +276,24 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
             />
           </div>
 
-          {/* Point Distribution */}
+          {/* Points Distribution Mode */}
+          <div className="flex items-center justify-between p-4 bg-[#1a1a1a] rounded-xl border border-gray-800">
+            <div>
+              <Label className="text-sm">Распределение по ум.</Label>
+              <p className="text-xs text-gray-400 mt-1">
+                {useDefaultDistribution 
+                  ? 'Автоматический расчет: 75 очков от каждого игрока, распределение по процентам'
+                  : 'Ручное назначение очков для каждого места'}
+              </p>
+            </div>
+            <Switch
+              checked={useDefaultDistribution}
+              onCheckedChange={setUseDefaultDistribution}
+            />
+          </div>
+
+          {/* Point Distribution - только для ручного режима */}
+          {!useDefaultDistribution && (
           <div className="space-y-3">
             <Label className="text-sm text-gray-400">
               Распределение баллов по местам (всего мест: {maxPlayers})
@@ -315,6 +335,7 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
               <Switch checked={autoBalance} onCheckedChange={setAutoBalance} />
             </div>
           </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4 pb-8">

@@ -112,13 +112,13 @@ export const Game = {
    * Создает новую игру
    */
   async create(gameData) {
-    const { name, description, game_type, date, time, max_players, buy_in, created_by } = gameData;
+    const { name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode } = gameData;
     
     const result = await query(
-      `INSERT INTO games (name, description, game_type, date, time, max_players, buy_in, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO games (name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [name, description, game_type, date, time, max_players, buy_in, created_by]
+      [name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode || 'default']
     );
     
     return result.rows[0];
@@ -596,6 +596,11 @@ export const Game = {
     console.log('finishTournament called for gameId:', gameId);
     
     try {
+      // Получаем информацию об игре для проверки режима начисления очков
+      const game = await this.getById(gameId);
+      const pointsDistributionMode = game?.points_distribution_mode || 'default';
+      console.log('Points distribution mode:', pointsDistributionMode);
+      
       // Получаем всех игроков с рассадкой
       const seating = await this.getSeating(gameId);
       console.log('Seating players:', seating.length);
@@ -712,23 +717,44 @@ export const Game = {
             console.log(`Player ${registration.user_id} is active at finish, setting finish_place = 1`);
           }
           
-          if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
-            // Игрок выбыл и имеет очки
-            totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
-            // finishPlace уже установлен выше
-          } else if (playerInSeating.is_eliminated === false) {
-            // Игрок активен на момент завершения - начисляем бонусные очки + минимум 1 очко за участие
-            totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
-            // finishPlace = 1 уже установлен выше
+          // Рассчитываем очки в зависимости от режима начисления
+          if (pointsDistributionMode === 'default') {
+            // Новая система: автоматический расчет по процентам от банка
+            const { calculateDefaultPoints } = await import('../utils/points-calculator.js');
+            
+            if (finishPlace !== null) {
+              // Рассчитываем очки по новой системе
+              // Всего игроков = количество игроков в рассадке
+              const totalPlayersInTournament = seating.length;
+              const calculatedPoints = calculateDefaultPoints(finishPlace, totalPlayersInTournament);
+              
+              totalPoints = calculatedPoints + (playerInSeating.bonus_points || 0);
+              
+              console.log(`Player ${registration.user_id} - place ${finishPlace}, calculated points: ${calculatedPoints}, bonus: ${playerInSeating.bonus_points || 0}, total: ${totalPoints}`);
+            } else {
+              // Игрок в рассадке, но место не определено - начисляем минимум 1 очко
+              totalPoints = (playerInSeating.bonus_points || 0) + 1;
+            }
           } else {
-            // Игрок в рассадке, но статус неопределенный - начисляем бонусные очки + минимум 1 очко за участие
-            totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
-          }
-          
-          // ВАЖНО: Если totalPoints все еще 0, начисляем минимум 1 очко за участие
-          if (totalPoints === 0) {
-            totalPoints = 1;
-            console.log(`Player ${registration.user_id} has 0 points, setting minimum 1 point for participation`);
+            // Старая система: ручные очки или минимум 1 очко
+            if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
+              // Игрок выбыл и имеет очки
+              totalPoints = (playerInSeating.points_earned || 0) + (playerInSeating.bonus_points || 0);
+              // finishPlace уже установлен выше
+            } else if (playerInSeating.is_eliminated === false) {
+              // Игрок активен на момент завершения - начисляем бонусные очки + минимум 1 очко за участие
+              totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
+              // finishPlace = 1 уже установлен выше
+            } else {
+              // Игрок в рассадке, но статус неопределенный - начисляем бонусные очки + минимум 1 очко за участие
+              totalPoints = (playerInSeating.bonus_points || 0) + 1; // Минимум 1 очко за участие
+            }
+            
+            // ВАЖНО: Если totalPoints все еще 0, начисляем минимум 1 очко за участие
+            if (totalPoints === 0) {
+              totalPoints = 1;
+              console.log(`Player ${registration.user_id} has 0 points, setting minimum 1 point for participation`);
+            }
           }
         } else {
           // Игрок зарегистрирован но не был в рассадке (турнир завершен до старта или игрок не явился)

@@ -15,6 +15,7 @@ import { initProfileModeration } from './database/init-profile-moderation.js';
 import { initTournamentLifecycle } from './database/init-tournament-lifecycle.js';
 import { initAllTournamentTables } from './database/init-tournament-payments.js';
 import { initAllowFriendRequests } from './database/init-allow-friend-requests.js';
+import { initPointsDistribution } from './database/init-points-distribution.js';
 
 dotenv.config();
 
@@ -128,6 +129,13 @@ app.listen(PORT, async () => {
     await initAllowFriendRequests();
   } catch (error) {
     console.error('⚠️ Failed to initialize allow_friend_requests setting (may already exist):', error.message);
+  }
+  
+  // Initialize points distribution system
+  try {
+    await initPointsDistribution();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize points distribution system (may already exist):', error.message);
   }
   
   // Initialize automated tournament jobs
