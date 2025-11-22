@@ -30,7 +30,8 @@ ALTER TABLE game_registrations ADD CONSTRAINT game_registrations_status_check
     'playing',        -- Играют в турнире
     'eliminated',     -- Выбыли
     'no_show',        -- Не явились/исключены
-    'cancelled'       -- Отменили регистрацию
+    'cancelled',      -- Отменили регистрацию
+    'participated'    -- Участвовали в завершенном турнире
   ));
 
 -- Обновляем статусы существующих регистраций
