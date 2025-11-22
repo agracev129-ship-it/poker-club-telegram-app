@@ -19,16 +19,16 @@ export function isIOS(): boolean {
 
 /**
  * Возвращает CSS класс для отступа сверху на iOS
- * На iOS добавляет pt-16 (64px), на других устройствах - pt-4 (16px)
+ * На iOS добавляет pt-8 (32px), на других устройствах - pt-4 (16px)
  */
 export function getIOSPaddingTop(): string {
-  return isIOS() ? 'pt-16' : 'pt-4';
+  return isIOS() ? 'pt-8' : 'pt-4';
 }
 
 /**
  * Возвращает пиксельное значение отступа для iOS
  */
 export function getIOSPaddingTopPx(): number {
-  return isIOS() ? 64 : 16;
+  return isIOS() ? 32 : 16;
 }
 
