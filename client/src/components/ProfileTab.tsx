@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../hooks/useUser';
 import { getInitials, formatRelativeTime } from '../lib/utils';
+import { getIOSPaddingTop } from '../lib/platform';
 import { SettingsView } from './SettingsView';
 import { useAdmin } from './AdminContext';
 import { useLeaderboard } from '../hooks/useLeaderboard';
@@ -239,7 +240,7 @@ export function ProfileTab() {
 
   return (
     <>
-      <div className="min-h-screen bg-black pb-24">
+      <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
         {/* Profile Header */}
         <div className="px-4 pt-6 pb-4">
           <div className="flex items-center gap-3 mb-6">

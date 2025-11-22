@@ -3,6 +3,7 @@ import { useAdmin } from './AdminContext';
 import { SettingsView } from './SettingsView';
 import { useGames } from '../hooks/useGames';
 import { usersAPI } from '../lib/api';
+import { getIOSPaddingTop } from '../lib/platform';
 
 const ShieldCheckIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -96,7 +97,7 @@ export function AdminProfileTab() {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-28">
+    <div className={`min-h-screen bg-black pb-28 ${getIOSPaddingTop()}`}>
       {/* Admin Header with Badge */}
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center gap-3 mb-6">

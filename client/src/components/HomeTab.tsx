@@ -13,6 +13,7 @@ import { useUser } from '../hooks/useUser';
 import { useGames } from '../hooks/useGames';
 import { Game, gamesAPI } from '../lib/api';
 import { getInitials, formatDate, formatTime } from '../lib/utils';
+import { getIOSPaddingTop } from '../lib/platform';
 import { SeatingView } from './SeatingView';
 import { PlayersView } from './PlayersView';
 import { HistoryView } from './HistoryView';
@@ -129,6 +130,7 @@ export function HomeTab({
   const firstGame = apiGames.length > 0 ? apiGames[0] : undefined;
 
   // Загрузка зарегистрированных игр (быстро, без блокировки)
+  
   useEffect(() => {
     const loadRegistrations = async () => {
       if (apiGames.length === 0) {
@@ -363,7 +365,7 @@ export function HomeTab({
   const activeIndex = activityPeriods.indexOf(activityPeriod);
 
   return (
-    <div className="min-h-screen bg-black pb-24">
+    <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
       {/* Compact Header */}
       <div className="px-4 pt-6 pb-2">
         <div className="flex items-center justify-between mb-3">
@@ -427,7 +429,7 @@ export function HomeTab({
               <div className="space-y-2 text-sm">
                 <div className="flex items-start gap-2">
                   <MapPinIcon className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-gray-300">{'location' in game ? game.location : 'Адрес клуба'}</span>
+                  <span className="text-gray-300">{('location' in game && typeof game.location === 'string') ? game.location : 'Адрес клуба'}</span>
                 </div>
                 
                 <div className="flex items-center gap-4">

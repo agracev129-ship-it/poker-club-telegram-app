@@ -11,3 +11,5 @@ CREATE INDEX IF NOT EXISTS idx_users_allow_friend_requests ON users(allow_friend
 
 COMMENT ON COLUMN users.allow_friend_requests IS 'Разрешает другим пользователям отправлять запросы в друзья. По умолчанию true.';
 
+
+

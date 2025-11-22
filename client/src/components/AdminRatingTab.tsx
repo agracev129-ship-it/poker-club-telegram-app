@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRatingSeasons, RatingSeason } from './RatingSeasonsContext';
+import { getIOSPaddingTop } from '../lib/platform';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -178,7 +179,7 @@ export function AdminRatingTab() {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-24">
+    <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
       {/* Header with Admin Badge */}
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center gap-2 mb-1">

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useUser } from '../hooks/useUser';
 import { getInitials } from '../lib/utils';
+import { getIOSPaddingTop } from '../lib/platform';
 import {
   Select,
   SelectContent,
@@ -56,7 +57,7 @@ export function RatingTab() {
   const topTenthPlayer = leaderboard[9];
 
   return (
-    <div className="min-h-screen bg-black pb-24">
+    <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
       {/* Compact Header */}
       <div className="px-4 pt-6 pb-4">
         <h2 className="text-2xl mb-1">Рейтинг</h2>

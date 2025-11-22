@@ -4,6 +4,7 @@ import { CreateTournamentView } from './CreateTournamentView';
 import { AdminTournamentManagementView } from './AdminTournamentManagementView';
 import { useGames } from '../hooks/useGames';
 import { gamesAPI, Game } from '../lib/api';
+import { getIOSPaddingTop } from '../lib/platform';
 
 const ShieldCheckIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -142,7 +143,7 @@ export function AdminTournamentsTab() {
   };
 
   return (
-    <div className="bg-black pb-28">
+    <div className={`bg-black pb-28 ${getIOSPaddingTop()}`}>
       {/* Header with Admin Badge */}
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-4">

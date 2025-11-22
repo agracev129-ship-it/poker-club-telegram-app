@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useGames } from '../hooks/useGames';
 import { usersAPI } from '../lib/api';
+import { getIOSPaddingTop } from '../lib/platform';
 import { useProfileModeration } from './ProfileModerationContext';
 import { PlayersManagementView } from './PlayersManagementView';
 
@@ -110,7 +111,7 @@ export function AdminHomeTab({ onOpenProfileModeration }: AdminHomeTabProps) {
   const upcomingTournaments = activeTournaments.slice(0, 5);
 
   return (
-    <div className="bg-black pb-28">
+    <div className={`bg-black pb-28 ${getIOSPaddingTop()}`}>
       {/* Header with Admin Badge */}
       <div className="px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-4">

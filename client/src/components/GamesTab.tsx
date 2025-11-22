@@ -3,6 +3,7 @@ import { useGames, useGameRegistration } from '../hooks/useGames';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useGameRegistration as useLocalGameRegistration } from './GameRegistrationContext';
 import { formatDate, formatTime, getInitials } from '../lib/utils';
+import { getIOSPaddingTop } from '../lib/platform';
 import { Game, User, usersAPI, gamesAPI } from '../lib/api';
 import { vibrate } from '../lib/telegram';
 import { useGameParticipants } from '../hooks/useGameParticipants';
@@ -265,7 +266,7 @@ export function GamesTab() {
   };
 
   return (
-    <div className="min-h-screen bg-black pb-24">
+    <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
       {/* Compact Header */}
       <div className="px-4 pt-6 pb-4">
         <h2 className="text-2xl mb-1">Игры</h2>
