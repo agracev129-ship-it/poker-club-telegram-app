@@ -599,7 +599,12 @@ export const Game = {
       // Получаем информацию об игре для проверки режима начисления очков
       const game = await this.getById(gameId);
       const pointsDistributionMode = game?.points_distribution_mode || 'default';
-      console.log('Points distribution mode:', pointsDistributionMode);
+      console.log('🎯 finishTournament - Game info:', {
+        gameId,
+        name: game?.name,
+        points_distribution_mode: game?.points_distribution_mode,
+        effectiveMode: pointsDistributionMode
+      });
       
       // Получаем всех игроков с рассадкой
       const seating = await this.getSeating(gameId);
@@ -720,22 +725,33 @@ export const Game = {
           // Рассчитываем очки в зависимости от режима начисления
           if (pointsDistributionMode === 'default') {
             // Новая система: автоматический расчет по процентам от банка
+            console.log(`🎯 Using DEFAULT points distribution for player ${registration.user_id}`);
             const { calculateDefaultPoints } = await import('../utils/points-calculator.js');
             
             if (finishPlace !== null) {
               // Рассчитываем очки по новой системе
               // Всего игроков = количество игроков в рассадке
               const totalPlayersInTournament = seating.length;
+              const prizePool = totalPlayersInTournament * 75;
               const calculatedPoints = calculateDefaultPoints(finishPlace, totalPlayersInTournament);
               
               totalPoints = calculatedPoints + (playerInSeating.bonus_points || 0);
               
-              console.log(`Player ${registration.user_id} - place ${finishPlace}, calculated points: ${calculatedPoints}, bonus: ${playerInSeating.bonus_points || 0}, total: ${totalPoints}`);
+              console.log(`🎯 DEFAULT MODE - Player ${registration.user_id} (${registration.first_name}):`, {
+                place: finishPlace,
+                totalPlayers: totalPlayersInTournament,
+                prizePool: prizePool,
+                calculatedPoints: calculatedPoints,
+                bonusPoints: playerInSeating.bonus_points || 0,
+                totalPoints: totalPoints
+              });
             } else {
               // Игрок в рассадке, но место не определено - начисляем минимум 1 очко
               totalPoints = (playerInSeating.bonus_points || 0) + 1;
+              console.log(`⚠️ Player ${registration.user_id} - no finish_place, giving minimum points:`, totalPoints);
             }
           } else {
+            console.log(`📝 Using MANUAL points distribution for player ${registration.user_id}`);
             // Старая система: ручные очки или минимум 1 очко
             if (playerInSeating.is_eliminated && playerInSeating.points_earned !== null) {
               // Игрок выбыл и имеет очки
@@ -979,6 +995,8 @@ export const Game = {
     const game = gameResult.rows[0];
 
     // Получаем участников с их результатами из table_assignments
+    console.log('📊 getTournamentResults: Loading participants for gameId:', gameId);
+    
     const participantsResult = await query(
       `SELECT 
         ta.user_id,
@@ -990,10 +1008,12 @@ export const Game = {
         u.last_name,
         u.username,
         u.photo_url,
-        gr.status as registration_status
+        gr.status as registration_status,
+        us.total_points as user_total_points
        FROM game_registrations gr
        JOIN users u ON gr.user_id = u.id
        LEFT JOIN table_assignments ta ON ta.game_id = gr.game_id AND ta.user_id = gr.user_id
+       LEFT JOIN user_stats us ON us.user_id = u.id
        WHERE gr.game_id = $1
        ORDER BY 
          CASE 
@@ -1002,6 +1022,16 @@ export const Game = {
          END ASC`,
       [gameId]
     );
+
+    console.log('📊 getTournamentResults: Found participants:', participantsResult.rows.length);
+    console.log('📊 Participants statuses:', participantsResult.rows.map(p => ({
+      user_id: p.user_id,
+      name: `${p.first_name} ${p.last_name || ''}`,
+      registration_status: p.registration_status,
+      finish_place: p.finish_place,
+      points_earned: p.points_earned,
+      participated: p.registration_status === 'participated' || (p.finish_place !== null && p.finish_place !== undefined)
+    })));
 
     return {
       game: {
@@ -1015,18 +1045,26 @@ export const Game = {
         total_players: game.total_players,
         tournament_status: game.tournament_status,
       },
-      participants: participantsResult.rows.map(p => ({
-        user_id: p.user_id,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        username: p.username,
-        photo_url: p.photo_url,
-        finish_place: p.finish_place,
-        points_earned: p.points_earned || 0,
-        bonus_points: p.bonus_points || 0,
-        total_points: (p.points_earned || 0) + (p.bonus_points || 0),
-        participated: p.registration_status === 'participated',
-      })),
+      participants: participantsResult.rows.map(p => {
+        // ИСПРАВЛЕНИЕ: Игрок считается участвовавшим если:
+        // 1. Статус регистрации = 'participated' ИЛИ
+        // 2. У игрока есть место в рассадке (finish_place не null)
+        const participated = p.registration_status === 'participated' || 
+                           (p.finish_place !== null && p.finish_place !== undefined);
+        
+        return {
+          user_id: p.user_id,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          username: p.username,
+          photo_url: p.photo_url,
+          finish_place: p.finish_place,
+          points_earned: p.points_earned || 0,
+          bonus_points: p.bonus_points || 0,
+          total_points: (p.points_earned || 0) + (p.bonus_points || 0),
+          participated: participated,
+        };
+      }),
     };
   },
 
