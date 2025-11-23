@@ -725,6 +725,7 @@ export const Game = {
           // Рассчитываем очки в зависимости от режима начисления
           if (pointsDistributionMode === 'default') {
             // Новая система: автоматический расчет по процентам от банка
+            // ВАЖНО: Игнорируем старые points_earned, пересчитываем заново
             console.log(`🎯 Using DEFAULT points distribution for player ${registration.user_id}`);
             const { calculateDefaultPoints } = await import('../utils/points-calculator.js');
             
@@ -743,8 +744,17 @@ export const Game = {
                 prizePool: prizePool,
                 calculatedPoints: calculatedPoints,
                 bonusPoints: playerInSeating.bonus_points || 0,
-                totalPoints: totalPoints
+                totalPoints: totalPoints,
+                oldPointsEarned: playerInSeating.points_earned // для отладки
               });
+              
+              // Обновляем points_earned в table_assignments для корректного отображения
+              await query(
+                `UPDATE table_assignments 
+                 SET points_earned = $1, updated_at = CURRENT_TIMESTAMP 
+                 WHERE game_id = $2 AND user_id = $3`,
+                [calculatedPoints, gameId, registration.user_id]
+              );
             } else {
               // Игрок в рассадке, но место не определено - начисляем минимум 1 очко
               totalPoints = (playerInSeating.bonus_points || 0) + 1;
