@@ -359,11 +359,11 @@ export function ProfileTab() {
               {user?.achievements && user.achievements.length > 0 ? (
                 user.achievements.map((achievement) => (
                   <div key={achievement.id} className="bg-gradient-to-br from-red-900/20 to-red-950/20 rounded-xl p-3 border border-red-900/20 flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${getAchievementBgColor(achievement.color)} flex items-center justify-center shrink-0`}>
-                      {achievement.icon === 'trophy' && <TrophyIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
-                      {achievement.icon === 'zap' && <ZapIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
-                      {achievement.icon === 'star' && <StarIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
-                      {achievement.icon === 'trending-up' && <TrendingUpIcon className={`w-5 h-5 ${getAchievementIconColor(achievement.color)}`} />}
+                    <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center shrink-0">
+                      {achievement.icon === 'trophy' && <TrophyIcon className="w-5 h-5 text-red-600" />}
+                      {achievement.icon === 'zap' && <ZapIcon className="w-5 h-5 text-red-600" />}
+                      {achievement.icon === 'star' && <StarIcon className="w-5 h-5 text-red-600" />}
+                      {achievement.icon === 'trending-up' && <TrendingUpIcon className="w-5 h-5 text-red-600" />}
                     </div>
                     <div className="flex-1">
                       <div className="text-sm">{achievement.name}</div>
