@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useUser } from '../hooks/useUser';
 import { getInitials } from '../lib/utils';
 import { getIOSPaddingTop } from '../lib/platform';
+import { useRatingSeasons } from './RatingSeasonsContext';
+import { ratingSeasonsAPI, UserStats } from '../lib/api';
 import {
   Select,
   SelectContent,
@@ -41,20 +43,57 @@ const MedalIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-type TournamentType = 'all' | 'current_season';
-
 export function RatingTab() {
   const { user } = useUser();
-  const { leaderboard, loading } = useLeaderboard(50);
-  const [selectedTournament, setSelectedTournament] = useState<TournamentType>('all');
+  const { leaderboard: globalLeaderboard, loading: globalLoading } = useLeaderboard(50);
+  const { seasons } = useRatingSeasons();
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
+  const [seasonLeaderboard, setSeasonLeaderboard] = useState<UserStats[]>([]);
+  const [seasonLoading, setSeasonLoading] = useState(false);
+
+  // Determine which leaderboard to use
+  const isSeasonView = selectedSeasonId !== null;
+  const leaderboard = isSeasonView ? seasonLeaderboard : globalLeaderboard;
+  const loading = isSeasonView ? seasonLoading : globalLoading;
+
+  // Load season leaderboard when season is selected
+  useEffect(() => {
+    const loadSeasonLeaderboard = async () => {
+      if (selectedSeasonId === null) {
+        setSeasonLeaderboard([]);
+        return;
+      }
+
+      try {
+        setSeasonLoading(true);
+        const data = await ratingSeasonsAPI.getLeaderboard(selectedSeasonId, 50);
+        setSeasonLeaderboard(data);
+      } catch (error) {
+        console.error('Error loading season leaderboard:', error);
+        setSeasonLeaderboard([]);
+      } finally {
+        setSeasonLoading(false);
+      }
+    };
+
+    loadSeasonLeaderboard();
+  }, [selectedSeasonId]);
 
   // Находим позицию текущего пользователя в рейтинге
   const userRank = user ? leaderboard.findIndex(p => p.id === user.id) + 1 : 0;
-  const displayRank = userRank > 0 ? userRank : (user?.current_rank || null);
+  const displayRank = userRank > 0 ? userRank : (isSeasonView ? null : (user?.current_rank || null));
+  
+  // Get user points for display
+  const userPoints = isSeasonView
+    ? (leaderboard.find(p => p.id === user?.id)?.total_points || 0)
+    : (user?.total_points || 0);
 
   // Top 3 players
   const topPlayers = leaderboard.slice(0, 3);
   const topTenthPlayer = leaderboard[9];
+  
+  // Get active season for default selection
+  const activeSeason = seasons.find(s => s.isActive);
 
   return (
     <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
@@ -64,24 +103,43 @@ export function RatingTab() {
         <p className="text-sm text-gray-400">Топ игроков клуба</p>
       </div>
 
-      {/* Tournament Selector */}
+      {/* Season Selector */}
       <div className="px-4 mb-4">
         <Select
-          onValueChange={(value) => setSelectedTournament(value as TournamentType)}
-          value={selectedTournament}
+          value={selectedSeasonId?.toString() || 'all'}
+          onValueChange={(value) => setSelectedSeasonId(value === 'all' ? null : parseInt(value))}
         >
           <SelectTrigger className="w-full bg-[#1a1a1a] border-gray-800 rounded-2xl h-12 text-white hover:bg-[#252525] transition-colors">
             <SelectValue>
-              {selectedTournament === 'all' ? 'Общий рейтинг' : 'Текущий сезон'}
+              {selectedSeasonId === null 
+                ? 'Общий рейтинг' 
+                : seasons.find(s => s.id === selectedSeasonId)?.name || 'Выберите сезон'}
             </SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-[#1a1a1a] border-gray-800 text-white">
             <SelectItem value="all" className="focus:bg-red-700/20 focus:text-white cursor-pointer">
               Общий рейтинг
             </SelectItem>
-            <SelectItem value="current_season" className="focus:bg-red-700/20 focus:text-white cursor-pointer">
-              Текущий сезон
-            </SelectItem>
+            {seasons.length > 0 && (
+              <>
+                {seasons.map((season) => (
+                  <SelectItem 
+                    key={season.id} 
+                    value={season.id.toString()}
+                    className="focus:bg-red-700/20 focus:text-white cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>{season.name}</span>
+                      {season.isActive && (
+                        <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded">
+                          Активный
+                        </span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -96,7 +154,7 @@ export function RatingTab() {
             </div>
             <div className="text-right">
               <div className="text-xs text-gray-400 mb-1">Рейтинг</div>
-              <div className="text-xl text-yellow-500">{user?.total_points || 0}</div>
+              <div className="text-xl text-yellow-500">{userPoints}</div>
             </div>
             <div className="w-12 h-12 bg-red-700/20 rounded-full flex items-center justify-center">
               <TrophyIcon className="w-6 h-6 text-red-600" />
@@ -104,7 +162,7 @@ export function RatingTab() {
           </div>
           {displayRank && displayRank > 10 && topTenthPlayer && (
             <div className="text-xs text-gray-400 mt-3">
-              До топ-10: <span className="text-white">{(topTenthPlayer.total_points || 0) - (user?.total_points || 0)} очков</span>
+              До топ-10: <span className="text-white">{(topTenthPlayer.total_points || 0) - userPoints} очков</span>
             </div>
           )}
         </div>

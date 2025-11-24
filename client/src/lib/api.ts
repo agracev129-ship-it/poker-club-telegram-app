@@ -700,11 +700,77 @@ export const userManagementAPI = {
   },
 };
 
+// ============================================================================
+// RATING SEASONS API
+// ============================================================================
+
+export interface RatingSeason {
+  id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const ratingSeasonsAPI = {
+  async getAll(): Promise<RatingSeason[]> {
+    return fetchAPI('/rating-seasons');
+  },
+
+  async getActive(): Promise<RatingSeason | null> {
+    try {
+      return await fetchAPI('/rating-seasons/active');
+    } catch (error: any) {
+      if (error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async getById(id: number): Promise<RatingSeason> {
+    return fetchAPI(`/rating-seasons/${id}`);
+  },
+
+  async create(data: Omit<RatingSeason, 'id' | 'created_at' | 'updated_at'>): Promise<RatingSeason> {
+    return fetchAPI('/rating-seasons', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: number, data: Partial<Omit<RatingSeason, 'id' | 'created_at' | 'updated_at'>>): Promise<RatingSeason> {
+    return fetchAPI(`/rating-seasons/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id: number): Promise<{ message: string }> {
+    return fetchAPI(`/rating-seasons/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async setActive(id: number): Promise<RatingSeason> {
+    return fetchAPI(`/rating-seasons/${id}/set-active`, {
+      method: 'POST',
+    });
+  },
+
+  async getLeaderboard(id: number, limit = 100): Promise<UserStats[]> {
+    return fetchAPI(`/rating-seasons/${id}/leaderboard?limit=${limit}`);
+  },
+};
+
 export default {
   users: usersAPI,
   games: gamesAPI,
   tournaments: tournamentsAPI,
   profileRequests: profileRequestsAPI,
   userManagement: userManagementAPI,
+  ratingSeasons: ratingSeasonsAPI,
 };
 

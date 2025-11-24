@@ -10,12 +10,14 @@ import usersRouter from './routes/users.js';
 import gamesRouter from './routes/games.js';
 import tournamentsRouter from './routes/tournaments.js';
 import profileRequestsRouter from './routes/profile-requests.js';
+import ratingSeasonsRouter from './routes/rating-seasons.js';
 import { initSeating } from './database/init-seating.js';
 import { initProfileModeration } from './database/init-profile-moderation.js';
 import { initTournamentLifecycle } from './database/init-tournament-lifecycle.js';
 import { initAllTournamentTables } from './database/init-tournament-payments.js';
 import { initAllowFriendRequests } from './database/init-allow-friend-requests.js';
 import { initPointsDistribution } from './database/init-points-distribution.js';
+import { initRatingSeasons } from './database/init-rating-seasons.js';
 
 dotenv.config();
 
@@ -58,6 +60,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/games', gamesRouter);
 app.use('/api/tournaments', tournamentsRouter);
 app.use('/api/profile-requests', profileRequestsRouter);
+app.use('/api/rating-seasons', ratingSeasonsRouter);
 
 // Главная страница
 app.get('/', (req, res) => {
@@ -136,6 +139,13 @@ app.listen(PORT, async () => {
     await initPointsDistribution();
   } catch (error) {
     console.error('⚠️ Failed to initialize points distribution system (may already exist):', error.message);
+  }
+  
+  // Initialize rating seasons system
+  try {
+    await initRatingSeasons();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize rating seasons system (may already exist):', error.message);
   }
   
   // Initialize automated tournament jobs

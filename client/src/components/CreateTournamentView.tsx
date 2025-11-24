@@ -1,11 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Button } from './ui/button';
-import { gamesAPI } from '../lib/api';
+import { gamesAPI, ratingSeasonsAPI, RatingSeason } from '../lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 const XIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -55,6 +62,8 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
   const [location, setLocation] = useState('Покер Клуб "Ривер", ул. Тверская, 15');
   const [autoBalance, setAutoBalance] = useState(true);
   const [useDefaultDistribution, setUseDefaultDistribution] = useState(true);
+  const [seasons, setSeasons] = useState<RatingSeason[]>([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [pointDistribution, setPointDistribution] = useState<PointDistribution[]>([
     { place: 1, points: 100 },
     { place: 2, points: 75 },
@@ -66,6 +75,26 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
     { place: 8, points: 10 },
     { place: 9, points: 5 },
   ]);
+
+  // Load seasons on mount
+  useEffect(() => {
+    const loadSeasons = async () => {
+      try {
+        const allSeasons = await ratingSeasonsAPI.getAll();
+        setSeasons(allSeasons);
+        
+        // Auto-select active season if available
+        const activeSeason = allSeasons.find(s => s.is_active);
+        if (activeSeason) {
+          setSelectedSeasonId(activeSeason.id);
+        }
+      } catch (error) {
+        console.error('Error loading seasons:', error);
+      }
+    };
+    
+    loadSeasons();
+  }, []);
 
   // Update point distribution when maxPlayers changes
   const updateMaxPlayers = (newMax: number) => {
@@ -125,6 +154,7 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
         buy_in: 0, // Можно добавить поле в форму
         status: 'upcoming',
         points_distribution_mode: useDefaultDistribution ? 'default' : 'manual',
+        season_id: selectedSeasonId, // Привязываем к выбранному сезону
       };
 
       const createdGame = await gamesAPI.create(gameData);
@@ -259,6 +289,57 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
               placeholder="Покер Клуб &quot;Ривер&quot;, ул. Тверская, 15"
               className="bg-[#1a1a1a] border-gray-800"
             />
+          </div>
+
+          {/* Season Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="season" className="text-sm text-gray-400">
+              Сезон рейтинга
+            </Label>
+            <Select
+              value={selectedSeasonId?.toString() || ''}
+              onValueChange={(value) => setSelectedSeasonId(value ? parseInt(value) : null)}
+            >
+              <SelectTrigger className="w-full bg-[#1a1a1a] border-gray-800 rounded-xl h-12 text-white hover:bg-[#252525] transition-colors">
+                <SelectValue placeholder="Выберите сезон">
+                  {selectedSeasonId 
+                    ? seasons.find(s => s.id === selectedSeasonId)?.name 
+                    : 'Выберите сезон'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-gray-800 text-white">
+                {seasons.length === 0 ? (
+                  <div className="px-2 py-3 text-sm text-gray-400">
+                    Сезонов нет. Создайте сезон в админ-панели.
+                  </div>
+                ) : (
+                  <>
+                    <SelectItem 
+                      value="" 
+                      className="focus:bg-red-700/20 focus:text-white cursor-pointer"
+                    >
+                      Без сезона
+                    </SelectItem>
+                    {seasons.map((season) => (
+                      <SelectItem 
+                        key={season.id} 
+                        value={season.id.toString()}
+                        className="focus:bg-red-700/20 focus:text-white cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>{season.name}</span>
+                          {season.is_active && (
+                            <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded">
+                              Активный
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Description */}

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { ratingSeasonsAPI, RatingSeason as APISeason } from '../lib/api';
 
 export interface RatingSeason {
   id: number;
@@ -10,85 +11,110 @@ export interface RatingSeason {
 
 interface RatingSeasonsContextType {
   seasons: RatingSeason[];
-  addSeason: (season: Omit<RatingSeason, 'id'>) => void;
-  updateSeason: (id: number, updates: Partial<RatingSeason>) => void;
-  deleteSeason: (id: number) => void;
-  setActiveSeason: (id: number) => void;
+  loading: boolean;
+  addSeason: (season: Omit<RatingSeason, 'id'>) => Promise<void>;
+  updateSeason: (id: number, updates: Partial<RatingSeason>) => Promise<void>;
+  deleteSeason: (id: number) => Promise<void>;
+  setActiveSeason: (id: number) => Promise<void>;
+  refetch: () => Promise<void>;
 }
 
 const RatingSeasonsContext = createContext<RatingSeasonsContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'rating_seasons';
+// Convert API season to context season format
+const convertAPISeasonToContext = (apiSeason: APISeason): RatingSeason => ({
+  id: apiSeason.id,
+  name: apiSeason.name,
+  startDate: apiSeason.start_date,
+  endDate: apiSeason.end_date,
+  isActive: apiSeason.is_active,
+});
 
-// Default seasons
-const defaultSeasons: RatingSeason[] = [
-  {
-    id: 1,
-    name: 'Сезон 1',
-    startDate: '2024-01-01',
-    endDate: '2024-06-30',
-    isActive: true,
-  },
-  {
-    id: 2,
-    name: 'Сезон 2',
-    startDate: '2024-07-01',
-    endDate: '2024-12-31',
-    isActive: false,
-  },
-];
+// Convert context season to API season format
+const convertContextSeasonToAPI = (contextSeason: Partial<RatingSeason>): Partial<Omit<APISeason, 'id' | 'created_at' | 'updated_at'>> => ({
+  name: contextSeason.name,
+  start_date: contextSeason.startDate,
+  end_date: contextSeason.endDate,
+  is_active: contextSeason.isActive,
+});
 
 export function RatingSeasonsProvider({ children }: { children: ReactNode }) {
-  const [seasons, setSeasons] = useState<RatingSeason[]>(() => {
+  const [seasons, setSeasons] = useState<RatingSeason[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchSeasons = async () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      setLoading(true);
+      const apiSeasons = await ratingSeasonsAPI.getAll();
+      const convertedSeasons = apiSeasons.map(convertAPISeasonToContext);
+      setSeasons(convertedSeasons);
     } catch (error) {
-      console.error('Error loading rating seasons:', error);
+      console.error('Error fetching rating seasons:', error);
+      setSeasons([]);
+    } finally {
+      setLoading(false);
     }
-    return defaultSeasons;
-  });
+  };
 
   useEffect(() => {
+    fetchSeasons();
+  }, []);
+
+  const addSeason = async (season: Omit<RatingSeason, 'id'>) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seasons));
+      const apiData = convertContextSeasonToAPI(season);
+      const createdSeason = await ratingSeasonsAPI.create(apiData as any);
+      const convertedSeason = convertAPISeasonToContext(createdSeason);
+      setSeasons(prev => [...prev, convertedSeason]);
     } catch (error) {
-      console.error('Error saving rating seasons:', error);
+      console.error('Error adding season:', error);
+      throw error;
     }
-  }, [seasons]);
-
-  const addSeason = (season: Omit<RatingSeason, 'id'>) => {
-    const newId = seasons.length > 0 ? Math.max(...seasons.map(s => s.id)) + 1 : 1;
-    setSeasons(prev => [...prev, { ...season, id: newId }]);
   };
 
-  const updateSeason = (id: number, updates: Partial<RatingSeason>) => {
-    setSeasons(prev => prev.map(s => (s.id === id ? { ...s, ...updates } : s)));
+  const updateSeason = async (id: number, updates: Partial<RatingSeason>) => {
+    try {
+      const apiData = convertContextSeasonToAPI(updates);
+      const updatedSeason = await ratingSeasonsAPI.update(id, apiData);
+      const convertedSeason = convertAPISeasonToContext(updatedSeason);
+      setSeasons(prev => prev.map(s => (s.id === id ? convertedSeason : s)));
+    } catch (error) {
+      console.error('Error updating season:', error);
+      throw error;
+    }
   };
 
-  const deleteSeason = (id: number) => {
-    setSeasons(prev => prev.filter(s => s.id !== id));
+  const deleteSeason = async (id: number) => {
+    try {
+      await ratingSeasonsAPI.delete(id);
+      setSeasons(prev => prev.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Error deleting season:', error);
+      throw error;
+    }
   };
 
-  const setActiveSeason = (id: number) => {
-    setSeasons(prev =>
-      prev.map(s => ({
-        ...s,
-        isActive: s.id === id,
-      }))
-    );
+  const setActiveSeason = async (id: number) => {
+    try {
+      await ratingSeasonsAPI.setActive(id);
+      // Refetch all seasons to ensure correct state
+      await fetchSeasons();
+    } catch (error) {
+      console.error('Error setting active season:', error);
+      throw error;
+    }
   };
 
   return (
     <RatingSeasonsContext.Provider
       value={{
         seasons,
+        loading,
         addSeason,
         updateSeason,
         deleteSeason,
         setActiveSeason,
+        refetch: fetchSeasons,
       }}
     >
       {children}
