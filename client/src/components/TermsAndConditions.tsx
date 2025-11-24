@@ -32,9 +32,9 @@ export function TermsAndConditions({ onAccept }: TermsAndConditionsProps) {
   }, []);
 
   return (
-    <div className={`fixed inset-0 z-50 bg-black flex flex-col ${getIOSPaddingTop()}`}>
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Header */}
-      <div className="px-6 pt-8 pb-4 border-b border-gray-800">
+      <div className={`px-6 pb-4 border-b border-gray-800 ${getIOSPaddingTop() ? 'pt-20' : 'pt-16'}`}>
         <h1 className="text-2xl text-white mb-2">Пользовательское соглашение</h1>
         <p className="text-sm text-gray-400">
           Пожалуйста, прочитайте соглашение до конца
