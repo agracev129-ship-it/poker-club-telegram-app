@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { getIOSPaddingTop } from '../lib/platform';
 
 // Версия соглашения - при изменении все пользователи должны заново принять соглашение
 export const TERMS_VERSION = '2025-11-24';
@@ -31,7 +32,7 @@ export function TermsAndConditions({ onAccept }: TermsAndConditionsProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className={`fixed inset-0 z-50 bg-black flex flex-col ${getIOSPaddingTop()}`}>
       {/* Header */}
       <div className="px-6 pt-8 pb-4 border-b border-gray-800">
         <h1 className="text-2xl text-white mb-2">Пользовательское соглашение</h1>
@@ -158,7 +159,7 @@ export function TermsAndConditions({ onAccept }: TermsAndConditionsProps) {
               конкретного турнира.
             </p>
             <p className="mb-3">
-              2.2. Для участия в турнире Участник обязан внести целевой организационный взнос в размере 1000 (одна тысяча) рублей.
+              2.2. Для участия в турнире Участник обязан внести целевой организационный взнос в размере 1300 (одна тысяча триста) рублей.
             </p>
             <p className="mb-3">
               2.3. Организационный взнос является оплатой Клубу за оказание комплекса услуг, включая, но не ограничиваясь:
