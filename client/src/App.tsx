@@ -15,7 +15,7 @@ import { TournamentsProvider } from './components/TournamentsContext';
 import { AdminProvider, useAdmin } from './components/AdminContext';
 import { ProfileModerationProvider } from './components/ProfileModerationContext';
 import { RatingSeasonsProvider } from './components/RatingSeasonsContext';
-import { TermsAndConditions } from './components/TermsAndConditions';
+import { TermsAndConditions, TERMS_VERSION } from './components/TermsAndConditions';
 import { initTelegramApp } from './lib/telegram';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -86,11 +86,12 @@ function AppContent() {
       initTelegramApp();
       console.log('✅ Telegram app initialized');
       
-      // Check if user has accepted terms
-      const accepted = localStorage.getItem('termsAccepted');
-      setHasAcceptedTerms(accepted === 'true');
+      // Check if user has accepted current version of terms
+      const acceptedVersion = localStorage.getItem('termsVersion');
+      const hasAccepted = acceptedVersion === TERMS_VERSION;
+      setHasAcceptedTerms(hasAccepted);
       setIsCheckingTerms(false);
-      console.log('✅ Terms check completed');
+      console.log('✅ Terms check completed. Current version:', TERMS_VERSION, 'Accepted version:', acceptedVersion);
     } catch (error) {
       console.error('❌ Error initializing app:', error);
     }
@@ -161,6 +162,9 @@ function AppContent() {
   }, [activeTab, isAdminMode, isInitialized]);
 
   const handleAcceptTerms = () => {
+    // Сохраняем версию соглашения вместо простого флага
+    localStorage.setItem('termsVersion', TERMS_VERSION);
+    // Оставляем старый ключ для обратной совместимости
     localStorage.setItem('termsAccepted', 'true');
     setHasAcceptedTerms(true);
   };
