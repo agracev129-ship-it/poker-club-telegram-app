@@ -594,15 +594,67 @@ export function HomeTab({
               </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Stats Grid with Progress Bars */}
+            <div className="space-y-4">
+              {/* Games Played */}
               <div>
-                <div className="text-3xl mb-1">{currentStats.gamesPlayed}</div>
-                <div className="text-xs text-gray-400">Игр сыграно</div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-gray-400">Игр сыграно</div>
+                  <div className="text-2xl font-medium">{currentStats.gamesPlayed}</div>
+                </div>
+                <div className="w-full h-2 bg-[rgba(13,13,13,0.8)] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-red-600 to-red-800 rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${Math.min((currentStats.gamesPlayed / 50) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-gray-500 mt-1">Цель: 50 игр</div>
               </div>
+
+              {/* Wins */}
               <div>
-                <div className="text-3xl mb-1">{currentStats.wins}</div>
-                <div className="text-xs text-gray-400">Количество побед</div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-gray-400">Количество побед</div>
+                  <div className="text-2xl font-medium">{currentStats.wins}</div>
+                </div>
+                <div className="w-full h-2 bg-[rgba(13,13,13,0.8)] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${Math.min((currentStats.wins / 10) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-gray-500 mt-1">Цель: 10 побед</div>
+              </div>
+
+              {/* Win Rate */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-gray-400">Процент побед</div>
+                  <div className="text-2xl font-medium">
+                    {currentStats.gamesPlayed > 0 
+                      ? `${Math.round((currentStats.wins / currentStats.gamesPlayed) * 100)}%` 
+                      : '0%'}
+                  </div>
+                </div>
+                <div className="w-full h-2 bg-[rgba(13,13,13,0.8)] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-green-600 to-green-700 rounded-full transition-all duration-500"
+                    style={{ 
+                      width: currentStats.gamesPlayed > 0
+                        ? `${Math.min((currentStats.wins / currentStats.gamesPlayed) * 100, 100)}%`
+                        : '0%'
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {currentStats.gamesPlayed > 0 
+                    ? `${currentStats.wins} из ${currentStats.gamesPlayed} игр` 
+                    : 'Пока нет игр'}
+                </div>
               </div>
             </div>
           </div>
