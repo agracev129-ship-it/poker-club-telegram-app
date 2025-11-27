@@ -828,6 +828,17 @@ export const Game = {
                 points_added: totalPoints
               });
               playersWithPoints++;
+              
+              // Проверяем и выдаём достижения
+              try {
+                const { checkAndGrantAchievements } = await import('../utils/achievements-manager.js');
+                const newAchievements = await checkAndGrantAchievements(registration.user_id);
+                if (newAchievements.length > 0) {
+                  console.log(`🎉 Player ${registration.user_id} earned achievements:`, newAchievements.map(a => a.name));
+                }
+              } catch (achievementError) {
+                console.error(`⚠️ Error checking achievements for player ${registration.user_id}:`, achievementError);
+              }
             } catch (statsError) {
               console.error(`❌ Error updating user_stats for player ${registration.user_id}:`, statsError);
               console.error('Stats error details:', {

@@ -18,6 +18,7 @@ import { initAllTournamentTables } from './database/init-tournament-payments.js'
 import { initAllowFriendRequests } from './database/init-allow-friend-requests.js';
 import { initPointsDistribution } from './database/init-points-distribution.js';
 import { initRatingSeasons } from './database/init-rating-seasons.js';
+import { initializeAchievements } from './utils/achievements-manager.js';
 
 dotenv.config();
 
@@ -146,6 +147,13 @@ app.listen(PORT, async () => {
     await initRatingSeasons();
   } catch (error) {
     console.error('⚠️ Failed to initialize rating seasons system (may already exist):', error.message);
+  }
+  
+  // Initialize achievements system
+  try {
+    await initializeAchievements();
+  } catch (error) {
+    console.error('⚠️ Failed to initialize achievements system (may already exist):', error.message);
   }
   
   // Initialize automated tournament jobs
