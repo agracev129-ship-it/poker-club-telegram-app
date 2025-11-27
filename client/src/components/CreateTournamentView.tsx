@@ -297,14 +297,14 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
               Сезон рейтинга
             </Label>
             <Select
-              value={selectedSeasonId?.toString() || ''}
-              onValueChange={(value) => setSelectedSeasonId(value ? parseInt(value) : null)}
+              value={selectedSeasonId?.toString() || 'none'}
+              onValueChange={(value) => setSelectedSeasonId(value === 'none' ? null : parseInt(value))}
             >
               <SelectTrigger className="w-full bg-[#1a1a1a] border-gray-800 rounded-xl h-12 text-white hover:bg-[#252525] transition-colors">
                 <SelectValue placeholder="Выберите сезон">
                   {selectedSeasonId 
                     ? seasons.find(s => s.id === selectedSeasonId)?.name 
-                    : 'Выберите сезон'}
+                    : 'Без сезона'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-gray-800 text-white">
@@ -315,7 +315,7 @@ export function CreateTournamentView({ onClose, onSave }: CreateTournamentViewPr
                 ) : (
                   <>
                     <SelectItem 
-                      value="" 
+                      value="none" 
                       className="focus:bg-red-700/20 focus:text-white cursor-pointer"
                     >
                       Без сезона
