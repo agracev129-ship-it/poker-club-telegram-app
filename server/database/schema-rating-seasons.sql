@@ -65,3 +65,6 @@ COMMENT ON COLUMN rating_seasons.end_date IS 'Дата окончания сез
 COMMENT ON COLUMN rating_seasons.is_active IS 'Активный сезон (может быть только один)';
 COMMENT ON COLUMN games.season_id IS 'ID сезона, к которому привязан турнир';
 
+
+
+
