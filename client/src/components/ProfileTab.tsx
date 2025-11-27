@@ -338,45 +338,24 @@ export function ProfileTab() {
       <div className="px-4 mb-4">
         <div className="text-sm text-gray-400 mb-3">Достижения</div>
         
-        {/* Unlocked Achievements Header */}
-        <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-t-2xl p-3.5 border border-red-900/30 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-700/30 flex items-center justify-center">
-              <AwardIcon className="w-5 h-5 text-red-500" />
-            </div>
-            <div className="text-left">
-              <div className="text-sm font-medium">Открытые достижения</div>
-              <div className="text-xs text-gray-400">{user?.achievements?.length || 3} из 6</div>
-            </div>
-          </div>
-          <ChevronDownIcon className={`w-5 h-5 text-red-500 transition-transform ${isUnlockedOpen ? 'rotate-180' : ''}`} />
-        </div>
-
-        {/* Unlocked Achievements List - Always Visible */}
-        <div className="bg-[#1a1a1a] rounded-b-2xl border-x border-b border-red-900/30 overflow-hidden">
-          {user?.achievements && user.achievements.length > 0 ? (
-            user.achievements.map((achievement, index) => (
-              <div 
-                key={achievement.id} 
-                className={`p-3.5 flex items-center gap-3 ${
-                  index !== user.achievements.length - 1 ? 'border-b border-gray-800/50' : ''
-                }`}
-              >
-                <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center shrink-0">
-                  {achievement.icon === 'trophy' && <TrophyIcon className="w-5 h-5 text-red-500" />}
-                  {achievement.icon === 'zap' && <ZapIcon className="w-5 h-5 text-red-500" />}
-                  {achievement.icon === 'star' && <StarIcon className="w-5 h-5 text-red-500" />}
-                  {achievement.icon === 'trending-up' && <TrendingUpIcon className="w-5 h-5 text-red-500" />}
-                  {achievement.icon === 'spade' && <SpadeIcon className="w-5 h-5 text-red-500" />}
+        {/* Unlocked Achievements */}
+        <Collapsible open={isUnlockedOpen} onOpenChange={setIsUnlockedOpen} className="mb-3">
+          <CollapsibleTrigger className="w-full">
+            <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-2xl p-3.5 border border-red-900/30 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-700/30 flex items-center justify-center">
+                  <AwardIcon className="w-5 h-5 text-red-500" />
                 </div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{achievement.name}</div>
-                  <div className="text-xs text-gray-500">{achievement.description}</div>
+                <div className="text-left">
+                  <div className="text-sm font-medium">Открытые достижения</div>
+                  <div className="text-xs text-gray-400">3 из 6</div>
                 </div>
               </div>
-            ))
-          ) : (
-            <>
+              <ChevronDownIcon className={`w-5 h-5 text-red-500 transition-transform ${isUnlockedOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 bg-[#1a1a1a] rounded-2xl border border-red-900/30 overflow-hidden">
               <div className="p-3.5 flex items-center gap-3 border-b border-gray-800/50">
                 <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center shrink-0">
                   <SpadeIcon className="w-5 h-5 text-red-500" />
@@ -395,7 +374,7 @@ export function ProfileTab() {
                   <div className="text-xs text-gray-500">Сыграл 10 игр</div>
                 </div>
               </div>
-              <div className="p-3.5 flex items-center gap-3">
+              <div className="p-3.5 flex items-center gap-3 border-b border-gray-800/50">
                 <div className="w-10 h-10 rounded-full bg-red-700/20 flex items-center justify-center shrink-0">
                   <TrophyIcon className="w-5 h-5 text-red-500" />
                 </div>
@@ -404,12 +383,12 @@ export function ProfileTab() {
                   <div className="text-xs text-gray-500">Победил в турнире</div>
                 </div>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Locked Achievements */}
-        <Collapsible open={isLockedOpen} onOpenChange={setIsLockedOpen} className="mt-3">
+        <Collapsible open={isLockedOpen} onOpenChange={setIsLockedOpen}>
           <CollapsibleTrigger className="w-full">
             <div className="bg-[#1a1a1a] rounded-2xl p-3.5 border border-gray-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
