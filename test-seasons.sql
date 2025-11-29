@@ -79,15 +79,41 @@ SELECT
   g.season_id,
   rs.name as season_name,
   u.first_name || ' ' || COALESCE(u.last_name, '') as player_name,
-  gr.points_earned,
-  ta.finish_place
+  gr.points_earned as points_in_registration,
+  ta.points_earned as points_in_assignment,
+  ta.finish_place,
+  gr.status
 FROM games g
 LEFT JOIN rating_seasons rs ON g.season_id = rs.id
 JOIN game_registrations gr ON gr.game_id = g.id
 JOIN users u ON gr.user_id = u.id
 LEFT JOIN table_assignments ta ON ta.game_id = g.id AND ta.user_id = u.id
-WHERE g.status = 'finished'
+WHERE g.tournament_status IN ('completed', 'finished')
   AND gr.status = 'participated'
 ORDER BY g.id DESC, ta.finish_place ASC
 LIMIT 30;
+
+-- 6. Быстрая проверка: есть ли очки в game_registrations?
+SELECT 
+  'game_registrations' as table_name,
+  COUNT(*) as total_records,
+  COUNT(CASE WHEN points_earned IS NOT NULL AND points_earned > 0 THEN 1 END) as records_with_points,
+  SUM(points_earned) as total_points
+FROM game_registrations
+WHERE status = 'participated';
+
+-- 7. Сравнение: очки в user_stats vs очки в game_registrations
+SELECT 
+  u.id,
+  u.first_name || ' ' || COALESCE(u.last_name, '') as player_name,
+  us.total_points as points_in_user_stats,
+  COALESCE(SUM(gr.points_earned), 0) as points_in_registrations,
+  us.total_points - COALESCE(SUM(gr.points_earned), 0) as difference
+FROM users u
+LEFT JOIN user_stats us ON us.user_id = u.id
+LEFT JOIN game_registrations gr ON gr.user_id = u.id AND gr.status = 'participated'
+GROUP BY u.id, u.first_name, u.last_name, us.total_points
+HAVING us.total_points > 0 OR COALESCE(SUM(gr.points_earned), 0) > 0
+ORDER BY us.total_points DESC
+LIMIT 20;
 

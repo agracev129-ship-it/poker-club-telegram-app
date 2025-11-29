@@ -838,15 +838,20 @@ export const Game = {
             }
 
             // Обновляем регистрацию
-            // ВАЖНО: position может не существовать, используем только status
+            // ВАЖНО: Сохраняем points_earned для рейтингов по сезонам
             const regUpdateResult = await query(
               `UPDATE game_registrations 
-               SET status = 'participated'
+               SET status = 'participated',
+                   points_earned = $3
                WHERE game_id = $1 AND user_id = $2
                RETURNING *`,
-              [gameId, registration.user_id]
+              [gameId, registration.user_id, totalPoints]
             );
-            console.log(`Registration updated for player ${registration.user_id}:`, regUpdateResult.rows[0]);
+            console.log(`✅ Registration updated for player ${registration.user_id}:`, {
+              status: regUpdateResult.rows[0]?.status,
+              points_earned: regUpdateResult.rows[0]?.points_earned,
+              total_points_saved: totalPoints
+            });
 
             // Добавляем активность (опционально, может не существовать)
             try {
