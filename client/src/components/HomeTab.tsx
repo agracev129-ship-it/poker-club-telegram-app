@@ -121,7 +121,6 @@ export function HomeTab({
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0 });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const [activityPeriod, setActivityPeriod] = useState<'month' | 'year' | 'all'>('month');
   const [registeredGameIds, setRegisteredGameIds] = useState<Set<number>>(new Set());
   const [hasSeating, setHasSeating] = useState(false);
   const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames} = useGameRegistration();
@@ -353,17 +352,6 @@ export function HomeTab({
     onOpenAboutClub();
   };
 
-  // Activity stats based on period - using real user data
-  const activityStats = {
-    month: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
-    year: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
-    all: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
-  };
-
-  const currentStats = activityStats[activityPeriod];
-  const activityPeriods: Array<'month' | 'year' | 'all'> = ['month', 'year', 'all'];
-  const activeIndex = activityPeriods.indexOf(activityPeriod);
-
   return (
     <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
       {/* Compact Header */}
@@ -535,125 +523,30 @@ export function HomeTab({
         {/* Stats Card */}
         <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-3xl p-5 relative overflow-hidden border border-red-900/30">
           <div className="relative z-10">
-            {/* Header with Period Switcher */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="text-sm text-[rgb(255,255,255)] font-normal text-[15px] font-bold">Ваша активность</div>
-              
-              {/* Period Switcher */}
-              <div className="bg-[rgba(13,13,13,0.8)] rounded-full mt-[-4px]" style={{ width: '193px', height: '35px' }}>
-                <div className="relative flex items-center h-[27px] mt-[3.99px] mx-[3.99px]">
-                  {/* Animated indicator */}
-                  <motion.div
-                    className="absolute bg-gradient-to-br from-red-700 to-red-900 rounded-full"
-                    initial={false}
-                    animate={{
-                      left: activeIndex === 0 ? '3px' : activeIndex === 1 ? '58.006px' : '117.012px',
-                      width: '57.33px',
-                    }}
-                    transition={{
-                      type: 'tween',
-                      duration: 0.3,
-                      ease: 'easeInOut',
-                    }}
-                    style={{
-                      height: '18.991px',
-                      top: '3.99px',
-                    }}
+            <h3 className="text-lg mb-4">Ваша активность</h3>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-gray-400">Игр сыграно</span>
+                  <span className="text-sm">{user?.games_played || 0}</span>
+                </div>
+                <div className="h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-red-700 to-red-500 transition-all duration-500"
+                    style={{ width: `${Math.min((user?.games_played || 0) / 50 * 100, 100)}%` }}
                   />
-
-                  <button
-                    onClick={() => setActivityPeriod('month')}
-                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
-                    style={{ width: '58.006px' }}
-                  >
-                    <span className={`text-[10px] transition-colors ${activityPeriod === 'month' ? 'text-white' : 'text-[#99a1af]'}`}>
-                      Месяц
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActivityPeriod('year')}
-                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
-                    style={{ width: '58.006px' }}
-                  >
-                    <span className={`text-[10px] transition-colors ${activityPeriod === 'year' ? 'text-white' : 'text-[#99a1af]'}`}>
-                      Год
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setActivityPeriod('all')}
-                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
-                    style={{ width: '58.006px' }}
-                  >
-                    <span className={`text-[10px] whitespace-nowrap transition-colors ${activityPeriod === 'all' ? 'text-white' : 'text-[#99a1af]'}`}>
-                      Всё время
-                    </span>
-                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* Stats Grid with Progress Bars */}
-            <div className="space-y-4">
-              {/* Games Played */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs text-gray-400">Игр сыграно</div>
-                  <div className="text-2xl font-medium">{currentStats.gamesPlayed}</div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-gray-400">Побед</span>
+                  <span className="text-sm">{user?.games_won || 0}</span>
                 </div>
-                <div className="w-full h-2 bg-[rgba(13,13,13,0.8)] rounded-full overflow-hidden">
+                <div className="h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-red-600 to-red-800 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${Math.min((currentStats.gamesPlayed / 50) * 100, 100)}%` 
-                    }}
+                    className="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-500"
+                    style={{ width: `${Math.min((user?.games_won || 0) / 10 * 100, 100)}%` }}
                   />
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Цель: 50 игр</div>
-              </div>
-
-              {/* Wins */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs text-gray-400">Количество побед</div>
-                  <div className="text-2xl font-medium">{currentStats.wins}</div>
-                </div>
-                <div className="w-full h-2 bg-[rgba(13,13,13,0.8)] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${Math.min((currentStats.wins / 10) * 100, 100)}%` 
-                    }}
-                  />
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Цель: 10 побед</div>
-              </div>
-
-              {/* Win Rate */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs text-gray-400">Процент побед</div>
-                  <div className="text-2xl font-medium">
-                    {currentStats.gamesPlayed > 0 
-                      ? `${Math.round((currentStats.wins / currentStats.gamesPlayed) * 100)}%` 
-                      : '0%'}
-                  </div>
-                </div>
-                <div className="w-full h-2 bg-[rgba(13,13,13,0.8)] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-green-600 to-green-700 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: currentStats.gamesPlayed > 0
-                        ? `${Math.min((currentStats.wins / currentStats.gamesPlayed) * 100, 100)}%`
-                        : '0%'
-                    }}
-                  />
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {currentStats.gamesPlayed > 0 
-                    ? `${currentStats.wins} из ${currentStats.gamesPlayed} игр` 
-                    : 'Пока нет игр'}
                 </div>
               </div>
             </div>

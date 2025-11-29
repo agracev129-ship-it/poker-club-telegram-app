@@ -112,13 +112,13 @@ export const Game = {
    * Создает новую игру
    */
   async create(gameData) {
-    const { name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode } = gameData;
+    const { name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode, season_id } = gameData;
     
     const result = await query(
-      `INSERT INTO games (name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO games (name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode, season_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode || 'default']
+      [name, description, game_type, date, time, max_players, buy_in, created_by, points_distribution_mode || 'default', season_id || null]
     );
     
     return result.rows[0];
@@ -828,17 +828,6 @@ export const Game = {
                 points_added: totalPoints
               });
               playersWithPoints++;
-              
-              // Проверяем и выдаём достижения
-              try {
-                const { checkAndGrantAchievements } = await import('../utils/achievements-manager.js');
-                const newAchievements = await checkAndGrantAchievements(registration.user_id);
-                if (newAchievements.length > 0) {
-                  console.log(`🎉 Player ${registration.user_id} earned achievements:`, newAchievements.map(a => a.name));
-                }
-              } catch (achievementError) {
-                console.error(`⚠️ Error checking achievements for player ${registration.user_id}:`, achievementError);
-              }
             } catch (statsError) {
               console.error(`❌ Error updating user_stats for player ${registration.user_id}:`, statsError);
               console.error('Stats error details:', {
