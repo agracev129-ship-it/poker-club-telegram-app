@@ -535,31 +535,74 @@ export function HomeTab({
         {/* Stats Card */}
         <div className="bg-gradient-to-br from-red-900/40 to-red-950/40 rounded-3xl p-5 relative overflow-hidden border border-red-900/30">
           <div className="relative z-10">
-            <h3 className="text-lg mb-4">Ваша активность</h3>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-400">Игр сыграно</span>
-                  <span className="text-sm">{user?.games_played || 0}</span>
-                </div>
-                <div className="h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-red-700 to-red-500 transition-all duration-500"
-                    style={{ width: `${Math.min((user?.games_played || 0) / 50 * 100, 100)}%` }}
+            {/* Header with Period Switcher */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="text-sm text-[rgb(255,255,255)] font-normal text-[15px] font-bold">Ваша активность</div>
+              
+              {/* Period Switcher */}
+              <div className="bg-[rgba(13,13,13,0.8)] rounded-full mt-[-4px]" style={{ width: '193px', height: '35px' }}>
+                <div className="relative flex items-center h-[27px] mt-[3.99px] mx-[3.99px]">
+                  {/* Animated indicator */}
+                  <motion.div
+                    className="absolute bg-gradient-to-br from-red-700 to-red-900 rounded-full"
+                    initial={false}
+                    animate={{
+                      left: activeIndex === 0 ? '3px' : activeIndex === 1 ? '58.006px' : '117.012px',
+                      width: '57.33px',
+                    }}
+                    transition={{
+                      type: 'tween',
+                      duration: 0.3,
+                      ease: 'easeInOut',
+                    }}
+                    style={{
+                      height: '18.991px',
+                      top: '3.99px',
+                    }}
                   />
+
+                  <button
+                    onClick={() => setActivityPeriod('month')}
+                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
+                    style={{ width: '58.006px' }}
+                  >
+                    <span className={`text-[10px] transition-colors ${activityPeriod === 'month' ? 'text-white' : 'text-[#99a1af]'}`}>
+                      Месяц
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActivityPeriod('year')}
+                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
+                    style={{ width: '58.006px' }}
+                  >
+                    <span className={`text-[10px] transition-colors ${activityPeriod === 'year' ? 'text-white' : 'text-[#99a1af]'}`}>
+                      Год
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActivityPeriod('all')}
+                    className="relative z-10 transition-all flex items-center justify-center h-[27px]"
+                    style={{ width: '58.006px' }}
+                  >
+                    <span className={`text-[10px] whitespace-nowrap transition-colors ${activityPeriod === 'all' ? 'text-white' : 'text-[#99a1af]'}`}>
+                      Всё время
+                    </span>
+                  </button>
                 </div>
               </div>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-400">Побед</span>
-                  <span className="text-sm">{user?.games_won || 0}</span>
-                </div>
-                <div className="h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-500"
-                    style={{ width: `${Math.min((user?.games_won || 0) / 10 * 100, 100)}%` }}
-                  />
-                </div>
+                <div className="text-3xl mb-1">{currentStats.gamesPlayed}</div>
+                <div className="text-xs text-gray-400">Игр сыграно</div>
+              </div>
+              <div>
+                <div className="text-3xl mb-1">{currentStats.wins}</div>
+                <div className="text-xs text-gray-400">Количество побед</div>
               </div>
             </div>
           </div>
