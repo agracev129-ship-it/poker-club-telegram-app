@@ -38,7 +38,7 @@ SELECT
   SUM(gr.points_earned) as total_points_awarded
 FROM rating_seasons rs
 LEFT JOIN games g ON g.season_id = rs.id
-LEFT JOIN game_registrations gr ON gr.game_id = g.id AND gr.registration_status = 'participated'
+LEFT JOIN game_registrations gr ON gr.game_id = g.id AND gr.status = 'participated'
 GROUP BY rs.id, rs.name
 ORDER BY rs.id;
 
@@ -54,7 +54,7 @@ WITH season_stats AS (
   JOIN games g ON gr.game_id = g.id
   LEFT JOIN table_assignments ta ON gr.game_id = ta.game_id AND gr.user_id = ta.user_id
   WHERE g.season_id = 2  -- ИЗМЕНИТЕ НА НУЖНЫЙ ID СЕЗОНА
-    AND gr.registration_status = 'participated'
+    AND gr.status = 'participated'
     AND gr.points_earned IS NOT NULL
   GROUP BY gr.user_id
 )
@@ -87,7 +87,7 @@ JOIN game_registrations gr ON gr.game_id = g.id
 JOIN users u ON gr.user_id = u.id
 LEFT JOIN table_assignments ta ON ta.game_id = g.id AND ta.user_id = u.id
 WHERE g.status = 'finished'
-  AND gr.registration_status = 'participated'
+  AND gr.status = 'participated'
 ORDER BY g.id DESC, ta.finish_place ASC
 LIMIT 30;
 

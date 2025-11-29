@@ -356,7 +356,7 @@ router.get('/:id/leaderboard', async (req, res) => {
         JOIN games g ON gr.game_id = g.id
         LEFT JOIN table_assignments ta ON gr.game_id = ta.game_id AND gr.user_id = ta.user_id
         WHERE g.season_id = $1
-          AND gr.registration_status = 'participated'
+          AND gr.status = 'participated'
           AND gr.points_earned IS NOT NULL
         GROUP BY gr.user_id
       )
