@@ -121,6 +121,7 @@ export function HomeTab({
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0 });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [activityPeriod, setActivityPeriod] = useState<'month' | 'year' | 'all'>('month');
   const [registeredGameIds, setRegisteredGameIds] = useState<Set<number>>(new Set());
   const [hasSeating, setHasSeating] = useState(false);
   const { toggleRegistration: localToggle, isRegistered: checkIsRegistered, registeredGames} = useGameRegistration();
@@ -351,6 +352,17 @@ export function HomeTab({
   const handleAboutClubClick = () => {
     onOpenAboutClub();
   };
+
+  // Activity stats based on period - using real user data
+  const activityStats = {
+    month: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
+    year: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
+    all: { gamesPlayed: user?.games_played || 0, wins: user?.games_won || 0 },
+  };
+
+  const currentStats = activityStats[activityPeriod];
+  const activityPeriods: Array<'month' | 'year' | 'all'> = ['month', 'year', 'all'];
+  const activeIndex = activityPeriods.indexOf(activityPeriod);
 
   return (
     <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>
