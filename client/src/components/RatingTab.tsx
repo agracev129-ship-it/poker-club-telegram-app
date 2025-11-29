@@ -46,10 +46,21 @@ const MedalIcon = ({ className }: { className?: string }) => (
 export function RatingTab() {
   const { user } = useUser();
   const { leaderboard: globalLeaderboard, loading: globalLoading } = useLeaderboard(50);
-  const { seasons } = useRatingSeasons();
+  const { seasons, loading: seasonsLoading } = useRatingSeasons();
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [seasonLeaderboard, setSeasonLeaderboard] = useState<UserStats[]>([]);
   const [seasonLoading, setSeasonLoading] = useState(false);
+
+  // Get active season for default selection
+  const activeSeason = seasons.find(s => s.isActive);
+
+  // Auto-select active season on first load
+  useEffect(() => {
+    if (!seasonsLoading && seasons.length > 0 && selectedSeasonId === null && activeSeason) {
+      console.log('🎯 Auto-selecting active season:', activeSeason.name, activeSeason.id);
+      setSelectedSeasonId(activeSeason.id);
+    }
+  }, [seasons, seasonsLoading, selectedSeasonId, activeSeason]);
 
   // Determine which leaderboard to use
   const isSeasonView = selectedSeasonId !== null;
@@ -64,12 +75,14 @@ export function RatingTab() {
         return;
       }
 
+      console.log('📊 Loading leaderboard for season:', selectedSeasonId);
       try {
         setSeasonLoading(true);
         const data = await ratingSeasonsAPI.getLeaderboard(selectedSeasonId, 50);
+        console.log('✅ Season leaderboard loaded:', data.length, 'players');
         setSeasonLeaderboard(data);
       } catch (error) {
-        console.error('Error loading season leaderboard:', error);
+        console.error('❌ Error loading season leaderboard:', error);
         setSeasonLeaderboard([]);
       } finally {
         setSeasonLoading(false);
@@ -91,9 +104,6 @@ export function RatingTab() {
   // Top 3 players
   const topPlayers = leaderboard.slice(0, 3);
   const topTenthPlayer = leaderboard[9];
-  
-  // Get active season for default selection
-  const activeSeason = seasons.find(s => s.isActive);
 
   return (
     <div className={`min-h-screen bg-black pb-24 ${getIOSPaddingTop()}`}>

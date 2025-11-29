@@ -327,6 +327,23 @@ router.get('/:id/leaderboard', async (req, res) => {
     const { id } = req.params;
     const limit = parseInt(req.query.limit) || 100;
     
+    console.log(`📊 Fetching leaderboard for season ${id}...`);
+    
+    // First, check if season exists
+    const seasonCheck = await pool.query('SELECT * FROM rating_seasons WHERE id = $1', [id]);
+    if (seasonCheck.rows.length === 0) {
+      console.log(`❌ Season ${id} not found`);
+      return res.status(404).json({ error: 'Season not found' });
+    }
+    console.log(`✅ Season found:`, seasonCheck.rows[0].name);
+    
+    // Check games in this season
+    const gamesCheck = await pool.query('SELECT id, name, season_id FROM games WHERE season_id = $1', [id]);
+    console.log(`🎮 Games in season ${id}:`, gamesCheck.rows.length);
+    gamesCheck.rows.forEach(game => {
+      console.log(`   - Game ${game.id}: ${game.name} (season_id: ${game.season_id})`);
+    });
+    
     // Get leaderboard based on points from games in this season
     const result = await pool.query(`
       WITH season_stats AS (
@@ -361,9 +378,14 @@ router.get('/:id/leaderboard', async (req, res) => {
       LIMIT $2
     `, [id, limit]);
     
+    console.log(`✅ Leaderboard for season ${id}:`, result.rows.length, 'players');
+    result.rows.forEach((player, idx) => {
+      console.log(`   ${idx + 1}. ${player.first_name} ${player.last_name || ''}: ${player.total_points} pts (${player.games_played} games)`);
+    });
+    
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching season leaderboard:', error);
+    console.error('❌ Error fetching season leaderboard:', error);
     res.status(500).json({ error: 'Failed to fetch season leaderboard' });
   }
 });
